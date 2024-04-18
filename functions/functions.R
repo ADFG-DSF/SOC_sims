@@ -14,8 +14,7 @@ simSR_goal <- function(lnalpha, beta, sigW, phi, age0, Sims0, sigF = 0, Hfun, ..
   a.max <- a.min + A - 1
   age <- if(is.vector(age0)){matrix(age0, Sims + A + a.min + 1, A, byrow = TRUE)} else {age0}
   # Ricker parameters
-  lnalpha.p  <- lnalpha + 0.5 * sigW * sigW / (1-phi*phi) 
-  Seq <- lnalpha.p / beta
+  Seq <- lnalpha / beta
   
   # initial values
   R <- E1R <- E2R <- whiteresid <- lnalpha.y <- rep(NA, Sims + A + a.min + 1)
@@ -35,7 +34,7 @@ simSR_goal <- function(lnalpha, beta, sigW, phi, age0, Sims0, sigF = 0, Hfun, ..
     
     epsF[c] <- rnorm(1, 0, sigF)
     N[c] <- sum(N_age[c, ])
-    temp <- Hfun(N = N[c], ...)
+    temp <- Hfun(N = N[c], ...)#H_target(N[c])
     U[c] <- temp[[1]]
     Ft[c] <- -log(1 - U[c])*exp(epsF[c])
     S[c] <- N[c] * exp(-Ft[c])
@@ -43,7 +42,7 @@ simSR_goal <- function(lnalpha, beta, sigW, phi, age0, Sims0, sigF = 0, Hfun, ..
     
     E1R[c + 1] <- S[c]*exp(lnalpha - beta*S[c])
     E2R[c + 1] <- E1R[c + 1]*exp(phi * redresid[c])
-    R[c + 1] <- E2R[c + 1]*rlnorm(1, 0, sigW)
+    R[c + 1] <- if(S[c] <= 100){0} else{E2R[c + 1]*rlnorm(1, 0, sigW)}
     redresid[c + 1] <- log(R[c + 1] / E1R[c + 1])
     lnalpha.y[c + 1] <- lnalpha + redresid[c + 1]
     
@@ -84,4 +83,16 @@ H_target <- function(N, target0 = 0.8, power = .85, ...){
   U <- c(if(N > target){min((N - (target)) / N, power)} else{0})
   
   return(list(U, target = target, power = power))
+}
+
+
+plot_recruit<- function(dat){
+  limit <- quantile(dat$R, probs = .9)
+  
+  ggplot(dat, aes(x = sim, y = R)) +
+    geom_line(alpha = 0.2) +
+    geom_hline(aes(yintercept = lb_p), linetype = 2) +
+    scale_y_continuous(limits = c(0, limit)) +
+    scale_x_continuous(name = "Simulation year") +
+    facet_grid(paste0("\u03C6: ", phi) ~ paste0("\u03C3: ", sigW),)
 }

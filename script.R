@@ -4,7 +4,7 @@
 # Version: 2023-09-15
 
 # Packages
-packs <- c("tidyverse")
+packs <- c("tidyverse", "RcppRoll")
 lapply(packs, require, character.only = TRUE)
 
 # source functions
@@ -43,10 +43,14 @@ static_base <- simSR_goal(lnalpha, beta, 0, 0,
 vec_lnalpha <- seq(.5, 2, length.out = 4)
 vec_sigW <- seq(0.25, 1, length.out = 4)
 vec_phi <- seq(0, .9, length.out = 4)
+df_power <- data.frame(lnalpha = vec_lnalpha,
+                       power = c(0.25, 0.5, 0.6, 0.8))
 input <- 
   expand.grid(lnalpha = vec_lnalpha, sigW = vec_sigW, phi = vec_phi) %>%
   mutate(lna_p = lnalpha + (sigW * sigW / 2 / (1 - phi * phi)),
-         lb_p = lna_p/beta*(0.5 - 0.07 * lna_p) * 0.8)
+         lb_p = lna_p/beta*(0.5 - 0.07 * lna_p) * 0.8,
+         ub_p = lna_p/beta*(0.5 - 0.07 * lna_p) * 1.6) %>%
+  left_join(df_power, by = "lnalpha")
 
 arg_age <- c('3' = 0.1, '4' = 0.2, '5' = 0.3, '6' = 0.38, '7' = 0.02)
 
@@ -55,38 +59,131 @@ sim_base_grid <- mapply(FUN = simSR_goal,
                         lnalpha = input$lnalpha, 
                         sigW = input$sigW, 
                         phi = input$phi, 
-                        target = input$lb_p,
-                        MoreArgs = list(beta = beta, age0 = arg_age, Sims = 1500, Hfun = H_target),
+                        lb_sim = input$lb_p,
+                        ub_sim = input$ub_p,
+                        MoreArgs = list(beta = beta, 
+                                        age0 = arg_age, 
+                                        Sims = 1500, 
+                                        sigN = .2,
+                                        sigF = 0,
+                                        Hfun = H_goal),
                         SIMPLIFY = FALSE)
 
-# 500 rep time series
-dat_Rtime <-
+# plot time series
+#writing function here since it has dubious use outside of this single application
+plot_ts <- function(dat, lnalpha0){ 
+  df <- lapply(dat, as.data.frame) %>%
+          lapply(function(x){mutate(x, sim = row_number())}) %>%
+          do.call("rbind", .) %>%
+          mutate(lna_p = lnalpha + (sigW * sigW / 2 / (1 - phi * phi)),
+                 Smsy = lna_p/beta*(0.5 - 0.07 * lna_p),
+                 Rmsy = Smsy*exp(lnalpha - beta * Smsy),
+                 lb_p = Smsy * 0.8,
+                 ub_p = Smsy * 1.6) %>%
+          rowwise() %>%
+          mutate(N = N_age.1 + N_age.2 + N_age.3 + N_age.4 + N_age.5) %>%
+          filter(lnalpha == lnalpha0) %>%
+          pivot_longer(c(S, N), names_to = "stat", values_to = "value")
+  
+  limit <- qlnorm(0.8, log(max(df$Rmsy)), max(df$sigW))
+  
+      ggplot(df, aes(x = sim, y = value, color = stat)) +
+        geom_line(alpha = 0.4) +
+        geom_hline(aes(yintercept = lb_p), linetype = 2) +
+        geom_hline(aes(yintercept = ub_p), linetype = 2) +
+        scale_y_continuous(limits = c(0, limit)) +
+        scale_x_continuous(name = "Simulation year") +
+        facet_grid(paste0("\u03C6: ", phi) ~ paste0("\u03C3: ", sigW))
+}
+# because of the colors used teal before the lower bound represents times we fished below the lower bound w abundant fish... call the a management concern
+# teal above the line represent underutilized yield... call that a yield concern
+# while grey below the lower bound represent when the fish were not there to make the goal ... call that a conservation concern
+# Note that some phi and sigma W combinations are not sustainable
+plot_ts(sim_base_grid, 0.5)
+plot_ts(sim_base_grid, 1)
+plot_ts(sim_base_grid, 1.5)
+plot_ts(sim_base_grid, 2)
+
+
+# Flag these concern definitions in the dataset
+sim_base_df <-
   lapply(sim_base_grid, as.data.frame) %>%
     lapply(function(x){mutate(x, sim = row_number())}) %>%
     do.call("rbind", .) %>%
-    mutate(lna_p = lnalpha + (sigW * sigW / 2 / (1 - phi * phi)),
-           lb_p = lna_p/beta*(0.5 - 0.07 * lna_p) * 0.8) #%>%
-#    filter(sim < 501)
+    filter(R != 0) %>%
+    mutate(N = rowSums(pick(starts_with("N_age."))),
+           cc = ifelse(N <= lb, TRUE, FALSE), #conservation concern defined as missing the goal when the fish were not there
+           mc = ifelse(N >= lb & S <= lb, TRUE, FALSE), #management concern = missing the goal due to fishing
+           yc = ifelse(S > ub, TRUE, FALSE), #Yield concern = going over the top end
+           miss = ifelse(S <= lb, TRUE, FALSE),
+           resid = S - lb) %>%  
+    select(-starts_with("N_age")) %>%
+    group_by(lnalpha, sigW, phi) %>%
+    mutate(miss4.5 = ifelse(roll_sum(x = miss, 5, align = "right", fill = NA) >= 4, TRUE, FALSE),
+           miss5.5 = ifelse(roll_sum(x = miss, 5, align = "right", fill = NA) >= 5, TRUE, FALSE),
+           miss6.6 = ifelse(roll_sum(x = miss, 6, align = "right", fill = NA) >= 6, TRUE, FALSE),
+           resid_MD = roll_mean(x = resid, 5, align = "right", fill = NA),
+           resid_MP = resid_MD / lb,
+           dev = -2 * log(plnorm(R, log(S*exp(lnalpha - beta*S)), sigW)),
+           group_miss = ifelse(miss6.6 == TRUE, "6 of 6", ifelse(miss5.5 == TRUE, "5 of 5", ifelse(miss4.5 == TRUE, "4 of 5", "No SOC"))))
 
-plot_recruit(dat_Rtime[dat_Rtime$lnalpha == vec_lnalpha[1], ])
-plot_recruit(dat_Rtime[dat_Rtime$lnalpha == vec_lnalpha[2], ])
-plot_recruit(dat_Rtime[dat_Rtime$lnalpha == vec_lnalpha[3], ])
-plot_recruit(dat_Rtime[dat_Rtime$lnalpha == vec_lnalpha[4], ])
+sim_base_df %>%
+  summarise_at(.vars = vars(starts_with("miss")), ~ mean(., na.rm = TRUE)) %>%
+  pivot_longer(starts_with("miss"), names_to = "Criteria", values_to = "Probability") %>%
+  ggplot(aes(x = sigW, y = Probability, color = Criteria)) +
+  geom_line() +
+  facet_grid(phi ~ lnalpha, labeller = label_bquote(rows = phi: .(phi), cols = log(alpha): .(lnalpha)))
+
+sim_base_df %>%
+  ggplot(aes(x = resid_MP, fill = group_miss)) +
+  geom_histogram() +
+  #coord_cartesian(xlim = c(-6, 1)) +
+  scale_x_continuous(limits = c(NA, 1)) +
+  facet_grid(lnalpha ~ phi,
+             scales = "free_y",
+             labeller = label_bquote(rows = log(alpha): .(lnalpha), 
+                                     cols = phi: .(phi)))
 
 
+plot_resid <- function(dat, lnalpha0){
+  dat %>%
+    filter(lnalpha == lnalpha0) %>%
+    ggplot(aes(x = resid_MP, fill = group_miss)) +
+    geom_histogram() +
+    scale_x_continuous(limits = c(NA, 1)) +
+    facet_grid(sigW ~ phi,
+               scales = "free_y",
+               labeller = label_bquote(rows = sigma: .(sigW), 
+                                       cols = phi: .(phi))) +
+    ggtitle(label = bquote(log(alpha): .(lnalpha0))) #.(lnalpha) pulls from the parent frame instead of the function's environment
+}
 
-#annual restrictions
-restrict_base_grid <- lapply(sim_base_grid, function(x) x$U == 0)
-#SOC restrictions. Missed lower goal in 4 of 5 consecutive years.
-soc_base_grid <- lapply(restrict_base_grid, function(x){
-                        temp <- rep(NA, 4)
-                        for(i in 5:length(x)) if(sum(x[(i - 4):i]) >= 4){temp[i] <- TRUE} 
-                        else{temp[i] <- FALSE}
-                        temp})
-#SOC probability for each parameter combination in the grid.
-soc_base <- sapply(soc_base_grid, mean, na.rm = TRUE)
-#Extinction. Consider these non viable parameter combinations
-extinct_base <- sapply(sim_base_grid, function(x) min(x$S) == 0)
+plot_resid(sim_base_df, 0.5)
+plot_resid(sim_base_df, 1)
+plot_resid(sim_base_df, 1.5)
+plot_resid(sim_base_df, 2)
+
+sim_base_df %>% select(-ub) %>% filter(resid_MP >= 0, group_miss == "4 of 5") %>% print(n = 100)
+sim_base_df %>% 
+  select(lnalpha:S, lb, N, sim, miss:group_miss) %>% 
+  filter(lnalpha == 0.5, sigW == 1, phi == 0, sim <= 1300, sim >= 1290)
+
+sim_base_df %>%
+  filter(lnalpha == 0.5) %>%
+    ggplot(aes(x = cc, y = lnalpha.y)) +
+    geom_boxplot(outlier.shape = NA) +
+    #geom_violin(draw_quantiles = c(0.25, 0.5, 0.75)) + ### NOT scaled by count
+    geom_hline(aes(yintercept = lnalpha), linetype = 2) +scale_y_continuous(name = paste0("Annual log(", expression("\u03B1"), ")"), limits = c(-4, 4)) +
+    scale_x_discrete(name = "Was the Run Below the Lower Bound of the Goal in 4 of the last 5 years?") +
+    facet_grid(phi ~ sigW)
+
+sim_base_df %>%
+  filter(lnalpha == 0.5) %>%
+  ggplot(aes(x = lnalpha.y, y = R)) +
+  geom_point() +
+  facet_grid(phi ~ sigW)
+
+
 
 
 # # glm: restrictions ~ lna_y
@@ -104,42 +201,19 @@ extinct_base <- sapply(sim_base_grid, function(x) min(x$S) == 0)
 #Probability of a SOC recommendation for each grid combination
 #SOC rare w constant SR params although some king stocks may get there.
 #High variability and autocorrelation are needed, particularly when productivity is high.
-cbind(input, soc = soc_base) %>%
-  cbind(extinct = extinct_base) %>%
-  mutate(soc = ifelse(extinct == TRUE, NA, soc)) %>%
-  ggplot(aes(x = sigW, y = phi, fill = soc)) +
-  geom_tile() +
-  facet_wrap(. ~ lnalpha, nrow = 2, ncol = 2, labeller = label_bquote(log(alpha): .(lnalpha))) +
-  scale_fill_gradient2(low = "blue", 
-                       high = "orange", 
-                       mid = "black",
-                       midpoint = 0.5,
-                       limits = c(0, 1)) +
-  scale_x_continuous(name = expression("\u03C3"), breaks = seq(0, 1, by = 0.25)) +
-  scale_y_continuous(name = expression("\u03C6"), breaks = seq(0, 1, by = 0.25))
-
-#Distribution of ln_alpha_y for years w and wo a SOC recommendation.
-temp <- 
-  lapply(sim_base_grid, as.data.frame) %>%
-    mapply(function(x, y) {cbind(x, miss = y)}, ., soc_base_grid, SIMPLIFY = FALSE) %>%
-    do.call("rbind", .) %>%
-    filter(!is.na(miss)) %>%
-    left_join(cbind(input, extinct = extinct_base), by = c("lnalpha", "sigW", "phi")) %>%
-    filter(!extinct)
-
-lapply(unique(temp$lnalpha), 
-       function(x) {
-         temp[temp$lnalpha ==x, ] %>%
-         ggplot(aes(x = miss, y = lnalpha.y)) +
-           #geom_boxplot(outlier.shape = NA) +
-           geom_violin(draw_quantiles = c(0.25, 0.5, 0.75)) + ### NOT scaled by count
-           geom_hline(aes(yintercept = lnalpha), linetype = 2) +scale_y_continuous(name = paste0("Annual log(", expression("\u03B1"), ")"), limits = c(-4, 4)) +
-           scale_x_discrete(name = "Was the Run Below the Lower Bound of the Goal in 4 of the last 5 years?") +
-           facet_grid(phi ~ sigW)
-})
-
-
-
+# cbind(input, soc = soc_base) %>%
+#   cbind(extinct = extinct_base) %>%
+#   mutate(soc = ifelse(extinct == TRUE, NA, soc)) %>%
+#   ggplot(aes(x = sigW, y = phi, fill = soc)) +
+#   geom_tile() +
+#   facet_wrap(. ~ lnalpha, nrow = 2, ncol = 2, labeller = label_bquote(log(alpha): .(lnalpha))) +
+#   scale_fill_gradient2(low = "blue", 
+#                        high = "orange", 
+#                        mid = "black",
+#                        midpoint = 0.5,
+#                        limits = c(0, 1)) +
+#   scale_x_continuous(name = expression("\u03C3"), breaks = seq(0, 1, by = 0.25)) +
+#   scale_y_continuous(name = expression("\u03C6"), breaks = seq(0, 1, by = 0.25))
 
 
 # Reduced alpha: lb = Seq  -------------------------------------

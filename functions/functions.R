@@ -1,3 +1,5 @@
+Ricker <- function(lnalpha, beta, S)  {S*exp(lnalpha - beta*S)}
+
 #Simulate salmon population dynamics with age-at-maturity and management strategy inputs.
 #Arguments:
 #   lnalpha, beta, sigW, phi: Ricker SR parameters
@@ -64,7 +66,7 @@ simSR_goal <- function(lnalpha, beta, sigW, phi, age0, Sims0, sigN = 0, sigF = 0
               N = N[(length(N) + 1 - Sims0):length(N)],
               N_hat = N_hat[(length(N_hat) + 1 - Sims0):length(N_hat)],
               lnalpha.y = lnalpha.y[(length(lnalpha.y) + 1 - Sims0):length(lnalpha.y)],
-              N_age = N_age[(dim(N_age)[1] + 1 - A - a.min - Sims0):(dim(N_age)[1] - A - a.min), ],
+              N_age = N_age[(dim(N_age)[1] + 1 - A - a.min - Sims0):(dim(N_age)[1] - A - a.min) + 1, ],
               lb = lb[(length(lb) + 1 - Sims0):length(lb)],
               ub = ub[(length(ub) + 1 - Sims0):length(ub)]
   ))

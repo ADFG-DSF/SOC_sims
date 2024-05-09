@@ -46,27 +46,28 @@ Chinook_age <- c('3' = 0.1, '4' = 0.2, '5' = 0.3, '6' = 0.38, '7' = 0.02)
 #First simulation sigN = 0
 #Not very realistic
 # Simulation results
-sim_base_grid <- mapply(FUN = simSR_goal, 
-                        lnalpha = input$lnalpha, 
-                        sigW = input$sigW, 
-                        phi = input$phi, 
-                        lb_sim = input$lb_p,
-                        ub_sim = input$ub_p,
-                        MoreArgs = list(beta = beta, 
-                                        age0 = Chinook_age, 
-                                        Sims = 1500, 
-                                        sigN = 0,
-                                        sigF = 0,
-                                        Hfun = H_goal),
-                        SIMPLIFY = FALSE)
-
+# sim_base_grid <- mapply(FUN = simSR_goal, 
+#                         lnalpha = input$lnalpha, 
+#                         sigW = input$sigW, 
+#                         phi = input$phi, 
+#                         lb_sim = input$lb_p,
+#                         ub_sim = input$ub_p,
+#                         MoreArgs = list(beta = beta, 
+#                                         age0 = Chinook_age, 
+#                                         Sims = 1500, 
+#                                         sigN = 0.2,
+#                                         sigF = 0,
+#                                         Hfun = H_goal),
+#                         SIMPLIFY = FALSE)
+# saveRDS(sim_base_grid, file = ".\\sim_base_grid.R")
+sim_base_grid <- readRDS(file = ".\\sim_base_grid.R")
 
 # * Plot time series --------------------------------------------------------
 #writing function here since it has dubious use outside of this single application
 plot_ts <- function(dat, lnalpha0){ 
   df <- lapply(dat, as.data.frame) %>%
           lapply(function(x){mutate(x, sim = row_number())}) %>%
-          do.call("rbind", .)
+          do.call("rbind", .) %>%
           rowwise() %>%
           mutate(N = N_age.1 + N_age.2 + N_age.3 + N_age.4 + N_age.5) %>%
           filter(lnalpha %in% lnalpha0) %>%
@@ -101,8 +102,8 @@ sim_base_df <-
     do.call("rbind", .) %>%
     filter(R != 0) %>%
     mutate(N = rowSums(pick(starts_with("N_age."))),
-           cc = ifelse(N <= lb, TRUE, FALSE), #conservation concern defined as missing the goal when the fish were not there
-           mc = ifelse(N >= lb & S <= lb, TRUE, FALSE), #management concern = missing the goal due to fishing
+           cc = ifelse(U == 0 & S <= lb, TRUE, FALSE), #conservation concern defined as missing the goal when the fish were not there
+           mc = ifelse(U > 0 & S <= lb, TRUE, FALSE), #management concern = missing the goal due to fishing
            yc = ifelse(S > ub, TRUE, FALSE), #Yield concern = going over the top end
            miss = ifelse(S <= lb, TRUE, FALSE),
            resid = S - lb) %>%  
@@ -110,11 +111,14 @@ sim_base_df <-
     group_by(lnalpha, sigW, phi) %>%
     mutate(miss4.5 = ifelse(roll_sum(x = miss, 5, align = "right", fill = NA) >= 4, TRUE, FALSE),
            miss5.5 = ifelse(roll_sum(x = miss, 5, align = "right", fill = NA) >= 5, TRUE, FALSE),
-           miss6.6 = ifelse(roll_sum(x = miss, 6, align = "right", fill = NA) >= 6, TRUE, FALSE),
+           cc4.5 = ifelse(roll_sum(x = cc, 5, align = "right", fill = NA) >= 5, TRUE, FALSE),
+           mc4.5 = ifelse(roll_sum(x = mc, 5, align = "right", fill = NA) >= 5, TRUE, FALSE),
+           yc4.5 = ifelse(roll_sum(x = yc, 5, align = "right", fill = NA) >= 5, TRUE, FALSE),
            resid_MD = roll_mean(x = resid, 5, align = "right", fill = NA),
            resid_MP = resid_MD / lb,
            dev = -2 * log(plnorm(R, log(S*exp(lnalpha - beta*S)), sigW)),
-           group_miss = ifelse(miss6.6 == TRUE, "6 of 6", ifelse(miss5.5 == TRUE, "5 of 5", ifelse(miss4.5 == TRUE, "4 of 5", "No SOC"))))
+           SOC0 = ifelse(cc4.5 == TRUE, "No fish", ifelse(miss4.5 == TRUE, "w Harvest", "No SOC")),
+           SOC = factor(SOC0, levels = c("No fish", "w Harvest", "No SOC")))
 
 
 # Table of concern criteria -----------------------------------------------
@@ -125,13 +129,17 @@ sim_base_df %>%
             below_lb_harvest = sum(mc, na.rm = TRUE),
             above_ub = sum(yc, na.rm = TRUE),
             miss4.5 = sum(miss4.5, na.rm = TRUE),
+            cc4.5 = sum(cc4.5, na.rm = TRUE),
+            mc4.5 = sum(mc4.5, na.rm = TRUE),
+            yc4.5 = sum(yc4.5, na.rm = TRUE),
             resid = sum(resid_MP < 0, na.rm = TRUE)) %>%
+  arrange(phi, sigW, lnalpha) %>%
   kable()
 
 # Criteria occurrence
 sim_base_df %>%
-  summarise_at(.vars = vars(starts_with("miss")), ~ mean(., na.rm = TRUE)) %>%
-  pivot_longer(starts_with("miss"), names_to = "Criteria", values_to = "Probability") %>%
+  summarise_at(.vars = vars(ends_with("4.5")), ~ mean(., na.rm = TRUE)) %>%
+  pivot_longer(ends_with("4.5"), names_to = "Criteria", values_to = "Probability") %>%
   ggplot(aes(x = sigW, y = Probability, color = Criteria)) +
   geom_line() +
   facet_grid(phi ~ lnalpha, labeller = label_bquote(rows = phi: .(phi), cols = log(alpha): .(lnalpha)))
@@ -140,14 +148,14 @@ sim_base_df %>%
 # Average 5 year rolling residual as a diagnostic -------------------------
 plot_resid <- function(dat, lnalpha0){
   dat %>%
-    filter(lnalpha == lnalpha0) %>%
-    ggplot(aes(x = resid_MP, fill = group_miss)) +
+    filter(lnalpha == lnalpha0, !is.na(SOC)) %>%
+    mutate(resid_pct = resid / lb) %>%
+    ggplot(aes(x = resid_pct, fill = SOC)) +
     geom_histogram() +
-    scale_x_continuous(limits = c(NA, 1)) +
-    facet_grid(sigW ~ phi,
-               scales = "free_y",
-               labeller = label_bquote(rows = sigma: .(sigW), 
-                                       cols = phi: .(phi))) +
+    scale_x_continuous(limits = c(-2, 2)) +
+    geom_vline(aes(xintercept = 0)) +
+    facet_grid(paste0("\u03C6: ", phi) ~ paste0("\u03C3: ", sigW),
+               scales = "free_y") +
     ggtitle(label = bquote(log(alpha): .(lnalpha0))) #.(lnalpha) pulls from the parent frame instead of the function's environment
 }
 
@@ -156,101 +164,6 @@ plot_resid(sim_base_df, 0.5)
 plot_resid(sim_base_df, 1)
 plot_resid(sim_base_df, 1.5)
 plot_resid(sim_base_df, 2)
-
-
-# Simulation base sig_N = 0.1 -------------------------------------------------------------------
-# Simulation results
-sim_base_N1_grid <- mapply(FUN = simSR_goal, 
-                        lnalpha = input$lnalpha, 
-                        sigW = input$sigW, 
-                        phi = input$phi, 
-                        lb_sim = input$lb_p,
-                        ub_sim = input$ub_p,
-                        MoreArgs = list(beta = beta, 
-                                        age0 = Chinook_age, 
-                                        Sims = 1500, 
-                                        sigN = 0.1,
-                                        sigF = 0,
-                                        Hfun = H_goal),
-                        SIMPLIFY = FALSE)
-
-
-# * Plot time series --------------------------------------------------------
-# because of the colors used teal below the lower bound represents times we fished below the lower bound w abundant fish... call the a management concern
-# teal above the upper bound represents underutilized yield... call that a yield concern
-# while grey below the lower bound represent when the fish were not there to make the goal ... call that a conservation concern
-# Note that some phi and sigma W combinations are not sustainable
-
-plot_ts(sim_base_N1_grid, 0.5)
-plot_ts(sim_base_N1_grid, 1)
-plot_ts(sim_base_N1_grid, 1.5)
-plot_ts(sim_base_N1_grid, 2)
-
-
-# * Create dataframe --------------------------------------------------------
-sim_base_N1_df <-
-  lapply(sim_base_N1_grid, as.data.frame) %>%
-  lapply(function(x){mutate(x, sim = row_number())}) %>%
-  do.call("rbind", .) %>%
-  filter(R != 0) %>%
-  mutate(N = rowSums(pick(starts_with("N_age."))),
-         cc = ifelse(N <= lb, TRUE, FALSE), #conservation concern defined as missing the goal when the fish were not there
-         mc = ifelse(N >= lb & S <= lb, TRUE, FALSE), #management concern = missing the goal due to fishing
-         yc = ifelse(S > ub, TRUE, FALSE), #Yield concern = going over the top end
-         miss = ifelse(S <= lb, TRUE, FALSE),
-         resid = S - lb) %>%  
-  select(-starts_with("N_age")) %>%
-  group_by(lnalpha, sigW, phi) %>%
-  mutate(miss4.5 = ifelse(roll_sum(x = miss, 5, align = "right", fill = NA) >= 4, TRUE, FALSE),
-         miss5.5 = ifelse(roll_sum(x = miss, 5, align = "right", fill = NA) >= 5, TRUE, FALSE),
-         miss6.6 = ifelse(roll_sum(x = miss, 6, align = "right", fill = NA) >= 6, TRUE, FALSE),
-         cc4.5 = ifelse(roll_sum(x = cc, 5, align = "right", fill = NA) >= 4, TRUE, FALSE),
-         mc4.5 = ifelse(roll_sum(x = mc, 5, align = "right", fill = NA) >= 4, TRUE, FALSE),
-         yc4.5 = ifelse(roll_sum(x = yc, 5, align = "right", fill = NA) >= 4, TRUE, FALSE),
-         resid_MP = roll_mean(x = resid, 5, align = "right", fill = NA) / lb,
-         group_miss = ifelse(miss6.6 == TRUE, "6 of 6", ifelse(miss5.5 == TRUE, "5 of 5", ifelse(miss4.5 == TRUE, "4 of 5", "No SOC"))))
-
-
-# * Table of concern criteria -----------------------------------------------
-# estimation error for N introduces lb misses based on fishing and increased ub misses.
-sim_base_N1_df %>%
-  summarise(N = length(sim),
-            below_lb = sum(miss, na.rm = TRUE),
-            below_lb_fish = sum(cc, na.rm = TRUE),
-            below_lb_harvest = sum(mc, na.rm = TRUE),
-            above_ub = sum(yc, na.rm = TRUE),
-            miss4.5 = sum(miss4.5, na.rm = TRUE),
-            cc4.5 = sum(cc4.5, na.rm = TRUE),
-            mc4.5 = sum(mc4.5, na.rm = TRUE),
-            yc4.5 = sum(yc4.5, na.rm = TRUE),
-            resid = sum(resid_MP < 0, na.rm = TRUE)) %>%
-  kable()
-
-# Criteria occurrence
-sim_base_N1_df %>%
-  summarise_at(.vars = vars(starts_with("miss")), ~ mean(., na.rm = TRUE)) %>%
-  pivot_longer(starts_with("miss"), names_to = "Criteria", values_to = "Probability") %>%
-  ggplot(aes(x = sigW, y = Probability, color = Criteria)) +
-  geom_line() +
-  facet_grid(phi ~ lnalpha, labeller = label_bquote(rows = phi: .(phi), cols = log(alpha): .(lnalpha)))
-
-# * Average 5 year rolling residual as a diagnostic -------------------------
-#Few concerns. Notice that in some cases "miss" diagnostics are not residual outliers.
-plot_resid(sim_base_N1_df, 0.5)
-plot_resid(sim_base_N1_df, 1)
-plot_resid(sim_base_N1_df, 1.5)
-plot_resid(sim_base_N1_df, 2)
-
-# An example where residual probably saved an unnecessary SOC designation.
-sim_base_N1_df %>% select(-ub) %>% filter(resid_MP >= 0, group_miss == "4 of 5") %>% print(n = 100)
-sim_base_N1_df %>% 
-  select(lnalpha:S, lb, U, N, sim, miss:group_miss) %>% 
-  filter(lnalpha == 1, sigW == 0.75, phi == 0, sim <= 1103, sim >= 1090)
-# An example where residual caught a SOC designation.
-sim_base_N1_df %>% select(-ub, -lnalpha.y) %>% filter(resid_MP <= 0, group_miss == "No SOC") %>% print(n = 100)
-sim_base_N1_df %>% 
-  select(lnalpha:S, lb, U, N, sim, miss:group_miss) %>% 
-  filter(lnalpha == 0.5, sigW == 0.5, phi == 0, sim <= 1230, sim >= 1220)
 
 
 # # Reduced alpha: lb = Seq  -------------------------------------
@@ -293,9 +206,8 @@ sim_Seq <- simSR_goal(lb*beta, beta, 0.5, 0,
                       target = lb_p)
 hist(sim_Seq$U)
 mean(sim_Seq$U == 0) # mostly closed fisheries
-mean(sim_Seq$U == 0 & sim_Seq$S < lb) # Often miss lower bound
+mean(sim_Seq$U == 0 & sim_Seq$S < lb) # Often miss lower bound wo fishing
 mean(sim_Seq$U > 0)
-mean(sim_Seq$U > 0 & round(sim_Seq$S) == lb)
 mean(sim_Seq$N_age * sim_Seq$U) # average yield under reduced productivity
 ##mean(sim_Seq$N_age * sim_Seq$U) / ?  # ~ 10% of MSY under average productivity conditions FIX
 
@@ -330,6 +242,8 @@ sim_Seq_N1_grid <- mapply(FUN = simSR_goal,
                                           sigF = 0,
                                            Hfun = H_goal),
                           SIMPLIFY = FALSE)
+#saveRDS(sim_Seq_N1_grid, file = ".\\sim_Seq_N1_grid.R")
+sim_Seq_N1_grid <- readRDS(file = ".\\sim_Seq_N1_grid.R")
 
 
 # * Plot time series --------------------------------------------------------
@@ -373,8 +287,8 @@ sim_Seq_N1_df <-
   do.call("rbind", .) %>%
   filter(R != 0) %>%
   mutate(N = rowSums(pick(starts_with("N_age."))),
-         cc = ifelse(N <= lb, TRUE, FALSE), #conservation concern defined as missing the goal when the fish were not there
-         mc = ifelse(N >= lb & S <= lb, TRUE, FALSE), #management concern = missing the goal due to fishing
+         cc = ifelse(U == 0 & S <= lb, TRUE, FALSE), #conservation concern defined as missing the goal when the fish were not there
+         mc = ifelse(U > 0 & S <= lb, TRUE, FALSE), #management concern = missing the goal due to fishing
          yc = ifelse(S > ub, TRUE, FALSE), #Yield concern = going over the top end
          miss = ifelse(S <= lb, TRUE, FALSE),
          resid = S - lb) %>%  
@@ -382,12 +296,14 @@ sim_Seq_N1_df <-
   group_by(lnalpha, sigW, phi) %>%
   mutate(miss4.5 = ifelse(roll_sum(x = miss, 5, align = "right", fill = NA) >= 4, TRUE, FALSE),
          miss5.5 = ifelse(roll_sum(x = miss, 5, align = "right", fill = NA) >= 5, TRUE, FALSE),
-         miss6.6 = ifelse(roll_sum(x = miss, 6, align = "right", fill = NA) >= 6, TRUE, FALSE),
-         cc4.5 = ifelse(roll_sum(x = cc, 5, align = "right", fill = NA) >= 4, TRUE, FALSE),
-         mc4.5 = ifelse(roll_sum(x = mc, 5, align = "right", fill = NA) >= 4, TRUE, FALSE),
-         yc4.5 = ifelse(roll_sum(x = yc, 5, align = "right", fill = NA) >= 4, TRUE, FALSE),
-         resid_MP = roll_mean(x = resid, 5, align = "right", fill = NA) / lb,
-         group_miss = ifelse(miss6.6 == TRUE, "6 of 6", ifelse(miss5.5 == TRUE, "5 of 5", ifelse(miss4.5 == TRUE, "4 of 5", "No SOC"))))
+         cc4.5 = ifelse(roll_sum(x = cc, 5, align = "right", fill = NA) >= 5, TRUE, FALSE),
+         mc4.5 = ifelse(roll_sum(x = mc, 5, align = "right", fill = NA) >= 5, TRUE, FALSE),
+         yc4.5 = ifelse(roll_sum(x = yc, 5, align = "right", fill = NA) >= 5, TRUE, FALSE),
+         resid_MD = roll_mean(x = resid, 5, align = "right", fill = NA),
+         resid_MP = resid_MD / lb,
+         dev = -2 * log(plnorm(R, log(S*exp(lnalpha - beta*S)), sigW)),
+         SOC0 = ifelse(cc4.5 == TRUE, "No fish", ifelse(miss4.5 == TRUE, "w Harvest", "No SOC")),
+         SOC = factor(SOC0, levels = c("No fish", "w Harvest", "No SOC")))
 
 
 # * Table of concern criteria -----------------------------------------------
@@ -408,8 +324,8 @@ sim_Seq_N1_df %>%
 # Criteria occurrence #### needs lnalpha_group
 sim_Seq_N1_df %>%
   group_by(lnalpha_group, lnalpha, sigW, phi) %>%
-  summarise_at(.vars = vars(starts_with("miss")), ~ mean(., na.rm = TRUE)) %>%
-  pivot_longer(starts_with("miss"), names_to = "Criteria", values_to = "Probability") %>%
+  summarise_at(.vars = vars(ends_with("4.5")), ~ mean(., na.rm = TRUE)) %>%
+  pivot_longer(ends_with("4.5"), names_to = "Criteria", values_to = "Probability") %>%
   ggplot(aes(x = sigW, y = Probability, color = Criteria)) +
   geom_line() +
   facet_grid(phi ~ lnalpha_group, labeller = label_bquote(rows = phi: .(phi), cols = log(alpha): .(lnalpha)))
@@ -418,136 +334,47 @@ sim_Seq_N1_df %>%
 # Average 5 year rolling residual as a diagnostic -------------------------
 plot_resid_red <- function(dat, lnalpha0){
   dat %>%
-    filter(lnalpha_group == lnalpha0) %>%
-    ggplot(aes(x = resid_MP, fill = group_miss)) +
+    filter(lnalpha_group == lnalpha0, !is.na(SOC)) %>%
+    mutate(resid_pct = resid / lb) %>%
+    ggplot(aes(x = resid_pct, fill = SOC)) +
     geom_histogram() +
-    scale_x_continuous(limits = c(NA, 1)) +
-    facet_grid(sigW ~ phi,
-               scales = "free_y",
-               labeller = label_bquote(rows = sigma: .(sigW), 
-                                       cols = phi: .(phi))) +
+    scale_x_continuous(limits = c(-1, 1)) + 
+    geom_vline(aes(xintercept = 0)) +
+    facet_grid(paste0("\u03C6: ", phi) ~ paste0("\u03C3: ", sigW),
+               scales = "free_y") +
     ggtitle(label = bquote(log(alpha): .(lnalpha0))) #.(lnalpha) pulls from the parent frame instead of the function's environment
 }
 
 #Few concerns. Notice that in some cases "miss" diagnostics are not residual outliers.
-plot_resid_red(sim_Seq_N1_df, 0.5) + geom_vline(aes(xintercept = 0))
-plot_resid_red(sim_Seq_N1_df, 1) + geom_vline(aes(xintercept = -0.1))
-plot_resid_red(sim_Seq_N1_df, 1.5)
+plot_resid_red(sim_Seq_N1_df, 0.5)
+plot_resid_red(sim_Seq_N1_df, 1)
+plot_resid_red(sim_Seq_N1_df, 1.5) plot_resid(sim_base_df, 1.5)
 plot_resid_red(sim_Seq_N1_df, 2)
 
-# An example where residual probably saved an unnecessary SOC designation.
-sim_Seq_N1_df %>% filter(resid_MP > 0 & miss4.5 == TRUE) %>% select(-ub, -mc, yc, -miss) %>% print(n = 100)
-sim_Seq_N1_df %>% 
-  select(lnalpha:S, lb, U, N, sim, miss:group_miss) %>% 
-  filter(lnalpha >= 0.378, lnalpha <= 0.380, sigW == 0.5, phi == 0, sim >= 1400, sim <= 1415)
-sim_Seq_N1_df %>% 
-  select(lnalpha:S, lb, U, N, sim, miss:group_miss) %>% 
-  filter(lnalpha >= 0.481, lnalpha <= 0.483, sigW == 0.25, phi == 0.3, sim >= 585, sim <= 605) %>% print(n = 100)
-# An example where residual caught a SOC designation early.
-sim_Seq_N1_df %>% filter(resid_MP < 0 & miss4.5 != TRUE) %>% select(-ub, -mc, yc, -miss) %>% print(n = 100)
-sim_Seq_N1_df %>% 
-  select(lnalpha:S, lb, U, N, sim, miss:group_miss) %>% 
-  filter(lnalpha >= 0.196, lnalpha <= 0.198, sigW == 0.25, phi == 0, sim >= 5, sim <= 15)
 
 
 
 
+# could be used to simulate a rebuild
+sim_Seq_rebuild_grid <- mapply(FUN = simSR_goal, 
+                          lnalpha = input$lb_p*beta,  #reduced ln_alpha 
+                          sigW = input$sigW, 
+                          phi = input$phi, 
+                          MoreArgs = list(beta = beta, 
+                                          age0 = Chinook_age,
+                                          lb_sim = 1 / beta,
+                                          ub_sim = Inf,
+                                          Sims = 1500, 
+                                          sigN = 0.1,
+                                          sigF = 0,
+                                          Hfun = H_goal),
+                          SIMPLIFY = FALSE)
+plot_ts_red(sim_Seq_rebuild_grid, 0.5)
+plot_ts_red(sim_Seq_rebuild_grid, 1)
+plot_ts_red(sim_Seq_rebuild_grid, 1.5)
+plot_ts_red(sim_Seq_rebuild_grid, 2)
 
 
-# 
-# # # Pinks: age-at-maturity 2 years  -----------------------------------------------
-# # # * Constant SR params -----------------------------------------------------
-# # #Is there concern when a stock falls below the escapement goal wo a change in SR parameters?
-# # # ** grid simulation -------------------------------------------------------------------
-# # #SOC rare w constant SR params.
-# # # *** inputs -----------------------------------------------------------
-# # #Grid of SR parameter values
-# # vec_lnalpha_pinks <- seq(1.5, 3, length.out = 10)
-# # vec_sigW_pinks <- seq(0, 1.2, length.out = 10)
-# # vec_phi_pinks <- c(-0.5, -0, 0.5, 0.75)
-# # input_pinks <- 
-# #   expand.grid(lna = vec_lnalpha_pinks, s = vec_sigW_pinks, p = vec_phi_pinks) %>%
-# #   mutate(lna_p = lna + (s * s / 2 / (1 - p * p)),
-# #          lb_p = lna_p/beta*(0.5 - 0.07 * lna_p) * 0.8)
-# # 
-# # sim_basepinks_grid <- mapply(FUN = simSR_goal, 
-# #                              lnalpha = input_pinks$lna, 
-# #                              sigW = input_pinks$s, 
-# #                              phi = input_pinks$p, 
-# #                              target0 = input_pinks$lb_p,
-# #                              MoreArgs = list(beta = beta, age0 = c('1' = 0.2, '2' = 0.98), Sims0 = 1500, Hfun = H_target),
-# #                              SIMPLIFY = FALSE)
-# # restrict_basepinks_grid <- lapply(sim_basepinks_grid, function(x) x$U == 0)
-# # soc_basepinks_grid <- sapply(restrict_basepinks_grid, function(x){
-# #   temp <- NA
-# #   for(i in 5:length(x)) if(sum(x[(i - 4):i]) >= 4){temp[i - 4] <- TRUE} 
-# #   else{temp[i - 4] <- FALSE}
-# #   mean(temp)}
-# # )
-# # cbind(input_pinks, soc = soc_basepinks_grid) %>%
-# #   ggplot(aes(x = lna, y = s, fill = soc)) +
-# #   geom_tile() +
-# #   facet_wrap(. ~ p, nrow = 2, ncol = 2, labeller = label_bquote(phi: .(p))) +
-# #   scale_fill_gradient2(low = "blue", 
-# #                        high = "orange", 
-# #                        mid = "black",
-# #                        midpoint = 0.5,
-# #                        limits = c(0, 1)) +
-# #   scale_x_continuous(name = "Log(\u03B1)", breaks = seq(1.5, 3, by = 0.5)) +
-# #   scale_y_continuous(name = expression("\u03C3"), breaks = seq(0, 1.2, by = 0.1))
-# 
-# # # *delta: lower bound = Seq  -------------------------------------
-# # #Real concern is accompanied by changing SR parameters.
-# # #Note S_eq = lnalpha/beta so lnalpha = goal_lb*beta is a productivity change that would reduce yield to 0.
-# # # ** grid simulation -------------------------------------------------------------------
-# # sim_Seqpinks_grid <- mapply(FUN = simSR_goal, 
-# #                             lnalpha = input_pinks$lb_p*beta, 
-# #                             sigW = input_pinks$s, 
-# #                             phi = input_pinks$p, 
-# #                             target0 = input_pinks$lb_p, 
-# #                             MoreArgs = list(beta = beta, age0 = arg_age, Sims0 = 1000, Hfun = H_target),
-# #                             SIMPLIFY = FALSE)
-# # restrict_Seqpinks_grid <- lapply(sim_Seqpinks_grid, function(x) x$U == 0)
-# # soc_Seqpinks_grid <- sapply(restrict_Seqpinks_grid, function(x){
-# #   temp <- NA
-# #   for(i in 5:length(x)) if(sum(x[(i - 4):i]) >= 4){temp[i - 4] <- TRUE} 
-# #   else{temp[i - 4] <- FALSE}
-# #   mean(temp)}
-# # )
-# # cbind(input_pinks, soc = soc_Seqpinks_grid) %>%
-# #   ggplot(aes(x = lna, y = s, fill = soc)) +
-# #   geom_tile() +
-# #   facet_wrap(. ~ p, nrow = 2, ncol = 2, labeller = label_bquote(phi: .(p))) +
-# #   scale_fill_gradient2(low = "blue", 
-# #                        high = "orange", 
-# #                        mid = "black",
-# #                        midpoint = 0.5,
-# #                        limits = c(0, 1)) +
-# #   scale_x_continuous(name = "Log(\u03B1)", breaks = seq(1.5, 3, by = 0.5)) +
-# #   scale_y_continuous(name = expression("\u03C3"), breaks = seq(0, 1.2, by = 0.1))
-# # 
-# # 
-# # soc_Seqpinks_grid9yrs <- sapply(restrict_Seqpinks_grid, function(x){
-# #   temp <- NA
-# #   for(i in 9:length(x)) if(sum(x[(i - 8):i]) >= 8){temp[i - 8] <- TRUE} 
-# #   else{temp[i - 8] <- FALSE}
-# #   mean(temp)}
-# # )
-# # cbind(input_pinks, soc = soc_Seqpinks_grid9yrs) %>%
-# #   ggplot(aes(x = lna, y = s, fill = soc)) +
-# #   geom_tile() +
-# #   facet_wrap(. ~ p, nrow = 2, ncol = 2, labeller = label_bquote(phi: .(p))) +
-# #   scale_fill_gradient2(low = "blue", 
-# #                        high = "orange", 
-# #                        mid = "black",
-# #                        midpoint = 0.5,
-# #                        limits = c(0, 1)) +
-# #   scale_x_continuous(name = "Log(\u03B1)", breaks = seq(1.5, 3, by = 0.5)) +
-# #   scale_y_continuous(name = expression("\u03C3"), breaks = seq(0, 1.2, by = 0.1))
-# # 
-# # 
-# # 
-# # 
 # # 
 # #Shnute params
 # #Less parameter correlation during estimation

@@ -4,7 +4,8 @@ Ricker <- function(lnalpha, beta, S)  {S*exp(lnalpha - beta*S)}
 #Arguments:
 #   lnalpha, beta, sigW, phi: Ricker SR parameters
 #   age0: a named vector where the names are numeric total age formatted as a characters(e,g, '3'), and the vector values are proportional age-at-maturity
-#   Sims: number of simulations to run
+#   Sims0: number of simulations to run
+#   sigN: estimation error
 #   sigF: management error
 #   Hfun: a function which provides an annual harvest rate based on the management strategy simulated by the function. 
 simSR_goal <- function(lnalpha, beta, sigW, phi, age0, Sims0, sigN = 0, sigF = 0, Hfun, ...){
@@ -29,7 +30,7 @@ simSR_goal <- function(lnalpha, beta, sigW, phi, age0, Sims0, sigN = 0, sigF = 0
     }
   }
   
-  S <- N <- N_hat <- epsF <- U <- lb <- ub <- Ft <- H <- Rhat <- lnRhatShat <- fittedR <- rep(NA, Sims + A + a.min + 1)
+  S <- N <- N_hat <- epsF <- U <- lb <- ub <- Ft <- H <- Rhat <- lnRhatShat <- fittedR <- cc <- mc <- yc <- SOC <- rep(NA, Sims + A + a.min + 1)
   
   # recursive portion...
   for (c in (A + a.min):(Sims + A + a.min)) {
@@ -43,6 +44,10 @@ simSR_goal <- function(lnalpha, beta, sigW, phi, age0, Sims0, sigN = 0, sigF = 0
     ub[c] <- temp[[3]]
     Ft[c] <- -log(1 - U[c])*exp(epsF[c])
     S[c] <- N[c] * exp(-Ft[c])
+    cc[c] <- get_cc(N_sim = N[c], ...)
+    mc[c] <- get_mc(S_sim = S[c], ...)
+    yc[c] <- get_yc(S_sim = S[c], ...)
+    SOC[c] <- if(c >= (A + a.min + 5)){get_SOC(cc_sim = cc[(c-4):c], mc_sim = mc[(c-4):c], yc_sim = yc[(c-4):c])} else(NA)
     H[c] <- N[c] - S[c]
     
     E1R[c + 1] <- S[c]*exp(lnalpha - beta*S[c])
@@ -59,19 +64,64 @@ simSR_goal <- function(lnalpha, beta, sigW, phi, age0, Sims0, sigN = 0, sigF = 0
   return(list(lnalpha = rep(lnalpha, Sims0),
               sigW = rep(sigW, Sims0),
               phi = rep(phi, Sims0),
-              S = S[(length(S) + 1 - 1 - Sims0):(length(S) - 1)],
-              F = Ft[(length(Ft) + 1 - 1 - Sims0):(length(Ft) - 1)],
-              U = U[(length(U) + 1 - 1 - Sims0):(length(U) - 1)],
+              S = S[(length(S) - Sims0):(length(S) - 1)],
+              F = Ft[(length(Ft) - Sims0):(length(Ft) - 1)],
+              U = U[(length(U) - Sims0):(length(U) - 1)],
               R = R[(length(R) + 1 - Sims0):length(R)],
-              N = N[(length(N) + 1 - Sims0):length(N)],
-              N_hat = N_hat[(length(N_hat) + 1 - Sims0):length(N_hat)],
+              N = N[(length(N) - Sims0):(length(N) - 1)],
+              N_hat = N_hat[(length(N_hat) - Sims0):(length(N_hat) - 1)],
               lnalpha.y = lnalpha.y[(length(lnalpha.y) + 1 - Sims0):length(lnalpha.y)],
-              N_age = N_age[(dim(N_age)[1] + 1 - A - a.min - Sims0):(dim(N_age)[1] - A - a.min) + 1, ],
-              lb = lb[(length(lb) + 1 - Sims0):length(lb)],
-              ub = ub[(length(ub) + 1 - Sims0):length(ub)]
+              N_age = N_age[(dim(N_age)[1] + 1 - A - a.min - Sims0):(dim(N_age)[1] - A - a.min), ],
+              lb = lb[(length(lb) - Sims0):(length(lb) - 1)],
+              ub = ub[(length(ub) - Sims0):(length(ub) - 1)],
+              cc = cc[(length(cc) - Sims0):(length(cc) - 1)],
+              mc = mc[(length(mc) - Sims0):(length(mc) - 1)],
+              yc = yc[(length(yc) - Sims0):(length(yc) - 1)],
+              SOC = SOC[(length(SOC) - Sims0):(length(SOC) - 1)]
   ))
 }
 
+#Function to determine if a "conservation concern" occurred for each year of a simulation where conservation concern is defined as a 
+#run size that failed to meet the goal wo harvest.
+#Arguments:
+#   N_sim: Run size from the simulation.
+#   lb_sim: Lower bound of the escapemtng goal from the simulation.
+get_cc <- function(N_sim, lb_sim, ...){  
+  cc <- if(N_sim < lb_sim){TRUE} else(FALSE)
+  return(cc)
+}
+
+#Function to determine if a "management concern" occurred for each year of a simulation where management concern is defined as a 
+#escapement that failed to meet the goal.
+#Arguments:
+#   S_sim: Run size from the simulation.
+#   lb_sim: Lower bound of the escapemtng goal from the simulation.
+get_mc <- function(S_sim, lb_sim, ...){  
+  mc <- if(S_sim < lb_sim){TRUE} else(FALSE)
+  return(mc)
+}
+
+#Function to determine if a "yield concern" occurred for each year of a simulation where management concern is defined as a 
+#escapement that exceeded the goal.
+#Arguments:
+#   S_sim: Run size from the simulation.
+#   ub_sim: Lower bound of the escapemtng goal from the simulation.
+get_yc <- function(S_sim, ub_sim, ...){  
+  yc <- if(S_sim > ub_sim){TRUE} else(FALSE)
+  return(yc)
+}
+
+#Function to determine if SOC status for each year of a simulation.
+#Arguments:
+#   N_sim: Run size from the simulation.
+#   lb_sim: Lower bound of the escapemtng goal from the simulation.
+get_SOC <- function(cc_sim, mc_sim, yc_sim){  
+  SOC <- 
+    if(sum(cc_sim, na.rm = TRUE) >= 4){"Conservation"} else(
+      if(sum(mc_sim, na.rm = TRUE) >= 4){"Management"} else(
+        if(sum(yc_sim, na.rm = TRUE) >= 4){"Yield"} else("No concern")))
+  return(SOC)
+}
 
 #Function to find U that achieves S at some percentage of bias corrected Smsy
 #Arguments:

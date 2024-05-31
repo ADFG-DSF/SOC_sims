@@ -13,7 +13,7 @@ lapply(function_files, function(x) source(paste0(".\\functions\\", x)))
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-# * Inputs -----------------------------------------------------------
+# Inputs -----------------------------------------------------------
 # Is there concern when a stock falls below the escapement goal wo a change in SR parameters?
 # How often does that occur?
 
@@ -68,7 +68,7 @@ Ricker_plots[[i]] <-
 }
 Ricker_plots
 
-# Simulation base case -------------------------------------------------------------------
+# Base case -------------------------------------------------------------------
 #First simulation sigN = 0
 #Not very realistic
 # Simulation results
@@ -88,7 +88,7 @@ Ricker_plots
 # saveRDS(sim_base_list, file = ".\\sim_base_list.R")
 sim_base_list <- readRDS(file = ".\\sim_base_list.R")
 
-# Create dataframe --------------------------------------------------------
+# * Create dataframe --------------------------------------------------------
 sim_base_df <-
   lapply(sim_base_list, as.data.frame) %>%
   lapply(function(x){mutate(x, sim = row_number())}) %>%
@@ -104,7 +104,7 @@ sim_base_df <-
 plot_ts <- function(dat, lnalpha0){ 
   df <- 
     dat %>%
-    select(lnalpha, sigW, phi, sim, lb, ub, S, N) %>%
+    select(lnalpha, sigW, phi, sim, lb_goal, ub_goal, S, N) %>%
     filter(lnalpha == lnalpha0) %>%
     pivot_longer(c(S, N), names_to = "stat", values_to = "value")
   
@@ -112,8 +112,8 @@ plot_ts <- function(dat, lnalpha0){
   
       ggplot(df, aes(x = sim, y = value, color = stat)) +
         geom_line(alpha = 0.4) +
-        geom_hline(aes(yintercept = lb), linetype = 2) +
-        geom_hline(aes(yintercept = ub), linetype = 2) +
+        geom_hline(aes(yintercept = lb_goal), linetype = 2) +
+        geom_hline(aes(yintercept = ub_goal), linetype = 2) +
         scale_y_continuous(limits = c(0, limit)) +
         scale_x_continuous(name = "Simulation year") +
         facet_grid(paste0("\u03C6: ", phi) ~ paste0("\u03C3: ", sigW)) +
@@ -130,7 +130,7 @@ plot_ts(sim_base_df, 2)
 
 
 
-# Table of concern criteria -----------------------------------------------
+# * Table of concern criteria -----------------------------------------------
 sim_base_df %>%
   summarise(N = length(sim),
             below_lb_fish = sum(cc, na.rm = TRUE) / N,
@@ -167,7 +167,7 @@ sim_base_df %>%
   facet_grid(phi ~ lnalpha, labeller = label_bquote(rows = phi: .(phi), cols = log(alpha): .(lnalpha)))
 
 
-# Average 5 year rolling residual as a diagnostic -------------------------
+# * Average 5 year rolling residual as a diagnostic -------------------------
 plot_resid <- function(dat, lnalpha0){
   dat %>%
     filter(lnalpha == lnalpha0, !is.na(SOC)) %>%
@@ -187,7 +187,7 @@ plot_resid(sim_base_df, 1.5)
 plot_resid(sim_base_df, 2)
 
 
-# # Reduced alpha: lb = Seq  -------------------------------------
+# Reduced alpha: lb = Seq  -------------------------------------
 # #What if productivity changes but our goal remains based on historic productivity?
 # #Note S_eq = lnalpha/beta so lnalpha = goal_lb*beta is a productivity change that would reduce yield to 0 at the lower bound.
 # # lower bound goal which is 0.8% of Smsy
@@ -217,7 +217,7 @@ polygon(x = c(lb_p, lb_p, ub_p, ub_p),
         col = scales::alpha("grey", .3))
 abline(a = 0, b = 0, lt = 2)
 
-# Simulation params -------------------------------------------------------
+# * Simulation params -------------------------------------------------------
 Ricker_plots_Seq <- list()
 for(i in 1:length(unique(input$lnalpha))){
   Ricker_plots_Seq[[i]] <- 
@@ -244,7 +244,9 @@ for(i in 1:length(unique(input$lnalpha))){
                         #scales = "free_y",
                         ncol = 3, nrow = 3, page = i)
 }
-Ricker_plots_Seq
+Ricker_plots_Seq[[1]] + coord_cartesian(ylim = c(0, 10000))
+Ricker_plots_Seq[[2]] + coord_cartesian(ylim = c(0, 10000))
+Ricker_plots_Seq[[3]] + coord_cartesian(ylim = c(0, 10000))
 
 # * static reduced alpha -------------------------------------------------------------
 static_Seq <- simSR_goal(lb_p*beta, beta, 0, 0,
@@ -292,8 +294,10 @@ input$lb_p*beta/beta * (0.5 - 0.07 * input$lb_p*beta) *.8 / input$lb_p
 #                           lnalpha = input$lb_p*beta,  #reduced ln_alpha
 #                           sigW = input$sigW,
 #                           phi = input$phi,
-#                           lb_sim = input$lb_p, #same bounds
-#                           ub_sim = input$ub_p,
+#                           lb_goal = input$lb_p,
+#                           ub_goal = input$ub_p,
+#                           lb_manage = input$lb_p,
+#                           ub_manage = input$ub_p,
 #                           MoreArgs = list(beta = beta,
 #                                           age0 = Chinook_age,
 #                                           Sims = input_sims,
@@ -305,7 +309,7 @@ input$lb_p*beta/beta * (0.5 - 0.07 * input$lb_p*beta) *.8 / input$lb_p
 sim_Seq_N1_list <- readRDS(file = ".\\sim_Seq_N1_list.R")
 
 
-# Create dataframe --------------------------------------------------------
+# * Create dataframe --------------------------------------------------------
 sim_Seq_N1_df <-
   lapply(sim_Seq_N1_list, as.data.frame) %>%
   lapply(function(x) rename(x, lnalpha_red = lnalpha)) %>%
@@ -313,10 +317,10 @@ sim_Seq_N1_df <-
   do.call("rbind", .) %>%
   mutate(lnalpha = rep(input$lnalpha, each = input_sims)) %>%
   filter(R != 0) %>% #remove rows where population perished
-  mutate(resid = S - lb) %>%  
+  mutate(resid = S - lb_goal) %>%  
   select(-starts_with("N_age")) %>%
   group_by(lnalpha, sigW, phi) %>%
-  mutate(resid_roll = roll_mean(x = resid, 5, align = "right", fill = NA) / lb)
+  mutate(resid_roll = roll_mean(x = resid, 5, align = "right", fill = NA) / lb_goal)
 
 
 
@@ -356,7 +360,7 @@ sim_Seq_N1_df %>%
                       "Yield concern",
                       "Residual"))
 
-# Criteria occurrence ####
+# * Criteria occurrence ####
 sim_Seq_N1_df %>%
   summarise(cc = sum(SOC == "Conservation"),
             mc = sum(SOC == "Management"),
@@ -378,21 +382,25 @@ plot_resid(sim_Seq_N1_df, 2)
 
 
 
+# Rebuild -----------------------------------------------------------------
 # could be used to simulate a rebuild
 sim_Seq_rebuild_list <- mapply(FUN = simSR_goal, 
                           lnalpha = input$lb_p*beta,  #reduced ln_alpha 
                           sigW = input$sigW, 
-                          phi = input$phi, 
+                          phi = input$phi,
+                          lb_goal = input$lb_p,
+                          ub_goal = input$ub_p,
+                          lb_manage = input$ub_p,
+                          ub_manage = input$ub_p,
                           MoreArgs = list(beta = beta, 
                                           age0 = Chinook_age,
-                                          lb_sim = 1 / beta,
-                                          ub_sim = Inf,
-                                          Sims = 1500, 
+                                          Sims = input_sims, 
                                           sigN = 0.1,
                                           sigF = 0,
-                                          Hfun = H_goal),
+                                          Hfun = H_soc),
                           SIMPLIFY = FALSE)
-# Create dataframe --------------------------------------------------------
+
+# * Create dataframe --------------------------------------------------------
 sim_Seq_rebuild_df <-
   lapply(sim_Seq_rebuild_list, as.data.frame) %>%
   lapply(function(x) rename(x, lnalpha_red = lnalpha)) %>%
@@ -400,10 +408,10 @@ sim_Seq_rebuild_df <-
   do.call("rbind", .) %>%
   mutate(lnalpha = rep(input$lnalpha, each = input_sims)) %>%
   filter(R != 0) %>% #remove rows where population perished
-  mutate(resid = S - lb) %>%  
+  mutate(resid = S - lb_goal) %>%  
   select(-starts_with("N_age")) %>%
   group_by(lnalpha, sigW, phi) %>%
-  mutate(resid_roll = roll_mean(x = resid, 5, align = "right", fill = NA) / lb)
+  mutate(resid_roll = roll_mean(x = resid, 5, align = "right", fill = NA) / lb_goal)
 
 
 
@@ -412,20 +420,10 @@ sim_Seq_rebuild_df <-
 # teal above the upper bound represents underutilized yield... call that a yield concern
 # while grey below the lower bound represent when the fish were not there to make the goal ... call that a conservation concern
 # Note that some phi and sigma W combinations are not sustainable
-plot_ts(sim_Seq_rebuild_df, 0.5)
 plot_ts(sim_Seq_rebuild_df, 1)
 plot_ts(sim_Seq_rebuild_df, 1.5)
+plot_ts(sim_Seq_rebuild_df, 1.5) + coord_cartesian(xlim = c(600, 625))
 plot_ts(sim_Seq_rebuild_df, 2)
-data.frame(input, 
-           dif_S = sapply(sim_Seq_rebuild_list, function(x) {mean(x$S, na.rm = TRUE)}) - sapply(sim_Seq_N1_list, function(x) {mean(x$S, na.rm = TRUE)}), 
-           dif_N = sapply(sim_Seq_rebuild_list, function(x) {median(x$N, na.rm = TRUE)}) - sapply(sim_Seq_N1_list, function(x) {median(x$N, na.rm = TRUE)}),
-           Harvest = sapply(sim_Seq_rebuild_list, function(x) {mean(x$U != 0)}))
-standard <- sim_Seq_N1_df %>% filter(lnalpha == 1, sigW == .5, phi == .3) %>% select(S)
-rebuild <- sim_Seq_rebuild_df %>% filter(lnalpha == 1, sigW == .5, phi == .3) %>% select(S)
-plot(standard$S, rebuild$S)
-abline(a = 0, b = 1)
-
-sim_Seq_rebuild_df
 
 sim_Seq_rebuild_df %>%
   summarise(N = length(sim),
@@ -442,13 +440,152 @@ sim_Seq_rebuild_df %>%
                       "\u03C3",
                       "\u03C6",
                       "N",
-                      "P(N < lower bound)",
+                      "P(N < lb)",
                       "P(S < lb, N > lb)",
-                      "P(S > upper bound)",
+                      "P(S > ub)",
                       "Conservation concern",
                       "Management concern",
                       "Yield concern",
                       "Residual"))
+
+#an attempt at summary statistics for statuis Quo and Rebuilding fisheries under reduced productivity.
+temp1 <- sim_Seq_N1_df %>%
+  mutate(scenario = "StatusQuo")
+temp2 <- sim_Seq_rebuild_df %>%
+  mutate(scenario = "Rebuild")
+# temp3 <- 
+#   rbind(temp2, temp1) %>%
+#   group_by(lnalpha, sigW, phi, scenario) %>%
+#   select(-starts_with(c("lb", "ub"))) %>% 
+#   mutate(change = case_when(SOC != lag(SOC) ~ TRUE, TRUE ~ FALSE),
+#          n_change = cumsum(change),
+#          H = N - S) %>%
+#   group_by(lnalpha, sigW, phi, scenario, n_change, SOC) %>%
+#   summarise(length = length(n_change),
+#             deviation_lb = sum(resid),
+#             miss = sum(resid < 0),
+#             yield = sum(H),
+#             min_S = min(S)) %>%
+#   group_by(lnalpha, sigW, phi, scenario, SOC) %>%
+#   summarise(N = length(n_change),
+#             mean_years = median(length),
+#             sd_years = sd(length),
+#             mean_dev = median(deviation_lb),
+#             sd_dev = sd(deviation_lb),
+#             mean_yield = median(yield),
+#             sd_yield = sd(yield),
+#             mean_minS = median(min_S),
+#             sd_minS = sd(min_S),
+#             length = sum(length), 
+#             mean_miss = sum(miss) / length,
+#             sd_miss = mean_miss * (1 - mean_miss) / N, 
+#             n_yield = sum(yield > 1))
+#   
+# 
+# scenario_plots <- function(dat, var){
+#   plots <- list()
+#   for(i in 1:length(unique(input$lnalpha))){
+#     plots[[i]] <-
+#       dat %>%
+#       mutate(upper = get(paste0("mean_", var)) + get(paste0("sd_", var)),
+#              lower = get(paste0("mean_", var)) - get(paste0("sd_", var))) %>%
+#       ggplot(aes(x = SOC, y = get(paste0("mean_", var)), weigth = N, fill = scenario)) +
+#       geom_bar(stat = "identity", position = "dodge") +
+#       geom_errorbar(aes(ymin = lower, ymax = upper), position = "dodge") +
+#       theme_bw() +
+#       facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
+#                           ncol = 3, nrow = 3, page = i)
+#   }
+#   plots
+# }
+# length_plots <- scenario_plots(temp3, "years")
+# length_plots[[1]]
+# length_plots[[2]]
+# length_plots[[3]]
+# 
+# dev_plots <- scenario_plots(temp3, "dev")
+# dev_plots[[1]]
+# dev_plots[[2]]
+# dev_plots[[3]]
+# 
+# temp3 %>%
+#   filter(SOC == "Conservation") %>%
+#   select(lnalpha, sigW, phi, scenario, SOC, ends_with("dev")) %>%
+#   pivot_wider(id_cols = c(lnalpha, sigW, phi, SOC), names_from = scenario,  values_from = ends_with("dev")) %>%
+#   mutate(smaller =  mean_dev_StatusQuo - mean_dev_Rebuild) %>%
+#   print(n = 100)
+# 
+# yield_plots <- scenario_plots(temp3, "yield")
+# yield_plots[[1]]
+# yield_plots[[2]]
+# yield_plots[[3]]
+# 
+# minS_plots <- scenario_plots(temp3, "minS")
+# minS_plots[[1]]
+# minS_plots[[2]]
+# minS_plots[[3]]
+# 
+# miss_plots <- scenario_plots(temp3, "miss")
+# miss_plots[[1]]
+# miss_plots[[2]]
+# miss_plots[[3]]
+
+#Similar but displays variability using box plots.
+temp3 <- 
+  rbind(temp2, temp1) %>%
+  group_by(lnalpha, sigW, phi, scenario) %>%
+  #select(-starts_with(c("lb", "ub"))) %>% 
+  mutate(change = case_when(SOC != lag(SOC) ~ TRUE, TRUE ~ FALSE),
+         n_change = cumsum(change),
+         H = N - S,
+         deviation_lb = resid / lb_goal) %>%
+  group_by(lnalpha, sigW, phi, scenario, n_change, SOC) %>%
+  summarise(length = length(n_change),
+            deviation_lb = mean(deviation_lb),
+            miss = sum(resid < 0) / length,
+            yield = sum(H),
+            min_S = min(S))
+
+
+scenario_plots2 <- function(dat, var){
+  plots <- list()
+  for(i in 1:length(unique(input$lnalpha))){
+    plots[[i]] <-
+      dat %>%
+      ggplot(aes(x = SOC, y = get(var), fill = scenario)) +
+      geom_boxplot(position = "dodge") +
+      theme_bw() +
+      facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
+                          ncol = 3, nrow = 3, page = i)
+  }
+  plots
+}
+length_plots <- scenario_plots2(temp3, "length")
+length_plots[[1]]
+length_plots[[2]]
+length_plots[[3]]
+
+dev_plots <- scenario_plots2(temp3[temp3$SOC == "Conservation", ], "deviation_lb")
+dev_plots[[1]]
+dev_plots[[2]]
+dev_plots[[3]]
+
+yield_plots <- scenario_plots2(temp3, "yield")
+yield_plots[[1]]
+yield_plots[[2]]
+yield_plots[[3]]
+
+minS_plots <- scenario_plots2(temp3[temp3$SOC == "Conservation", ], "min_S")
+minS_plots[[1]]
+minS_plots[[2]]
+minS_plots[[3]]
+
+miss_plots <- scenario_plots2(temp3[temp3$SOC == "Conservation", ], "miss")
+miss_plots[[1]]
+miss_plots[[2]]
+miss_plots[[3]]
+
+
 
 # # 
 # #Shnute params

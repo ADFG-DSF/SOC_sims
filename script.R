@@ -4,7 +4,7 @@
 # Version: 2023-09-15
 
 # Packages
-packs <- c("tidyverse", "RcppRoll", "knitr", "ggforce")
+packs <- c("tidyverse", "ggforce") #, "RcppRoll", "knitr", "ggforce")
 lapply(packs, require, character.only = TRUE)
 
 # source functions
@@ -33,7 +33,8 @@ df_power <- data.frame(lnalpha = vec_lnalpha,
                        power = c(0.5, 0.6, 0.8))
 input <- 
   expand.grid(lnalpha = vec_lnalpha, sigW = vec_sigW, phi = vec_phi) %>%
-  mutate(beta = beta, lna_p = lnalpha + (sigW * sigW / 2 / (1 - phi * phi)),
+  mutate(beta = beta, 
+         lna_p = lnalpha + (sigW * sigW / 2 / (1 - phi * phi)),
          lb_p = lna_p/beta*(0.5 - 0.07 * lna_p) * 0.8,
          ub_p = lna_p/beta*(0.5 - 0.07 * lna_p) * 1.6) %>%
   left_join(df_power, by = "lnalpha")
@@ -72,21 +73,23 @@ Ricker_plots
 #First simulation sigN = 0
 #Not very realistic
 # Simulation results
-# sim_base_list <- mapply(FUN = simSR_goal,
-#                         lnalpha = input$lnalpha,
-#                         sigW = input$sigW,
-#                         phi = input$phi,
-#                         lb_sim = input$lb_p,
-#                         ub_sim = input$ub_p,
-#                         MoreArgs = list(beta = beta,
-#                                         age0 = Chinook_age,
-#                                         Sims = input_sims,
-#                                         sigN = 0.2,
-#                                         sigF = 0,
-#                                         Hfun = H_goal),
-#                         SIMPLIFY = FALSE)
-# saveRDS(sim_base_list, file = ".\\sim_base_list.R")
-sim_base_list <- readRDS(file = ".\\sim_base_list.R")
+sim_base_list <- mapply(FUN = simSR_goal,
+                        lnalpha = input$lnalpha,
+                        sigW = input$sigW,
+                        phi = input$phi,
+                        lb_goal = input$lb_p,
+                        ub_goal = input$ub_p,
+                        lb_manage = input$lb_p,
+                        ub_manage = input$ub_p,
+                        MoreArgs = list(beta = beta,
+                                        age0 = Chinook_age,
+                                        Sims = input_sims,
+                                        sigN = 0.2,
+                                        sigF = 0,
+                                        Hfun = H_goal),
+                        SIMPLIFY = FALSE)
+saveRDS(sim_base_list, file = ".\\sim_base_list.R")
+# sim_base_list <- readRDS(file = ".\\sim_base_list.R")
 
 # * Create dataframe --------------------------------------------------------
 sim_base_df <-
@@ -94,10 +97,10 @@ sim_base_df <-
   lapply(function(x){mutate(x, sim = row_number())}) %>%
   do.call("rbind", .) %>%
   filter(R != 0) %>% #remove rows where population perished
-  mutate(resid = S - lb) %>%  
+  mutate(resid = S - lb_goal) %>%  
   select(-starts_with("N_age")) %>%
   group_by(lnalpha, sigW, phi) %>%
-  mutate(resid_roll = roll_mean(x = resid, 5, align = "right", fill = NA) / lb)
+  mutate(resid_roll = roll_mean(x = resid, 5, align = "right", fill = NA) / lb_goal)
 
 # * Plot time series --------------------------------------------------------
 #writing function here since it has dubious use outside of this single application
@@ -119,9 +122,9 @@ plot_ts <- function(dat, lnalpha0){
         facet_grid(paste0("\u03C6: ", phi) ~ paste0("\u03C3: ", sigW)) +
         ggtitle(label = bquote(log(alpha): .(lnalpha0)))
 }
-# because of the colors used teal below the lower bound represents times we fished below the lower bound w abundant fish... call the a management concern
-# teal above the upper bound represents underutilized yield... call that a yield concern
-# while grey below the lower bound represent when the fish were not there to make the goal ... call that a conservation concern
+# because of the colors used teal below the lower bound represents times we fished below the lower bound w abundant fish... call the a yield concern
+# while grey below the lower bound represent when the fish were not there to make the goal ... call that a management concern
+# When N is far below the lb it is a conservation concern
 # Note that some phi and sigma W combinations are not sustainable
 
 plot_ts(sim_base_df, 1)
@@ -146,9 +149,9 @@ sim_base_df %>%
                       "\u03C3",
                       "\u03C6",
                       "N",
-                      "P(N < lower bound)",
+                      "P(N < lower bound / 2)",
+                      "P(N < lb)",
                       "P(S < lb, N > lb)",
-                      "P(S > upper bound)",
                       "Conservation concern",
                       "Management concern",
                       "Yield concern",
@@ -171,7 +174,7 @@ sim_base_df %>%
 plot_resid <- function(dat, lnalpha0){
   dat %>%
     filter(lnalpha == lnalpha0, !is.na(SOC)) %>%
-    mutate(resid_pct = resid / lb) %>%
+    mutate(resid_pct = resid / lb_goal) %>%
     ggplot(aes(x = resid_pct, fill = SOC)) +
     geom_histogram() +
     scale_x_continuous(limits = c(-2, 2)) +
@@ -247,29 +250,6 @@ for(i in 1:length(unique(input$lnalpha))){
 Ricker_plots_Seq[[1]] + coord_cartesian(ylim = c(0, 10000))
 Ricker_plots_Seq[[2]] + coord_cartesian(ylim = c(0, 10000))
 Ricker_plots_Seq[[3]] + coord_cartesian(ylim = c(0, 10000))
-
-# * static reduced alpha -------------------------------------------------------------
-static_Seq <- simSR_goal(lb_p*beta, beta, 0, 0,
-                         age0 = c("1" = 1),
-                         Sims0 = 1,
-                         Hfun = H_target,
-                         target = lb_p,
-                         lb_sim = lb_p, ub_sim = ub_p)
-static_Seq$U
-
-#some harvest when random variability is included
-sim_Seq <- simSR_goal(lb*beta, beta, 0.5, 0,
-                      age0 = c("1" = 1),
-                      Sims0 = 100,
-                      Hfun = H_target,
-                      target = lb_p,
-                      lb_sim = lb_p, ub_sim = ub_p)
-hist(sim_Seq$U)
-mean(sim_Seq$U == 0) # mostly closed fisheries
-mean(sim_Seq$U == 0 & sim_Seq$S < lb) # Often miss lower bound wo fishing
-mean(sim_Seq$U > 0)
-mean(sim_Seq$N_age * sim_Seq$U) # average yield under reduced productivity
-mean(sim_Seq$N_age * sim_Seq$U) / (Ricker(lnalpha, beta, lb_p) - lb_p) # ~ 8% of MSY under average productivity conditions
 
 
 # * simulation reduced alpha -------------------------------------------------------------------
@@ -352,9 +332,9 @@ sim_Seq_N1_df %>%
                       "\u03C3",
                       "\u03C6",
                       "N",
-                      "P(N < lower bound)",
+                      "P(N < lower bound / 2)",
+                      "P(N < lb)",
                       "P(S < lb, N > lb)",
-                      "P(S > upper bound)",
                       "Conservation concern",
                       "Management concern",
                       "Yield concern",
@@ -425,6 +405,8 @@ plot_ts(sim_Seq_rebuild_df, 1.5)
 plot_ts(sim_Seq_rebuild_df, 1.5) + coord_cartesian(xlim = c(600, 625))
 plot_ts(sim_Seq_rebuild_df, 2)
 
+
+# * Table of concern criteria -----------------------------------------------
 sim_Seq_rebuild_df %>%
   summarise(N = length(sim),
             below_lb_fish = sum(cc, na.rm = TRUE) / N,

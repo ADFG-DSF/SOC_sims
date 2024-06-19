@@ -34,9 +34,26 @@ df_power <- data.frame(lnalpha = vec_lnalpha,
 input <- 
   expand.grid(lnalpha = vec_lnalpha, sigW = vec_sigW, phi = vec_phi) %>%
   mutate(beta = beta, 
-         lna_p = lnalpha + (sigW * sigW / 2 / (1 - phi * phi)),
-         lb_p = lna_p/beta*(0.5 - 0.07 * lna_p) * 0.8,
-         ub_p = lna_p/beta*(0.5 - 0.07 * lna_p) * 1.6) %>%
+         Smsy = get_Smsy(lnalpha, beta, TRUE, sigma = sigW, phi = phi),
+         lb_p = Smsy * 0.8,
+         ub_p = Smsy * 1.6) %>%
+  rowwise() %>%
+  mutate(lb = optimise(get_bounds, 
+                       1:Smsy, 
+                       lnalpha = lnalpha, 
+                       beta = beta,
+                       pct_MSY = 0.8,
+                       correct = TRUE,
+                       sigma = sigW,
+                       phi = phi)$minimum,
+          ub = optimise(get_bounds, 
+                        Smsy:(Smsy*5), 
+                        lnalpha = lnalpha, 
+                        beta = beta,
+                        pct_MSY = 0.8,
+                        correct = TRUE,
+                        sigma = sigW,
+                        phi = phi)$minimum) %>%
   left_join(df_power, by = "lnalpha")
 
 Chinook_age <- c('3' = 0.1, '4' = 0.2, '5' = 0.3, '6' = 0.38, '7' = 0.02)
@@ -569,85 +586,84 @@ miss_plots[[3]]
 
 
 
-# # 
-# #Shnute params
-# #Less parameter correlation during estimation
-# #Can. J. Fish. Aquat. Sci. 53: 12811293 (1996).
-# #h: harvest rate
-# #C: MSY
-# 
-# #to get h and C from alpha and beta
-# h <- rep(NA, 101)
-# alpha <- rep(NA, 100)
-# c <- rep(NA, 100)
-# 
-# for(i in 1:100){
-#   h[1] <- 0.5
-#   alpha[i] <- exp(h[i])/(1 - h[i])
-#   h[i + 1] <- h[i] + (1 - h[i])/(2 - h[i])*log(exp(1.5)/alpha[i]) #alpha = 1.5
-# }
-# h[100] #h
-# h[100]^2 / ( 1 - h[100]) / 0.0001 #C, beta = 0.0001
-# 
-# #Plot equivalence
-# ricker <- function(s) s*exp(1.5 - 0.0001*s)
-# ricker_alt <- function(s, h = 0.64, c = 8484) s/(1 - h) * exp(h - h^2/(1 - h)*s/c)
-# s <- 1:30000
-# plot(s, ricker(s), type = 'l') #alpha, beta Ricker
-# abline(0, 1)
-# Smsy <- 1.5 / 0.0001 * (0.5 - 0.07 * 1.5) #Smsy for the ricker above
-# Rmsy <- ricker(Smsy)
-# C <- Rmsy - Smsy
-# h <- C/Rmsy
-# lines(ricker_alt(s, h, C), col = "red") #h, C Ricker
-# #Find a value of h that provides negligible yielded for the same beta
-# f <- function(h, beta = 0.0001, C) {h^2 / ( 1 - h) / beta - C}
-# uniroot(f, c(0, 1), C = 100)
-# lines(ricker_alt(s, 0.095, 100), col = "green") 
-# 
-# #Curve changes with constant C and varied h
-# test <-
-#   data.frame(C = 8757,
-#            h = seq(.4, .9, length.out = 4)) %>%
-#   mutate(a = exp(h) / (1 - h),
-#          b = h^2 / ((1 - h)*C))
-# test
-# plot(s, ricker_alt(s, test$h[1], test$C[1]))
-# abline(0, 1)
-# lines(s, ricker_alt(s, test$h[2], test$C[2]))
-# lines(s, ricker_alt(s, test$h[3], test$C[3]))
-# lines(s, ricker_alt(s, test$h[4], test$C[4]))
-# 
-# #Curve changes with constant h and varied C
-# test2 <-
-#   data.frame(C = c(100, 3000, 8757, 12000),
-#              h = .57) %>%
-#   mutate(a = exp(h) / (1 - h),
-#          b = h^2 / ((1 - h)*C))
-# test2
-# 
-# plot(s, ricker_alt(s, test2$h[4], test2$C[4]), col = "red")
-# abline(0, 1)
-# lines(s, ricker_alt(s, test2$h[1], test2$C[1]), col = "red")
-# lines(s, ricker_alt(s, test2$h[2], test2$C[2]), col = "red")
-# lines(s, ricker_alt(s, test2$h[3], test2$C[3]), col = "red")
-# 
-# #Neither of the above patterns seem realistic
-# #Curve changes with constant beta and varied C
-# #So can describe what I think is the most likely situation
-# #Would be interesting to see how it works in estimation.
-# test3 <-
-#   data.frame(C = c(100, 3000, 8757, 12000),
-#              h = c(uniroot(f, c(0, 1), C = 100)[[1]],
-#                    uniroot(f, c(0, 1), C = 3000)[[1]],
-#                    uniroot(f, c(0, 1), C = 8757)[[1]],
-#                    uniroot(f, c(0, 1), C = 12000)[[1]])) %>%
-#   mutate(a = exp(h) / (1 - h),
-#          b = h^2 / ((1 - h)*C))
-# test3
-# 
-# plot(s, ricker_alt(s, test3$h[4], test3$C[4]), col = "green")
-# abline(0, 1)
-# lines(s, ricker_alt(s, test3$h[1], test3$C[1]), col = "green")
-# lines(s, ricker_alt(s, test3$h[2], test3$C[2]), col = "green")
-# lines(s, ricker_alt(s, test3$h[3], test3$C[3]), col = "green")
+#Shnute params
+#Less parameter correlation during estimation
+#Can. J. Fish. Aquat. Sci. 53: 12811293 (1996).
+#h: harvest rate
+#C: MSY
+
+#to get h and C from alpha and beta
+h <- rep(NA, 101)
+alpha <- rep(NA, 100)
+c <- rep(NA, 100)
+
+for(i in 1:100){
+  h[1] <- 0.5
+  alpha[i] <- exp(h[i])/(1 - h[i])
+  h[i + 1] <- h[i] + (1 - h[i])/(2 - h[i])*log(exp(1.5)/alpha[i]) #alpha = 1.5
+}
+h[100] #h
+h[100]^2 / ( 1 - h[100]) / 0.0001 #C, beta = 0.0001
+
+#Plot equivalence
+ricker <- function(s) s*exp(1.5 - 0.0001*s)
+ricker_alt <- function(s, h = 0.64, c = 8484) s/(1 - h) * exp(h - h^2/(1 - h)*s/c)
+s <- 1:30000
+plot(s, ricker(s), type = 'l') #alpha, beta Ricker
+abline(0, 1)
+Smsy <- 1.5 / 0.0001 * (0.5 - 0.07 * 1.5) #Smsy for the ricker above
+Rmsy <- ricker(Smsy)
+C <- Rmsy - Smsy
+h <- C/Rmsy
+lines(ricker_alt(s, h, C), col = "red") #h, C Ricker
+#Find a value of h that provides negligible yielde for the same beta
+f <- function(h, beta = 0.0001, C) {h^2 / ( 1 - h) / beta - C}
+uniroot(f, c(0, 1), C = 100)
+lines(ricker_alt(s, 0.095, 100), col = "green")
+
+#Curve changes with constant C and varied h
+test <-
+  data.frame(C = 8757,
+           h = seq(.4, .9, length.out = 4)) %>%
+  mutate(a = exp(h) / (1 - h),
+         b = h^2 / ((1 - h)*C))
+test
+plot(s, ricker_alt(s, test$h[1], test$C[1]))
+abline(0, 1)
+lines(s, ricker_alt(s, test$h[2], test$C[2]))
+lines(s, ricker_alt(s, test$h[3], test$C[3]))
+lines(s, ricker_alt(s, test$h[4], test$C[4]))
+
+#Curve changes with constant h and varied C
+test2 <-
+  data.frame(C = c(100, 3000, 8757, 12000),
+             h = .57) %>%
+  mutate(a = exp(h) / (1 - h),
+         b = h^2 / ((1 - h)*C))
+test2
+
+plot(s, ricker_alt(s, test2$h[4], test2$C[4]), col = "red")
+abline(0, 1)
+lines(s, ricker_alt(s, test2$h[1], test2$C[1]), col = "red")
+lines(s, ricker_alt(s, test2$h[2], test2$C[2]), col = "red")
+lines(s, ricker_alt(s, test2$h[3], test2$C[3]), col = "red")
+
+#Neither of the above patterns seem realistic
+#Curve changes with constant beta and varied C
+#So can describe what I think is the most likely situation
+#Would be interesting to see how it works in estimation.
+test3 <-
+  data.frame(C = c(100, 3000, 8757, 12000),
+             h = c(uniroot(f, c(0, 1), C = 100)[[1]],
+                   uniroot(f, c(0, 1), C = 3000)[[1]],
+                   uniroot(f, c(0, 1), C = 8757)[[1]],
+                   uniroot(f, c(0, 1), C = 12000)[[1]])) %>%
+  mutate(a = exp(h) / (1 - h),
+         b = h^2 / ((1 - h)*C))
+test3
+
+plot(s, ricker_alt(s, test3$h[4], test3$C[4]), col = "green")
+abline(0, 1)
+lines(s, ricker_alt(s, test3$h[1], test3$C[1]), col = "green")
+lines(s, ricker_alt(s, test3$h[2], test3$C[2]), col = "green")
+lines(s, ricker_alt(s, test3$h[3], test3$C[3]), col = "green")

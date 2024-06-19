@@ -23,6 +23,13 @@ get_SY <- function(lnalpha, beta, S, correct = FALSE, ...){
   Ricker(lnalpha_internal, beta, S) - S
 }
 
+get_bounds <- function(S, lnalpha, beta, pct_MSY, correct = FALSE, ...){
+  if(correct == TRUE){lnalpha_internal <- get_lnalpha_p(lnalpha, beta, sigma, phi, ...)}
+  else(lnalpha_internal <- lnalpha)
+  
+  (get_SY(lnalpha_internal, beta, S) - pct_MSY * get_MSY(lnalpha_internal, beta))^2
+}
+
 #Simulate salmon population dynamics with age-at-maturity and management strategy inputs.
 #Arguments:
 #   lnalpha, beta, sigW, phi: Ricker SR parameters

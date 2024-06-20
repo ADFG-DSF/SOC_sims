@@ -211,7 +211,7 @@ H_goal <- function(N_sim, lb_goal, ub_goal, power = .85, ...){
   U_ub <- if(N_sim > ub_goal){(N_sim - ub_goal) / N_sim} else{0} # Find U to fish to ub of goal
   U <- min(runif(1, U_ub, U_lb), power)
 
-  return(list(U, lb_goal, ub_goal, NA, NA, power = power))
+  return(list(U, lb_goal, ub_goal, NA, power = power))
 }
 
 # #Function to find U that archives S somewhere within the goal
@@ -239,6 +239,6 @@ H_soc <- function(N_sim, SOC_sim, lb_goal, ub_goal, lb_manage, ub_manage, power 
     }
   U <- min(runif(1, U_ub, U_lb), power)
   
-  return(list(U, lb_goal, ub_goal, lb_manage, ub_manage, power = 0.85))
+  return(list(U, lb_goal, ub_goal, lb_manage, ub_manage, power))
 }
 

@@ -4,7 +4,7 @@
 # Version: 2023-09-15
 
 # Packages
-packs <- c("tidyverse", "ggforce") #, "RcppRoll", "knitr", "ggforce")
+packs <- c("tidyverse", "ggforce", "RcppRoll") #, "knitr", "ggforce")
 lapply(packs, require, character.only = TRUE)
 
 # source functions
@@ -30,7 +30,7 @@ vec_sigW <- seq(0.25, 0.75, length.out = 3)
 vec_phi <- seq(0, .8, length.out = 3)
 beta <- 0.0001
 df_power <- data.frame(lnalpha = vec_lnalpha,
-                       power = c(0.5, 0.6, 0.8))
+                       power = c(0.5, 0.6, 0.8)) #how to pick these. High for SOC sims. Should be lower for OPY sims.
 input <- 
   expand.grid(lnalpha = vec_lnalpha, sigW = vec_sigW, phi = vec_phi) %>%
   mutate(beta = beta, 
@@ -98,6 +98,7 @@ sim_base_list <- mapply(FUN = simSR_goal,
                         ub_goal = input$ub_p,
                         lb_manage = input$lb_p,
                         ub_manage = input$ub_p,
+                        power = input$power,
                         MoreArgs = list(beta = beta,
                                         age0 = Chinook_age,
                                         Sims = input_sims,

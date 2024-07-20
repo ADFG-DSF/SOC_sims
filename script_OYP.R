@@ -19,17 +19,28 @@ input[5, ]
 #lnalpha = 1.5, sigW = 0.5, phi = 0.0
 sim_base_list <- sim_base_list[[5]]
 
+years <- 25
+
 # get SR pairs for a Ricker regression
 data <- 
   data.frame(R = sim_base_list$R,
              S = sim_base_list$S) %>%
   mutate(lnRS = ifelse(is.finite(log(R/S)) & !is.na(log(R/S)), log(R/S), NA),
          sim = row_number()) %>%
-  filter(!is.na(lnRS)) %>%
-  select(-R)
+  mutate(group = (sim - 1) %/% years)
+
+# Recruits per Spawner plot ----------------------------------------------------
+#looks like a permission issue to render this plot!
+# p <- 
+#   ggplot(data, aes(x = S, y = R)) +
+#     geom_point(alpha = 0.2) +
+#     geom_abline(aes(slope = 1, intercept = 0)) +
+#     gganimate::transition_states(group)
+# library("gifski")
+# p
+
 
 #bootstrap residuals for each 25 year group. 
-years <- 25
 boot_reps <- 500
 mods <- 
   data %>%

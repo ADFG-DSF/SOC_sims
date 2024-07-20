@@ -47,7 +47,8 @@ simSR_goal <- function(lnalpha, beta, sigW, phi, age0, Sims0, sigN = 0, sigF = 0
   a.max <- a.min + A - 1
   age <- if(is.vector(age0)){matrix(age0, Sims + A + a.min + 1, A, byrow = TRUE)} else {age0}
   # Ricker parameters
-  Seq <- lnalpha / beta
+  lnalpha_vec <- if(length(lnalpha) == 1){rep(lnalpha, Sims + A + a.min)}else(c(rep(lnalpha[1], Sims - length(lnalpha) + A + a.min), lnalpha))
+  Seq <- mean(lnalpha_vec) / beta
   
   # initial values
   R <- E1R <- E2R <- whiteresid <- lnalpha.y <- rep(NA, Sims + A + a.min + 1)
@@ -60,7 +61,7 @@ simSR_goal <- function(lnalpha, beta, sigW, phi, age0, Sims0, sigN = 0, sigF = 0
     }
   }
   
-  S <- N <- N_hat <- epsF <- U <- Ft <- H <- Rhat <- lnRhatShat <- fittedR <- cc <- mc <- yc <- SOC <- lb_manage <- ub_manage <- lb_goal <- ub_goal <- rep(NA, Sims + A + a.min + 1)
+  S <- N <- N_hat <- epsF <- U <- Ft <- H <- Rhat <- lnRhatShat <- fittedR <- cc <- mc <- yc <- SOC <- vec_lb_manage <- vec_ub_manage <- vec_lb_goal <- vec_ub_goal <- rep(NA, Sims + A + a.min + 1)
   
   # recursive portion...
   for (c in (A + a.min):(Sims + A + a.min)) {
@@ -70,30 +71,30 @@ simSR_goal <- function(lnalpha, beta, sigW, phi, age0, Sims0, sigN = 0, sigF = 0
     N_hat[c] <- N[c]*rlnorm(1, sdlog = sigN)
     temp_U <- Hfun(N_sim = N_hat[c], SOC_sim = SOC[c - 1], ...)
     U[c] <- temp_U[[1]]
-    lb_goal[c] <- temp_U[[2]]
-    ub_goal[c] <- temp_U[[3]]
-    lb_manage[c] <- temp_U[[4]]
-    ub_manage[c] <- temp_U[[5]]
+    vec_lb_goal[c] <- temp_U[[2]]
+    vec_ub_goal[c] <- temp_U[[3]]
+    vec_lb_manage[c] <- temp_U[[4]]
+    vec_ub_manage[c] <- temp_U[[5]]
     Ft[c] <- -log(1 - U[c])*exp(epsF[c])
     S[c] <- N[c] * exp(-Ft[c])
-    cc[c] <- get_cc(N_sim = S[c], ...)
+    cc[c] <- get_cc(S_sim = S[c], ...)
     mc[c] <- get_mc(N_sim = N[c], ...)
     yc[c] <- get_yc(S_sim = S[c], ...)
     SOC[c] <- if(c >= (A + a.min + 5)){get_SOC(SOC_sim = SOC[c - 1], cc_sim = cc[(c-4):c], mc_sim = mc[(c-4):c], yc_sim = yc[(c-4):c])} else(NA)
     H[c] <- N[c] - S[c]
     
-    E1R[c + 1] <- S[c]*exp(lnalpha - beta*S[c])
+    E1R[c + 1] <- S[c]*exp(lnalpha_vec[c] - beta*S[c])
     E2R[c + 1] <- E1R[c + 1]*exp(phi * redresid[c])
     R[c + 1] <- if(S[c] <= 100){0} else{E2R[c + 1]*rlnorm(1, 0, sigW)}
     redresid[c + 1] <- log(R[c + 1] / E1R[c + 1])
-    lnalpha.y[c + 1] <- lnalpha + redresid[c + 1]
+    lnalpha.y[c + 1] <- lnalpha_vec[c] + redresid[c + 1]
     
     for (a in 1:A) {
       N_age[(c + 1) + a.max - (a - 1), (A + 1 - a)] <- age[c, (A + 1 - a)] * R[c + 1]
     }
   }
   
-  return(list(lnalpha = rep(lnalpha, Sims0),
+  return(list(lnalpha = lnalpha_vec[(length(lnalpha_vec) - Sims0):(length(lnalpha_vec) - 1)],
               sigW = rep(sigW, Sims0),
               phi = rep(phi, Sims0),
               S = S[(length(S) - Sims0):(length(S) - 1)],
@@ -104,10 +105,10 @@ simSR_goal <- function(lnalpha, beta, sigW, phi, age0, Sims0, sigN = 0, sigF = 0
               N_hat = N_hat[(length(N_hat) - Sims0):(length(N_hat) - 1)],
               lnalpha.y = lnalpha.y[(length(lnalpha.y) + 1 - Sims0):length(lnalpha.y)],
               N_age = N_age[(dim(N_age)[1] + 1 - A - a.min - Sims0):(dim(N_age)[1] - A - a.min), ],
-              lb_goal = lb_goal[(length(lb_goal) - Sims0):(length(lb_goal) - 1)],
-              ub_goal = ub_goal[(length(ub_goal) - Sims0):(length(ub_goal) - 1)],
-              lb_manage = lb_manage[(length(lb_manage) - Sims0):(length(lb_manage) - 1)],
-              ub_manage = ub_manage[(length(ub_manage) - Sims0):(length(ub_manage) - 1)],
+              lb_goal = vec_lb_goal[(length(vec_lb_goal) - Sims0):(length(vec_lb_goal) - 1)],
+              ub_goal = vec_ub_goal[(length(vec_ub_goal) - Sims0):(length(vec_ub_goal) - 1)],
+              lb_manage = vec_lb_manage[(length(vec_lb_manage) - Sims0):(length(vec_lb_manage) - 1)],
+              ub_manage = vec_ub_manage[(length(vec_ub_manage) - Sims0):(length(vec_ub_manage) - 1)],
               cc = cc[(length(cc) - Sims0):(length(cc) - 1)],
               mc = mc[(length(mc) - Sims0):(length(mc) - 1)],
               yc = yc[(length(yc) - Sims0):(length(yc) - 1)],
@@ -118,10 +119,10 @@ simSR_goal <- function(lnalpha, beta, sigW, phi, age0, Sims0, sigN = 0, sigF = 0
 #Function to determine if a "conservation concern" occurred for each year of a simulation where conservation concern is defined as a 
 #run size that was less than 50% of the eg lower bound.
 #Arguments:
-#   N_sim: Run size from the simulation.
+#   S_sim: Escapement from the simulation
 #   lb_manage: Lower bound of the escapement goal based on historical SR relationship.
-get_cc <- function(N_sim, lb_goal, ...){  
-  cc <- if(N_sim < lb_goal * 0.5){TRUE} else(FALSE)
+get_cc <- function(S_sim, lb_goal, ...){  
+  cc <- if(S_sim < lb_goal * 0.5){TRUE} else(FALSE)
   return(cc)
 }
 
@@ -147,8 +148,8 @@ get_yc <- function(S_sim, lb_goal, ...){
 
 #Function to determine if SOC status for each year of a simulation.
 #Arguments:
-#   N_sim: Run size from the simulation.
-#   lb_sim: Lower bound of the escapement goal from the simulation.
+#   
+#   
 get_SOC <- function(SOC_sim, cc_sim, mc_sim, yc_sim){  
   from_noconcern <- function(cc_sim, mc_sim, yc_sim){
     if(sum(cc_sim, na.rm = TRUE) >= 4){"Conservation"} else(
@@ -211,7 +212,7 @@ H_goal <- function(N_sim, lb_goal, ub_goal, power = .85, ...){
   U_ub <- if(N_sim > ub_goal){(N_sim - ub_goal) / N_sim} else{0} # Find U to fish to ub of goal
   U <- min(runif(1, U_ub, U_lb), power)
 
-  return(list(U, lb_goal, ub_goal, NA, power = power))
+  return(list(U, lb_goal, ub_goal, NA, NA, power = power))
 }
 
 # #Function to find U that archives S somewhere within the goal
@@ -225,13 +226,13 @@ H_goal <- function(N_sim, lb_goal, ub_goal, power = .85, ...){
 H_soc <- function(N_sim, SOC_sim, lb_goal, ub_goal, lb_manage, ub_manage, power = .85, ...){
   U_lb <- U_ub <- U <- NA
   
-  U_lb <- if(SOC_sim %in% "Conservation"){
+  U_lb <- if(SOC_sim %in% c("Conservation", "Management")){
       if(N_sim > lb_manage){(N_sim - lb_manage) / N_sim} else{0}
     }
     else{
       if(N_sim > lb_goal){(N_sim - lb_goal) / N_sim} else{0} # Find U to fish to lb of goal
     }
-  U_ub <- if(SOC_sim %in% "Conservation"){
+  U_ub <- if(SOC_sim %in% c("Conservation", "Management")){
       if(N_sim > ub_manage){(N_sim - ub_manage) / N_sim} else{0}
     } 
     else{

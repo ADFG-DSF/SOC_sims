@@ -94,26 +94,29 @@ simSR_goal <- function(lnalpha, beta, sigW, phi, age0, Sims0, sigN = 0, sigF = 0
     }
   }
   
-  return(list(lnalpha = lnalpha_vec[(length(lnalpha_vec) - Sims0):(length(lnalpha_vec) - 1)],
-              sigW = rep(sigW, Sims0),
-              phi = rep(phi, Sims0),
-              S = S[(length(S) - Sims0):(length(S) - 1)],
-              F = Ft[(length(Ft) - Sims0):(length(Ft) - 1)],
-              U = U[(length(U) - Sims0):(length(U) - 1)],
-              R = R[(length(R) + 1 - Sims0):length(R)],
-              N = N[(length(N) - Sims0):(length(N) - 1)],
-              N_hat = N_hat[(length(N_hat) - Sims0):(length(N_hat) - 1)],
-              lnalpha.y = lnalpha.y[(length(lnalpha.y) + 1 - Sims0):length(lnalpha.y)],
-              N_age = N_age[(dim(N_age)[1] + 1 - A - a.min - Sims0):(dim(N_age)[1] - A - a.min), ],
-              lb_goal = vec_lb_goal[(length(vec_lb_goal) - Sims0):(length(vec_lb_goal) - 1)],
-              ub_goal = vec_ub_goal[(length(vec_ub_goal) - Sims0):(length(vec_ub_goal) - 1)],
-              lb_manage = vec_lb_manage[(length(vec_lb_manage) - Sims0):(length(vec_lb_manage) - 1)],
-              ub_manage = vec_ub_manage[(length(vec_ub_manage) - Sims0):(length(vec_ub_manage) - 1)],
-              cc = cc[(length(cc) - Sims0):(length(cc) - 1)],
-              mc = mc[(length(mc) - Sims0):(length(mc) - 1)],
-              yc = yc[(length(yc) - Sims0):(length(yc) - 1)],
-              SOC = SOC[(length(SOC) - Sims0):(length(SOC) - 1)]
-  ))
+  return(data.frame(sim = 1:Sims0,
+                    lnalpha = lnalpha_vec[(length(lnalpha_vec) - Sims0):(length(lnalpha_vec) - 1)],
+                    sigW = rep(sigW, Sims0),
+                    phi = rep(phi, Sims0),
+                    sigN = rep(sigN, Sims0),
+                    sigF = rep(sigF, Sims0),
+                    S = S[(length(S) - Sims0):(length(S) - 1)],
+                    F = Ft[(length(Ft) - Sims0):(length(Ft) - 1)],
+                    U = U[(length(U) - Sims0):(length(U) - 1)],
+                    R = R[(length(R) + 1 - Sims0):length(R)],
+                    N = N[(length(N) - Sims0):(length(N) - 1)],
+                    N_hat = N_hat[(length(N_hat) - Sims0):(length(N_hat) - 1)],
+                    lnalpha.y = lnalpha.y[(length(lnalpha.y) + 1 - Sims0):length(lnalpha.y)],
+                    N_age = N_age[(dim(N_age)[1] + 1 - A - a.min - Sims0):(dim(N_age)[1] - A - a.min), ],
+                    lb_goal = vec_lb_goal[(length(vec_lb_goal) - Sims0):(length(vec_lb_goal) - 1)],
+                    ub_goal = vec_ub_goal[(length(vec_ub_goal) - Sims0):(length(vec_ub_goal) - 1)],
+                    lb_manage = vec_lb_manage[(length(vec_lb_manage) - Sims0):(length(vec_lb_manage) - 1)],
+                    ub_manage = vec_ub_manage[(length(vec_ub_manage) - Sims0):(length(vec_ub_manage) - 1)],
+                    cc = cc[(length(cc) - Sims0):(length(cc) - 1)],
+                    mc = mc[(length(mc) - Sims0):(length(mc) - 1)],
+                    yc = yc[(length(yc) - Sims0):(length(yc) - 1)],
+                    SOC = SOC[(length(SOC) - Sims0):(length(SOC) - 1)]) %>%
+           filter(R != 0))
 }
 
 #Function to determine if a "conservation concern" occurred for each year of a simulation where conservation concern is defined as a 

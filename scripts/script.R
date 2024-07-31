@@ -31,7 +31,7 @@ vec_sigW <- seq(0.25, 0.75, length.out = 3)
 vec_phi <- seq(0, .7, length.out = 3)
 beta <- 0.0001
 df_power <- data.frame(lnalpha = vec_lnalpha,
-                       power = c(0.5, 0.6, 0.8)) #how to pick these. High for SOC sims. Should be lower for OPY sims.
+                       power = c(0.6, 0.7, 0.8)) #how to pick these. High for SOC sims. Should be lower for OPY sims.
 input <- 
   expand.grid(lnalpha = vec_lnalpha, sigW = vec_sigW, phi = vec_phi) %>%
   mutate(beta = beta, 
@@ -92,33 +92,25 @@ Ricker_plots[[3]] + coord_cartesian(xlim = c(0, 50000), ylim = c(0, 50000))
 
 # Base case -------------------------------------------------------------------
 # Simulation results
-sim_base_list <- mapply(FUN = simSR_goal,
-                        lnalpha = input$lnalpha,
-                        sigW = input$sigW,
-                        phi = input$phi,
-                        lb_goal = input$lb_pctMSY,
-                        ub_goal = input$ub_pctMSY,
-                        power = input$power,
-                        MoreArgs = list(beta = beta,
-                                        age0 = Chinook_age,
-                                        Sims0 = input_sims,
-                                        sigN = 0.2,
-                                        sigF = 0,
-                                        Hfun = H_goal),
-                        SIMPLIFY = FALSE)
-saveRDS(sim_base_list, file = ".\\sim_base_list.R")
-# sim_base_list <- readRDS(file = ".\\sim_base_list.R")
-
-# * Create dataframe --------------------------------------------------------
-sim_base_df <-
-  lapply(sim_base_list, as.data.frame) %>%
-  lapply(function(x){mutate(x, sim = row_number())}) %>%
-  do.call("rbind", .) %>%
-  filter(R != 0) %>% #remove rows where population perished
-  mutate(resid = S - lb_goal) %>%  
-  select(-starts_with("N_age")) %>%
-  group_by(lnalpha, sigW, phi) %>%
-  mutate(resid_roll = roll_mean(x = resid, 5, align = "right", fill = NA) / lb_goal)
+sim_base <- 
+  mapply(FUN = simSR_goal,
+         lnalpha = input$lnalpha,
+         sigW = input$sigW,
+         phi = input$phi,
+         lb_goal = input$lb_pctMSY,
+         ub_goal = input$ub_pctMSY,
+         power = input$power,
+         MoreArgs = list(beta = beta,
+                         age0 = Chinook_age,
+                         Sims0 = input_sims,
+                         sigN = 0.2,
+                         sigF = 0,
+                         Hfun = H_goal),
+         SIMPLIFY = FALSE) %>%
+  do.call("rbind", .)
+  
+saveRDS(sim_base, file = ".\\sim_base.R")
+# sim_base <- readRDS(file = ".\\sim_base.R")
 
 # * Plot time series --------------------------------------------------------
 #writing function here since it has dubious use outside of this single application
@@ -144,12 +136,13 @@ plot_ts <- function(dat, lnalpha0){
 # while grey below the lower bound represent when the fish were not there to make the goal ... call that a management concern
 # When N is far below the lb it is a conservation concern
 
-plot_ts(sim_base_df, 1)
-plot_ts(sim_base_df, 1.5)
-plot_ts(sim_base_df, 2)
+#plot_ts(sim_base, 1)
+plot_ts(sim_base, 1.5)
+#plot_ts(sim_base, 2)
 
 # * Table of concern criteria -----------------------------------------------
-sim_base_df %>%
+sim_base %>%
+  group_by(lnalpha, sigW, phi) %>%
   summarise(N = length(sim),
             below_lb_fish = sum(cc, na.rm = TRUE) / N,
             below_lb_harvest = sum(mc, na.rm = TRUE)/ N,
@@ -170,6 +163,7 @@ sim_base_df %>%
                       "Management concern",
                       "Yield concern"))
 
+#Need to redo. residual not calculated yet.
 # * Average 5 year rolling residual as a diagnostic -------------------------
 # Promising idea to explore later
 # plot_resid <- function(dat, lnalpha0){
@@ -271,35 +265,25 @@ input %>%
 
 #simulation results
 # Simulation results
-sim_Seq_list <- mapply(FUN = simSR_goal,
-                          lnalpha = input$lb_pctMSY*beta,  #reduced ln_alpha
-                          sigW = input$sigW,
-                          phi = input$phi,
-                          lb_goal = input$lb_pctMSY,
-                          ub_goal = input$ub_pctMSY,
-                          MoreArgs = list(beta = beta,
-                                          age0 = Chinook_age,
-                                          Sims0 = input_sims,
-                                          sigN = 0.2,
-                                          sigF = 0,
-                                           Hfun = H_goal),
-                          SIMPLIFY = FALSE)
-saveRDS(sim_Seq_list, file = ".\\sim_Seq_list.R")
-#sim_Seq_list <- readRDS(file = ".\\sim_Seq_list.R")
-
-
-# * Create dataframe --------------------------------------------------------
-sim_Seq_df <-
-  lapply(sim_Seq_list, as.data.frame) %>%
+sim_Seq <- 
+  mapply(FUN = simSR_goal,
+         lnalpha = input$lb_pctMSY*beta,  #reduced ln_alpha
+         sigW = input$sigW,
+         phi = input$phi,
+         lb_goal = input$lb_pctMSY,
+         ub_goal = input$ub_pctMSY,
+         MoreArgs = list(beta = beta,
+                         age0 = Chinook_age,
+                         Sims0 = input_sims,
+                         sigN = 0.2,
+                         sigF = 0,
+                         Hfun = H_goal),
+         SIMPLIFY = FALSE) %>%
   lapply(function(x) rename(x, lnalpha_red = lnalpha)) %>%
-  lapply(function(x){mutate(x, sim = row_number())}) %>%
   do.call("rbind", .) %>%
-  mutate(lnalpha = rep(input$lnalpha, each = input_sims)) %>%
-  filter(R != 0) %>% #remove rows where population perished
-  mutate(resid = S - lb_goal) %>%  
-  select(-starts_with("N_age")) %>%
-  group_by(lnalpha, sigW, phi) %>%
-  mutate(resid_roll = roll_mean(x = resid, 5, align = "right", fill = NA) / lb_goal)
+  left_join(input[, c("lnalpha", "lb_pctMSY", "ub_pctMSY")], by = c("lb_goal" = "lb_pctMSY", "ub_goal" = "ub_pctMSY"))
+saveRDS(sim_Seq, file = ".\\sim_Seq.R")
+#sim_Seq <- readRDS(file = ".\\sim_Seq.R")
 
 
 
@@ -307,15 +291,16 @@ sim_Seq_df <-
 # because of the colors used teal below the lower bound represents times we fished below the lower bound w abundant fish... call the a yield concern
 # while grey below the lower bound represent when the fish were not there to make the goal ... call that a management concern
 # When N is far below the lb it is a conservation concern
-plot_ts(sim_Seq_df, 1)
-plot_ts(sim_Seq_df, 1.5)
-plot_ts(sim_Seq_df, 2)
+plot_ts(sim_Seq, 1)
+plot_ts(sim_Seq, 1.5)
+plot_ts(sim_Seq, 2)
 
 
 
 # * Table of concern criteria -----------------------------------------------
 # estimation error for N introduces lb misses based on fishing and increased ub misses.
-sim_Seq_df %>%
+sim_Seq %>%
+  group_by(lnalpha, sigW, phi) %>%
   summarise(N = length(sim),
             below_lb_fish = sum(cc, na.rm = TRUE) / N,
             below_lb_harvest = sum(mc, na.rm = TRUE) / N,
@@ -337,21 +322,22 @@ sim_Seq_df %>%
                       "Yield concern"))
 
 # * Base Seq compare -----------------------------------------------
-temp_base <- sim_base_df %>%
+temp_base <- sim_base %>%
   mutate(scenario = "base")
-temp_Seq <- sim_Seq_df %>%
-  mutate(scenario = "Seq")
+temp_Seq <- sim_Seq %>%
+  mutate(scenario = "Seq") %>%
+  select(-lnalpha_red)
 baseSeq_combined <- 
   rbind(temp_base, temp_Seq) %>%
   group_by(lnalpha, sigW, phi, scenario) %>%
   select(-F, -U, -N) %>% 
   mutate(change = case_when(SOC != lag(SOC) ~ TRUE, TRUE ~ FALSE),
          n_change = cumsum(change),
-         deviation_lb = resid / lb_goal) %>%
+         deviation_lb = (S - lb_goal) / lb_goal) %>%
   group_by(lnalpha, sigW, phi, scenario, n_change, SOC) %>%
   summarise(length = length(n_change),
             deviation_lb = mean(deviation_lb),
-            miss = sum(resid < 0) / length,
+            miss = sum((S < lb_goal)) / length,
             mean_S = mean(S))
 
 baseSeq_pct_SOC <- list()
@@ -380,34 +366,25 @@ baseSeq_pct_SOC[[3]]
 # Rebuild -----------------------------------------------------------------
 # Can managing to a higher goal during management or conservation concerns reduce the duration of concern designations or 
 # increase escapement during concern designations
-sim_Seq_rebuild_list <- mapply(FUN = simSR_goal, 
-                          lnalpha = input$lb_pctMSY*beta,  #reduced ln_alpha 
-                          sigW = input$sigW, 
-                          phi = input$phi,
-                          lb_goal = input$lb_pctMSY,
-                          ub_goal = input$ub_pctMSY,
-                          lb_manage = input$ub_pctMSY,
-                          ub_manage = input$ub_pctMSY,
-                          MoreArgs = list(beta = beta, 
-                                          age0 = Chinook_age,
-                                          Sims = input_sims, 
-                                          sigN = 0.2,
-                                          sigF = 0,
-                                          Hfun = H_soc),
-                          SIMPLIFY = FALSE)
-
-# * Create dataframe --------------------------------------------------------
-sim_Seq_rebuild_df <-
-  lapply(sim_Seq_rebuild_list, as.data.frame) %>%
+sim_Seq_rebuild <- 
+  mapply(FUN = simSR_goal, 
+         lnalpha = input$lb_pctMSY*beta,  #reduced ln_alpha 
+         sigW = input$sigW, 
+         phi = input$phi,
+         lb_goal = input$lb_pctMSY,
+         ub_goal = input$ub_pctMSY,
+         lb_manage = input$ub_pctMSY,
+         ub_manage = input$ub_pctMSY,
+         MoreArgs = list(beta = beta, 
+                         age0 = Chinook_age,
+                         Sims = input_sims, 
+                         sigN = 0.2,
+                         sigF = 0,
+                         Hfun = H_soc),
+         SIMPLIFY = FALSE) %>%
   lapply(function(x) rename(x, lnalpha_red = lnalpha)) %>%
-  lapply(function(x){mutate(x, sim = row_number())}) %>%
   do.call("rbind", .) %>%
-  mutate(lnalpha = rep(input$lnalpha, each = input_sims)) %>%
-  filter(R != 0) %>% #remove rows where population perished
-  mutate(resid = S - lb_goal) %>%  
-  select(-starts_with("N_age")) %>%
-  group_by(lnalpha, sigW, phi) %>%
-  mutate(resid_roll = roll_mean(x = resid, 5, align = "right", fill = NA) / lb_goal)
+  left_join(input[, c("lnalpha", "lb_pctMSY", "ub_pctMSY")], by = c("lb_goal" = "lb_pctMSY", "ub_goal" = "ub_pctMSY"))
 
 
 
@@ -416,14 +393,15 @@ sim_Seq_rebuild_df <-
 # teal above the upper bound represents underutilized yield... call that a yield concern
 # while grey below the lower bound represent when the fish were not there to make the goal ... call that a conservation concern
 # Note that some phi and sigma W combinations are not sustainable
-plot_ts(sim_Seq_rebuild_df, 1)
-plot_ts(sim_Seq_rebuild_df, 1.5)
-plot_ts(sim_Seq_rebuild_df, 1.5) + coord_cartesian(xlim = c(600, 625))
-plot_ts(sim_Seq_rebuild_df, 2)
+plot_ts(sim_Seq_rebuild, 1)
+plot_ts(sim_Seq_rebuild, 1.5)
+plot_ts(sim_Seq_rebuild, 1.5) + coord_cartesian(xlim = c(600, 625))
+plot_ts(sim_Seq_rebuild, 2)
 
 
 # * Table of concern criteria -----------------------------------------------
-sim_Seq_rebuild_df %>%
+sim_Seq_rebuild %>%
+  group_by(lnalpha, sigW, phi) %>%
   summarise(N = length(sim),
             below_lb_fish = sum(cc, na.rm = TRUE) / N,
             below_lb_harvest = sum(mc, na.rm = TRUE) / N,
@@ -450,14 +428,14 @@ sim_Seq_rebuild_df %>%
 #Summary statistics for status quo and Rebuilding fisheries under reduced productivity.
 
 #Plot of point estimates for each Ricker parameter combination
-tab_rebuild <- sim_Seq_rebuild_df %>%
+tab_rebuild <- sim_Seq_rebuild %>%
   filter(max(sim) == input_sims) %>%
   filter(SOC %in% c("Conservation", "Management")) %>%
   group_by(lnalpha, sigW, phi) %>% 
   summarise(S = mean(S), N = mean(N), R = mean(R)) %>%
   mutate(scenario = "Rebuild") %>%
   pivot_longer(cols = c(S, N, R), names_to = "stat", values_to = "value")
-tab_statusquo <- sim_Seq_df %>%
+tab_statusquo <- sim_Seq %>%
   filter(max(sim) == input_sims) %>%
   filter(SOC %in% c("Conservation", "Management")) %>%
   group_by(lnalpha, sigW, phi) %>% 
@@ -470,30 +448,10 @@ bind_rows(tab_rebuild, tab_statusquo) %>%
   geom_jitter(width = 50, height = 50) +
   geom_abline(slope = 1, intercept = 0)
 
-tab_regime_rebuild <- sim_regime_rebuild_df %>%
-  filter(max(sim) == input_sims) %>%
-  filter(SOC %in% c("Conservation", "Management")) %>%
-  group_by(lnalpha, sigW, phi) %>% 
-  summarise(S = mean(S), N = mean(N), R = mean(R)) %>%
-  mutate(scenario = "Rebuild") %>%
-  pivot_longer(cols = c(S, N, R), names_to = "stat", values_to = "value")
-tab_regime_statusquo <- sim_regime_statusquo_df %>%
-  filter(max(sim) == input_sims) %>%
-  filter(SOC %in% c("Conservation", "Management")) %>%
-  group_by(lnalpha, sigW, phi) %>% 
-  summarise(S = mean(S), N = mean(N), R = mean(R)) %>%
-  mutate(scenario = "Status_Quo") %>%
-  pivot_longer(cols = c(S, N, R), names_to = "stat", values_to = "value")
-bind_rows(tab_regime_rebuild, tab_regime_statusquo) %>%
-  pivot_wider(names_from = scenario, values_from = value) %>%
-  ggplot(aes(x = Status_Quo, y = Rebuild, color = stat)) +
-  geom_jitter(width = 0, height = 0) +
-  geom_abline(slope = 1, intercept = 0)
-
 #Compare different SOC designation statistics
-temp_sq <- sim_Seq_df %>%
+temp_sq <- sim_Seq %>%
   mutate(scenario = "StatusQuo")
-temp_rebuild <- sim_Seq_rebuild_df %>%
+temp_rebuild <- sim_Seq_rebuild %>%
   mutate(scenario = "Rebuild")
 Seq_combined <- 
   rbind(temp_rebuild, temp_sq) %>%
@@ -501,11 +459,11 @@ Seq_combined <-
   select(-F, -U, -N) %>% 
   mutate(change = case_when(SOC != lag(SOC) ~ TRUE, TRUE ~ FALSE),
          n_change = cumsum(change),
-         deviation_lb = resid / lb_goal) %>%
+         deviation_lb = (S - lb_goal) / lb_goal) %>%
   group_by(lnalpha, sigW, phi, scenario, n_change, SOC) %>%
   summarise(length = length(n_change),
             deviation_lb = mean(deviation_lb),
-            miss = sum(resid < 0) / length,
+            miss = sum(S < lb_goal) / length,
             mean_S = mean(S))
 
 # How many SOC designations?
@@ -593,71 +551,58 @@ get_lnalpha_ts <- function(base, red){
 lnalpha_regime <- mapply(get_lnalpha_ts, base = input$lnalpha, red = input$lb_pctMSY * input$beta, SIMPLIFY = FALSE)
 
 #fixed escapement goals
-sim_regime_statusquo_list <- mapply(FUN = simSR_goal, 
-                                 lnalpha = lnalpha_regime,  
-                                 sigW = input$sigW, 
-                                 phi = input$phi,
-                                 lb_goal = input$lb_pctMSY,
-                                 ub_goal = input$ub_pctMSY,
-                                 MoreArgs = list(beta = beta, 
-                                                 age0 = Chinook_age,
-                                                 Sims0 = input_sims, 
-                                                 sigN = 0.1,
-                                                 sigF = 0,
-                                                 Hfun = H_goal),
-                                 SIMPLIFY = FALSE)
-sim_regime_statusquo_df <-
-  lapply(sim_regime_statusquo_list, as.data.frame) %>%
+sim_regime_statusquo <- 
+  mapply(FUN = simSR_goal, 
+         lnalpha = lnalpha_regime,  
+         sigW = input$sigW, 
+         phi = input$phi,
+         lb_goal = input$lb_pctMSY,
+         ub_goal = input$ub_pctMSY,
+         MoreArgs = list(beta = beta, 
+                         age0 = Chinook_age,
+                         Sims0 = input_sims, 
+                         sigN = 0.1,
+                         sigF = 0,
+                         Hfun = H_goal),
+         SIMPLIFY = FALSE) %>%
   lapply(function(x) rename(x, lnalpha_red = lnalpha)) %>%
-  lapply(function(x){mutate(x, sim = row_number())}) %>%
   do.call("rbind", .) %>%
-  mutate(lnalpha = rep(input$lnalpha, each = input_sims)) %>%
-  filter(R != 0) %>% #remove rows where population perished
-  mutate(resid = S - lb_goal) %>%  
-  select(-starts_with("N_age")) %>%
-  group_by(lnalpha, sigW, phi) %>%
-  mutate(resid_roll = roll_mean(x = resid, 5, align = "right", fill = NA) / lb_goal)
+  left_join(input[, c("lnalpha", "lb_pctMSY", "ub_pctMSY")], by = c("lb_goal" = "lb_pctMSY", "ub_goal" = "ub_pctMSY"))
 
 #raise escapement goals when in Conservation or Management concern
-sim_regime_rebuild_list <- mapply(FUN = simSR_goal, 
-                               lnalpha = lnalpha_regime,  
-                               sigW = input$sigW, 
-                               phi = input$phi,
-                               lb_goal = input$lb_pctMSY,
-                               ub_goal = input$ub_pctMSY,
-                               lb_manage = input$ub_pctMSY,
-                               ub_manage = input$ub_pctMSY,
-                               MoreArgs = list(beta = beta, 
-                                               age0 = Chinook_age,
-                                               Sims0 = input_sims, 
-                                               sigN = 0.1,
-                                               sigF = 0,
-                                               Hfun = H_soc),
-                               SIMPLIFY = FALSE)
-sim_regime_rebuild_df <-
-  lapply(sim_regime_rebuild_list, as.data.frame) %>%
+sim_regime_rebuild <- 
+  mapply(FUN = simSR_goal,
+         lnalpha = lnalpha_regime,
+         sigW = input$sigW,
+         phi = input$phi,
+         lb_goal = input$lb_pctMSY,
+         ub_goal = input$ub_pctMSY,
+         lb_manage = input$ub_pctMSY,
+         ub_manage = input$ub_pctMSY,
+         MoreArgs = list(beta = beta,
+                         age0 = Chinook_age,
+                         Sims0 = input_sims,
+                         sigN = 0.1,
+                         sigF = 0,
+                         Hfun = H_soc),
+         SIMPLIFY = FALSE)  %>%
   lapply(function(x) rename(x, lnalpha_red = lnalpha)) %>%
-  lapply(function(x){mutate(x, sim = row_number())}) %>%
   do.call("rbind", .) %>%
-  mutate(lnalpha = rep(input$lnalpha, each = input_sims)) %>%
-  filter(R != 0) %>% #remove rows where population perished
-  mutate(resid = S - lb_goal) %>%  
-  select(-starts_with("N_age")) %>%
-  group_by(lnalpha, sigW, phi) %>%
-  mutate(resid_roll = roll_mean(x = resid, 5, align = "right", fill = NA) / lb_goal)
+  left_join(input[, c("lnalpha", "lb_pctMSY", "ub_pctMSY")], by = c("lb_goal" = "lb_pctMSY", "ub_goal" = "ub_pctMSY"))
+
 
 # * Compare management under Seq regime ------------------------------------------------------
 #Summary statistics for status quo and Rebuilding fisheries under reduced productivity.
 
 #Plot of point estimates for each Ricker parameter combination
-tab_regime_rebuild <- sim_regime_rebuild_df %>%
+tab_regime_rebuild <- sim_regime_rebuild %>%
   filter(max(sim) == input_sims) %>%
   filter(SOC %in% c("Conservation", "Management")) %>%
   group_by(lnalpha, sigW, phi) %>% 
   summarise(S = mean(S), N = mean(N), R = mean(R)) %>%
   mutate(scenario = "Rebuild") %>%
   pivot_longer(cols = c(S, N, R), names_to = "stat", values_to = "value")
-tab_regime_statusquo <- sim_regime_statusquo_df %>%
+tab_regime_statusquo <- sim_regime_statusquo %>%
   filter(max(sim) == input_sims) %>%
   filter(SOC %in% c("Conservation", "Management")) %>%
   group_by(lnalpha, sigW, phi) %>% 
@@ -671,9 +616,9 @@ bind_rows(tab_regime_rebuild, tab_regime_statusquo) %>%
   geom_abline(slope = 1, intercept = 0)
 
 #Compare different SOC designation statistics
-temp_sq <- sim_regime_statusquo_df %>%
+temp_sq <- sim_regime_statusquo %>%
   mutate(scenario = "StatusQuo")
-temp_rebuild <- sim_regime_rebuild_df %>%
+temp_rebuild <- sim_regime_rebuild %>%
   mutate(scenario = "Rebuild")
 regime_combined <- 
   rbind(temp_rebuild, temp_sq) %>%
@@ -681,11 +626,11 @@ regime_combined <-
   select(-F, -U, -N) %>% 
   mutate(change = case_when(SOC != lag(SOC) ~ TRUE, TRUE ~ FALSE),
          n_change = cumsum(change),
-         deviation_lb = resid / lb_goal) %>%
+         deviation_lb = (S - lb_goal) / lb_goal) %>%
   group_by(lnalpha, sigW, phi, scenario, n_change, SOC) %>%
   summarise(length = length(n_change),
             deviation_lb = mean(deviation_lb),
-            miss = sum(resid < 0) / length,
+            miss = sum(S < lb_goal) / length,
             mean_S = mean(S))
 
 # How many SOC designations?

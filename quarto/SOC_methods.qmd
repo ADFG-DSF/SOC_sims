@@ -70,7 +70,7 @@ Ricker_plots[[i]] <-
       geom_point(aes(x = Smax, y = Rmax)) +
       geom_segment(aes(x = Smsy, xend = Smsy, y = Smsy, yend = Rmsy), linetype = 3) +
       theme_bw() +
-      facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
+      facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("log(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
                           #scales = "free_y",
                           ncol = 3, nrow = 3, page = i)
 }
@@ -78,7 +78,7 @@ Ricker_plots[[i]] <-
 
 ## Methods
 
-Herein we used simulation to explore the behavior of the Sustainable Salmon Policy's stock of concern designations under alternative ocean productivity regimes. These simulations are intended to inform expectations regarding stock of concern designations and help standardize the Department decision making process wrt soc designations.
+A versatile salmon stock-recruit and fishery simulation model is presented. The goal of this document is to present the model, pick a set of stock assessment parameters which are representative of most Alaskan salmon fisheries and demonstrate how the model parameters interact to simulate stock assessment and fishery dynamics. Future documents will use this model to answer relevant question posed by the ADF&G escapement goal policy implementation team (EGPIT).
 
 ### Stock Recruit Process
 
@@ -116,26 +116,26 @@ $$
 N_{y}~=~\sum_{a} N_{ya}
 $$
 
-Instantaneous fishing mortality $F_{y}=-log(1-U_y)$ is a function of the annual harvest rate $U_y$ and used to calculate escapement $S_y$:
+Instantaneous fishing mortality $F_y$ is a function of the annual harvest rate $U_y$ and used to calculate escapement $S_y$:
 
 $$
 S_{y}~=~N_y*F_y
 $$
 
-Where $N_y^{obs}=N_y \textrm{exp}(\epsilon_N)$ with $\epsilon_{N}~\sim~\textrm{Normal}(0, \sigma^2_{N})$ and
+Where $$F_{y}=-\textrm{log}(1-U_y)\textrm{exp}(\epsilon_F)$$ with $\epsilon_{F}~\sim~\textrm{Normal}(0, \sigma^2_{F})$ and
 
 ### Harvest process
 
 The annual harvest rate $U_{y}$, was modeled as a function of the observed total run $N_{y}^{obs}$, both bounds of the escapement goal $lb$ and $ub$, and the power of the fishery.
 
 $$
-U_{y}~=~\textrm{f}(N_y^{obs}, lb, ub, power)
+U_{y}~=~\textrm{f}(N_y^{obs},~lb,~ub,~power)
 $$
 
 Where $N_y^{obs}=N_y \textrm{exp}(\epsilon_N)$ with $\epsilon_{N}~\sim~\textrm{Normal}(0, \sigma^2_{N})$. To determine the annual harvest rates we might expect under escapement goal management the following algorithm was used:
 
 $$
-U_y^{goal} = \textrm{minimum}(\textrm{Uniform}(U_{ub}, U_{lb}), power)
+U_y^{goal} = \textrm{minimum}(\textrm{Uniform}(U_{ub}, U_{lb}),~power)
 $$
 
 where
@@ -150,11 +150,22 @@ $$
 
 and $power$ represent the maximum harvest rate the fishery is capable of producing.
 
-### Simulation Parameters
+### Parameter Space for Salmon Populations
 
-Simulations were run with 27 parameter combinations $\alpha = (1.0, 1.5, 2.0)$, $\sigma = (0.25, 0.50, 0.75)$, and $\phi = (0.00, 0.35, 0.70)$. $\beta=0.0001$ and $p_a=(0.10, 0.20, 0.30, 0.38, 0.02)$ were for all simulations while lower bound of the escapement goal was the escapement that predicted a mean return which produced 90% of MSY while the upper bound was was the escapement that predicted a mean return which produced 70% of MSY. The mean Ricker curve, MSY, S_max, and escapement goals are plotted below for all parameter combinations.
+#### Ricker Parameters
 
-```{r, echo = FALSE, fig.height=8, fig.width=8}
+Based on the assumption that for Alaskan salmon stocks $\textrm{log}(\alpha)$ varies between $1$ and $2$, process error $\sigma$ varies between $0.25$ and $0.75$, and autocorrelation $\phi$ varies between $0$ and $0.7$ we plan to simulate 27 parameter combinations using all combinations of 3 points within each parameters range (minimum, midpoint, maximum) and setting $\beta=0.0001$ for all simulations. The lower bound of the escapement goal was the escapement that predicted a mean return which produced 90% of MSY while the upper bound was was the escapement that predicted a mean return which produced 70% of MSY. Power varied according to the productivity of the stock and was set to $0.6$, $0.7$, or $0.8$ when $\textrm{log}(\alpha)$ was set to $1.0$, $1.5$ and $2.0$ respectively.
+
+```{r echo = FALSE}
+#| label: fig-Ricker
+#| fig.height: 8
+#| fig.width: 8
+#| fig.cap: "Stock recruit relationships and escapement goal ranges used to simulate Alaskan salmon population dynamics. The solid black line represents the mean return, dotted dashed line represents MSY, the dot represents R~max~, and the shaded area represents the escapement goal range. The dashed line represents the 1:1 line."
+#| layout-nrow: 3
+#| fig-subcap: 
+#|   - "log(\u03B1) = 1.0"
+#|   - "log(\u03B1) = 1.5"
+#|   - "log(\u03B1) = 2.0"
 Ricker_plots[[1]] + coord_cartesian(xlim = c(0, 20000), ylim = c(0, 20000))
 Ricker_plots[[2]] + coord_cartesian(xlim = c(0, 30000), ylim = c(0, 30000))
 Ricker_plots[[3]] + coord_cartesian(xlim = c(0, 50000), ylim = c(0, 50000))
@@ -202,21 +213,36 @@ plot_ts <- function(dat, lnalpha0){
 
 ```
 
-Examining a time series of simulation results can help us understand an intuitive sense of the model. Because of the color scheme used (pink for total run and teal for escapement) grey areas represent simulations when there was minimal harvestable surplus. Notice that with modest process error ($\sigma=0.35$) and autocorrelation ($\phi=0$) the fishery is predictable and results in consistent harvestable surplus. As process error increases we see more variability in total run including instances of very large runs for which the fishery had insufficient power to harvest within the goal range and instances of smaller runs for which little or no harvestable surplus was available. Autocorelation also increases variability in total run (resulting in similar patters) as well as makes the large or small run sizes more persistent. Looking across these 3 panels we see similar patterns for all values of log($\alpha$) although larger values resulting in larger run sizes are more harvestable surplus.
+Examining a time series of simulation results can help us gain an intuitive sense of the model. Because of the color scheme used (pink for total run and teal for escapement) grey areas represent simulations when there was minimal harvestable surplus. Notice that with modest process error ($\sigma=0.25$) and autocorrelation ($\phi=0$) the fishery is predictable and results in consistent harvestable surplus. As process error increases we see more variability in total run including instances of very large runs for which the fishery had insufficient power to harvest within the goal range and instances of smaller runs for which little or no harvestable surplus was available. Autocorrelation also increases variability in total run (resulting in similar patterns) as well as makes large or small run sizes more persistent. Looking across these 3 panels we see similar patterns for all values of log($\alpha$) although larger values result in larger run sizes and more harvestable surplus.
 
-```{r echo = FALSE, warning = FALSE, fig.height=8, fig.width=8}
-# because of the colors used teal below the lower bound represents times we fished below the lower bound w abundant fish... call the a yield concern
-# while grey below the lower bound represent when the fish were not there to make the goal ... call that a management concern
-# When N is far below the lb it is a conservation concern 
-
+```{r echo = FALSE, warning = FALSE}
+#| label: fig-base
+#| fig.height: 8
+#| fig.width: 8
+#| fig.cap: "Simulated total run and escapments for 27 possible stock recruit parameter combinations."
+#| layout-nrow: 3
+#| fig-subcap: 
+#|   - "log(\u03B1) = 1.0"
+#|   - "log(\u03B1) = 1.5"
+#|   - "log(\u03B1) = 2.0"
 plot_ts(sim_base, 1)
 plot_ts(sim_base, 1.5) #+ coord_cartesian(xlim = c(500, 600))
 plot_ts(sim_base, 2)
 ```
 
-Note that the simulations above were run with zero estimation error ($\sigma_N=0$) and no implementation error ($\sigma_F=0$). Increasing estimation error to $\sigma_N=0.3$ (shown below for $\textrm{log}(\alpha) = 1.5$) primarily increases the likelihood of over-escapement.
+#### Management Variability
 
-```{r echo = FALSE, warning = FALSE, fig.height=8, fig.width=8}
+Note that the simulations above were run without estimation error ($\sigma_N=0$) or implementation error ($\sigma_F=0$)... i.e. perfect management. Both are unreasonable assumptions so lets look at more realistic simulation results.
+
+##### Estimation Error
+
+Estimation error refers to variability in our estimation of total run size and can be thought of as the CV of the inseason run size estimate. We have a fairly good feel for this value (i.e. \~0 for a weir, 5-10 % for a counting project with sampling error, \~30-40% for mark recapture, 0-30% for the harvest component). Increasing estimation error to $\sigma_N=0.3$ (shown below for $\textrm{log}(\alpha) = 1.5$) primarily increases the likelihood of over-escapement.
+
+```{r echo = FALSE, warning = FALSE}
+#| label: fig-baseN3
+#| fig.height: 8
+#| fig.width: 8
+#| fig.cap: "Simulated total run and escapments for 9 possible stock recruit parameter combinations with estimation error of \u03C3~N~ = 0.30."
 sim_baseN3 <- 
   mapply(FUN = simSR_goal,
          lnalpha = input$lnalpha,
@@ -237,28 +263,7 @@ sim_baseN3 <-
 plot_ts(sim_baseN3, 1.5)
 ```
 
-Increasing implementation error to $\sigma_F=0.3$ (shown below for $\textrm{log}(\alpha) = 1.5$) increases the likelihood of both under- and over-escapement.
-
-```{r echo = FALSE, warning = FALSE, fig.height=8, fig.width=8}
-sim_baseF3 <- 
-  mapply(FUN = simSR_goal,
-         lnalpha = input$lnalpha,
-         sigW = input$sigW,
-         phi = input$phi,
-         lb_goal = input$lb_pctMSY,
-         ub_goal = input$ub_pctMSY,
-         power = input$power,
-         MoreArgs = list(beta = beta,
-                         age0 = Chinook_age,
-                         Sims0 = 1500,
-                         sigN = 0,
-                         sigF = 0.3,
-                         Hfun = H_goal),
-         SIMPLIFY = FALSE) %>%
-  do.call("rbind", .)
-
-plot_ts(sim_baseF3, 1.5)
-```
+Simulations at values of $\sigma_N$ between $0$ and $0.3$ confirm our suspicion that when $\sigma_N$ is varied between 0 and 0.3 we see negligible effects on the percentage of under-escapements with the escapement goal algorithm described above. For over-escapements generally less than 10% of the simulated runs were over the upper bound of the escapement goal when $\sigma_N=0.15$ while less than 15% of the simulated runs were over the upper bound of the escapement goal when $\sigma_N=0.3$. This effect was positively correlated with productivity although the pattern is blurred by variability in the SR relationship at high levels of $\sigma$ or $\phi$.
 
 ```{r include = FALSE}
 #demonstrate behavior of sigN and sigF
@@ -275,6 +280,23 @@ sim_baseF15 <-
                          Sims0 = 1500,
                          sigN = 0,
                          sigF = 0.15,
+                         Hfun = H_goal),
+         SIMPLIFY = FALSE) %>%
+  do.call("rbind", .)
+
+sim_baseF3 <- 
+  mapply(FUN = simSR_goal,
+         lnalpha = input$lnalpha,
+         sigW = input$sigW,
+         phi = input$phi,
+         lb_goal = input$lb_pctMSY,
+         ub_goal = input$ub_pctMSY,
+         power = input$power,
+         MoreArgs = list(beta = beta,
+                         age0 = Chinook_age,
+                         Sims0 = 1500,
+                         sigN = 0,
+                         sigF = 0.3,
                          Hfun = H_goal),
          SIMPLIFY = FALSE) %>%
   do.call("rbind", .)
@@ -348,47 +370,104 @@ temp <-
                values_to = "pct")
 ```
 
-When $\sigma_F$ is varied between 0 and 0.3 we see an increasing percentage of under-escapements as $\sigma_F$ increases although the pattern is blurred by variability in the SR relationship at high levels of $\sigma$ or $\phi$.
-
-```{r fig.caption = "Percent of years under the escapemnt goal"}
-temp %>%
-  filter(sigF %in% c(0, 0.15, 0.3) & sigN == 0) %>%
-  filter(eg_range == "under") %>%
-  ggplot(aes(x = as.character(lnalpha), y = pct, group = sigF, fill = as.character(sigF))) +
-  geom_bar(stat = "identity", position = "dodge") +
-  scale_alpha_manual(values = c(1, 0.5)) +
-  facet_grid(paste0("\u03C6: ", phi) ~ paste0("\u03C3: ", sigW))
-```
-
-With respect to over-escapement, when $\sigma_F$ is varied between 0 and 0.3 there are increases as both $\sigma_F$ and $\textrm{log}(\alpha)$ increase with the same masking by variability in the SR relationship at high levels of $\sigma$ or $\phi$.
-
-```{r}
-temp %>%
-  filter(sigF %in% c(0, 0.15, 0.3) & sigN == 0) %>%
-  filter(eg_range == "over") %>%
-  ggplot(aes(x = as.character(lnalpha), y = pct, group = sigF, fill = as.character(sigF))) +
-  geom_bar(stat = "identity", position = "dodge") +
-  facet_grid(paste0("\u03C6: ", phi) ~ paste0("\u03C3: ", sigW))
-```
-
-When $\sigma_N$ is varied between 0 and 0.3 we see negligible effects on the percentage of under-escapements as $\sigma_N$ increases.
-
-```{r}
+```{r echo = FALSE, warning = FALSE}
+#| label: fig-sigmaN
+#| fig.height: 7
+#| fig.width: 8
+#| fig.cap: "Simulated percentage of under- and over-escapments for 27 possible stock-recruit parameter combinations each with 3 possible values of observation error."
+#| layout-nrow: 2
+#| fig-subcap: 
+#|   - "Under-escapement"
+#|   - "Over-escapement"
 temp %>%
   filter(sigN %in% c(0, 0.15, 0.3) & sigF == 0) %>%
   filter(eg_range == "under") %>%
-  ggplot(aes(x = as.character(lnalpha), y = pct, group = sigN, fill = as.character(sigN))) +
+  ggplot(aes(x = as.character(sigN), y = pct, group = lnalpha, fill = as.character(lnalpha)))  +
   geom_bar(stat = "identity", position = "dodge") +
+  labs(fill = "log(\u03B1)", y = "Percentage") +
+  xlab(~ sigma[N]) +
   facet_grid(paste0("\u03C6: ", phi) ~ paste0("\u03C3: ", sigW))
-```
 
-With respect to over-escapement, when $\sigma_N$ is varied between 0 and 0.3 there are increases as both $\sigma_N$ and $\textrm{log}(\alpha)$ increase with the same masking by variability in the SR relationship at high levels of $\sigma$ or $\phi$.
-
-```{r}
 temp %>%
   filter(sigN %in% c(0, 0.15, 0.3) & sigF == 0) %>%
   filter(eg_range == "over") %>%
-  ggplot(aes(x = as.character(lnalpha), y = pct, group = sigN, fill = as.character(sigN))) +
+  ggplot(aes(x = as.character(sigN), y = pct, group = lnalpha, fill = as.character(lnalpha))) +
   geom_bar(stat = "identity", position = "dodge") +
+  labs(fill = "log(\u03B1)", y = "Percentage") +
+  xlab(~ sigma[N]) +
+  facet_grid(paste0("\u03C6: ", phi) ~ paste0("\u03C3: ", sigW))
+```
+
+##### Implementation error
+
+Implementation error refers to the ability of our fishery managers to achieve the harvest rate they were trying to achieve. There are a lot of factors that go into missed goals (when the fish are there) and distilling that down to one number is going to be difficult. For example, the harvest model described above implies mangers are aiming for any point within the escapement goal range with equal probability but changing this to a different management strategy would effect the results below drastically. That said, increasing implementation error to $\sigma_F=0.3$ (shown below for $\textrm{log}(\alpha) = 1.5$) increases the likelihood of both under- and over-escapement.
+
+```{r echo = FALSE, warning = FALSE}
+#| label: fig-baseF3
+#| fig.height: 7
+#| fig.width: 8
+#| fig.cap: "Simulated total run and escapments for 9 possible stock recruit parameter combinations with log(\\u03B1) = 1.5 and implementation error of \u03C3~F~ = 0.30."
+plot_ts(sim_baseF3, 1.5)
+```
+
+Simulations at values of $\sigma_F$ between $0$ and $0.3$ can quantify increases in the percentage of simulated years with both over and under escapements. In general, less than 5% of the simulated runs missed the lower bound of the escapement goal when $\sigma_F=0.15$ while less than 10% of the simulated runs missed the lower bound of the escapement goal when $\sigma_F=0.3$. This effect was positively correlated with productivity although the pattern is blurred by variability in the SR relationship at high levels of $\sigma$ or $\phi$. Similar patterns occurred for over-escapement.
+
+```{r echo = FALSE, warning = FALSE}
+#| label: fig-sigmaF
+#| fig.height: 7
+#| fig.width: 8
+#| fig.cap: "Simulated percentage of under- and over-escapments for 27 possible stock-recruit parameter combinations each with 3 possible values of implentation error."
+#| layout-nrow: 2
+#| fig-subcap: 
+#|   - "Under-escapement"
+#|   - "Over-escapement"
+temp %>%
+  filter(sigF %in% c(0, 0.15, 0.3) & sigN == 0) %>%
+  filter(eg_range == "under") %>%
+  ggplot(aes(x = as.character(sigF), y = pct, group = lnalpha, fill = as.character(lnalpha))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(fill = "log(\u03B1)", y = "Percentage") +
+  xlab(~ sigma[F]) +
+  facet_grid(paste0("\u03C6: ", phi) ~ paste0("\u03C3: ", sigW))
+
+temp %>%
+  filter(sigF %in% c(0, 0.15, 0.3) & sigN == 0) %>%
+  filter(eg_range == "over") %>%
+  ggplot(aes(x = as.character(sigF), y = pct, group = lnalpha, fill = as.character(lnalpha)))  +
+  geom_bar(stat = "identity", position = "dodge") +
+    labs(fill = "log(\u03B1)", y = "Percentage") +
+  xlab(~ sigma[F]) +
+  facet_grid(paste0("\u03C6: ", phi) ~ paste0("\u03C3: ", sigW))
+```
+
+##### Observation and Implementation Error
+
+Finally, it might be worth noting that combinations of implementation and observation error do not result in additive probabilities of under- or over-escapement.
+
+```{r echo = FALSE, warning = FALSE}
+#| label: fig-sigmaFN
+#| fig.height: 7
+#| fig.width: 8
+#| fig.cap: "Simulated percentage of under- and over-escapments for 27 possible stock-recruit parameter combinations when observation error and implemntation error covary over 3 possible value2."
+#| layout-nrow: 2
+#| fig-subcap: 
+#|   - "Under-escapement"
+#|   - "Over-escapement"
+temp %>%
+  filter(sigN == sigF) %>%
+  filter(eg_range == "under") %>%
+  ggplot(aes(x = as.character(sigN), y = pct, group = lnalpha, fill = as.character(lnalpha)))  +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(fill = "log(\u03B1)", y = "Percentage") +
+  xlab(~ paste(sigma[F], " = ", sigma[N])) +
+  facet_grid(paste0("\u03C6: ", phi) ~ paste0("\u03C3: ", sigW))
+
+temp %>%
+  filter(sigN == sigF) %>%
+  filter(eg_range == "over") %>%
+  ggplot(aes(x = as.character(sigN), y = pct, group = lnalpha, fill = as.character(lnalpha))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(fill = "log(\u03B1)", y = "Percentage") +
+  xlab(~ paste(sigma[F], " = ", sigma[N])) +
   facet_grid(paste0("\u03C6: ", phi) ~ paste0("\u03C3: ", sigW))
 ```

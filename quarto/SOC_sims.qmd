@@ -1,5 +1,5 @@
 ---
-title: "SOC_methods"
+title: "SOC_sims"
 author: "Adam Reimer"
 format:
   html:
@@ -49,116 +49,113 @@ input <-
 
 Chinook_age <- c('3' = 0.1, '4' = 0.2, '5' = 0.3, '6' = 0.38, '7' = 0.02)
 
-input_sims = 5000
+input_sims = 1000
+```
 
+## SOC policy
 
-# Simulation params -------------------------------------------------------
-Ricker_plots <- list()
+::: {.callout-note appearance="simple" icon="false"}
+### Concern Definitions
+
+Yield concern means a concern arising from a chronic inability, despite the use of specific management measures, to maintain expected yields, or harvestable surpluses, above a stocks escapement needs: a yield concern is less severe than a management concern, which is less severe than a conservation concern.
+
+Management concern means a concern arising from a chronic inability, despite the use of specific management measures, to maintain escapements for a salmon stock within the bounds of the SEG, BEG, OEG or other specified management objectives for a fishery: a management concern is not as severe as a conservation concern.
+
+Conservation concern means a concern arising from a chronic inability, despite the use of specific management measures, to maintain escapements for a stock above a sustainable escapement threshold (SET): a conservation concern is more severe than a management concern.
+:::
+
+In practice, these definitions have proven unworkable. While the definition of a management concern references bounds (implying over-escapement could be a management concern) we have always interpreted it to mean under-escapement. But this use collapses the definitions for yield and management concern and contradicts the implied order of severity.
+
+The department has yet to set an SET (which negates our ability to recommend a stock of conservation concern) but based on the definition of a SET we should probably at least be looking.
+
+::: {.callout-note appearance="simple" icon="false"}
+### SET Definition
+
+"sustainable escapement threshold" or "SET" means a threshold level of escapement below which the ability of the salmon stock to sustain itself is jeopardized: in practice , SET can be estimated based on lower ranges of historical escapement levels, for which the salmon stock has consistently demonstrated the ability to sustain itself: the SET is lower than the lower bound of the BEG and lower than the lower bound of the SEG: the SET is established by the department in consultation with the board, as needed, for salmon stocks of management or conservation concern.
+:::
+
+In addition to the untenability of these 3 levels of concern is the department's response to a SOC designation... i.e. the action plan.
+
+::: {.callout-note appearance="simple" icon="false"}
+## Action Plan Components
+
+\(4\) in association with the appropriate management plan, the department and the board will, as appropriate, collaborate in the development and periodic review of an action plan for any new or expanding salmon fisheries, or stocks of concern: action plans should contain goals, measurable and implementable objectives, and provisions, including
+
+(A) measures required to restore and protect salmon habitat, including necessary coordination with other agencies and organization:
+(B) identification of salmon stock or population rebuilding goals and objectives:
+(C) fishery management actions needed to achieve rebuilding goals and objectives, in proportion to each fishery's use of, and hazards posed to, a salmon stock:
+(D) description of new or expanding salmon fisheries, management concern, yield concern, or conservation concern: and
+(E) performance measures appropriate for monitoring and gauging the effectiveness of the action plan that are derived from the principles and criteria contained in this policy.
+
+\(5\) each action plan will include a research plan as necessary to provide information to address concerns; research needs and priorities will be evaluated periodically, based on the effectiveness on the monitoring described in (4) of this subsection
+:::
+
+The main issue with the action plan seems to be that by the time ADF&G has designated a SOC we have exhausted our management options. It's my opinion that the SSFP was written with an eye towards historical threats to fisheries (i.e. habitat degradation, poor hatchery practices, and over-fishing) and is poorly positioned to respond to reduced run sizes driven by factors largely outside of our control. Many of these issues could be solved by slight changes to the working definitions of the 2 of the concern types.
+
+::: {.callout-tip appearance="simple" icon="false"}
+### Proposed Concern Definitions
+
+Yield concern means a concern arising from a chronic inability, despite the use of specific management measures, to **maintain escapements for a salmon stock above the lower bound** of the SEG, BEG, OEG or other specified management objectives for a fishery: a yield concern is not as severe as a management concern.
+
+Management concern means a concern arising from a chronic inability to **realize annual run sizes for a salmon stock above the lower bound** of the SEG, BEG, OEG or other specified management objectives for a fishery: a management concern is not as severe as a conservation concern.
+:::
+
+These definitions improve clarity about the responsibilities of both ADF&G and the board in the SOC process. The definition of a yield concern (S \< escapement goal lower bound and N \> escapement goal lower bound) implies that there is harvest which could be curtailed to rebuild thate stock. In this instance an action plan would be highly appropriate: ADF&G could present management options that exist relative the the choices our management staff made and the board would then be responsible for deciding if more restrictive action is appropriate.
+
+The definition of a management concern (N \< escapement goal lower bound) makes it clear that we have exhausted our management capability. ADF&G should be transparent about this. In this instance a research plan is all that is necessary and appropriate. The goal of the research plan should be explicit: to collect the information necessary to determine an SET for the stock. Using the definition of an SET above this means we need to be paying for stock assessments robust enough to estimate returns from each spawning event. Returns per spawner of less than 1 from spawning events below the lower bound of the escapement goal would indicate the SET threshold had been crossed, thus defining the SET and putting ADF&G in a position to declare a conservation concern when necessary.
+
+Using these definitions SETs (and thus conservation concerns) would be determined on a case-by-case basis for individual stocks. We will discuss how to go about that in more detail later but for the moment lets define a SET as $1/2$ of the lower bound of the escapement goal and use these definitions in the simulation model described earlier to describe what our expectations might be with respect to SOC designations across a wide range of fisheries under both historic and current marine productivity regimes.
+
+### Productivity Regimes
+
+```{r include = FALSE}
+Ricker_plots_Seq <- list()
 for(i in 1:length(unique(input$lnalpha))){
-Ricker_plots[[i]] <- 
-  input %>% 
+  Ricker_plots_Seq[[i]] <- 
+    input %>% 
     slice(rep(1:n(), each = 251)) %>% 
     mutate(S = rep(seq(0, 5 * 1 / max(beta), by = 200), times = nrow(input)),
            R = Ricker(lnalpha = get_lnalpha_p(lnalpha, beta, sigW, phi), beta = beta, S = S),
            Rmsy = Ricker(get_lnalpha_p(lnalpha, beta, sigW, phi), beta, Smsy),
            Smax = 1 / beta,
-           Rmax = Ricker(lnalpha = get_lnalpha_p(lnalpha, beta, sigW, phi), beta = beta, S = Smax)) %>%
+           Rmax = Ricker(lnalpha = get_lnalpha_p(lnalpha, beta, sigW, phi), beta = beta, S = Smax),
+           RSeq = Ricker(lnalpha = lb_pctMSY * beta, beta = beta, S = S),
+           Rmax_Seq = Ricker(lnalpha = lb_pctMSY * beta, beta = beta, S = Smax)) %>%
     ggplot(aes(x = S, y = R)) +
-      geom_rect(aes(xmin = lb_pctMSY, xmax = ub_pctMSY, ymin = -Inf, ymax = Inf), fill = "grey95") +
-      geom_line() +
-      geom_abline(intercept = 0, slope = 1, linetype = 2) +
-      geom_point(aes(x = Smax, y = Rmax)) +
-      geom_segment(aes(x = Smsy, xend = Smsy, y = Smsy, yend = Rmsy), linetype = 3) +
-      theme_bw() +
-      facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
-                          #scales = "free_y",
-                          ncol = 3, nrow = 3, page = i)
+    geom_rect(aes(xmin = lb_pctMSY, xmax = ub_pctMSY, ymin = -Inf, ymax = Inf), fill = "grey95") +
+    geom_line() +
+    geom_abline(intercept = 0, slope = 1, linetype = 2) +
+    geom_point(aes(x = Smax, y = Rmax)) +
+    geom_segment(aes(x = Smsy, xend = Smsy, y = Smsy, yend = Rmsy), linetype = 3) +
+    geom_line(aes(y = RSeq), color = "red") +
+    geom_point(aes(x = Smax, y = Rmax_Seq), color = "red") +
+    theme_bw() +
+    facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
+                        #scales = "free_y",
+                        ncol = 3, nrow = 3, page = i)
 }
 ```
 
-## Methods
-
-Herein we used simulation to explore the behavior of the Sustainable Salmon Policy's stock of concern designations under alternative ocean productivity regimes. These simulations are intended to inform expectations regarding stock of concern designations and help standardize the Department decision making process wrt soc designations.
-
-### Stock Recruit Process
-
-Abundance of salmon is generated by a S-R relationship that describes the number of fish expected to return (the "recruitment") from a given number of spawning fish (the "escapement"). The total expected recruitment $R_{c}$ produced from fish spawning in brood year $c$ follows the Ricker formulation:
-
-$$
-R_{c}~=~S_{c}\alpha \textrm{exp}(-\beta S_{c})
-$$
-
-where $S_{c}$ is the number of spawners, $\alpha$ (number of recruits per spawner in the absence of density dependence) is a measure of productivity, and $\beta$ is a measure of density dependence.
-
-However, productivity varies among brood years, fluctuating around a central tendency. Time-varying productivity often manifests as serially correlated model residuals, so a lognormal error term with a lag of 1 year was included in the linearized form of the S-R relationship to represent realized recruitment.
-
-$$
-\textrm{ln}(R_{c})~=~\textrm{ln}(S_{c})+\textrm{ln}(\alpha)-\beta S_{c} +\phi \nu_{(c-1)}+\epsilon_{W}
-$$
-
-where $\phi$ is the lag-1 serial correlation coefficient, $\nu_{c}$ are model residuals defined as
-
-$$
-\nu_{c}~=~\textrm{ln}(R_{c})-\textrm{ln}(S_{c})-\textrm{ln}(\alpha)+\beta S_{c}
-$$
-
-and the $\epsilon_{W}$ are independently and normally distributed process errors with "white noise" variance $\sigma^2_{W}$.
-
-Age at maturity ($p_{ca}$), which is needed to distribute recruitment across calendar years, is treated as a constant within each brood year. The abundance $N_{ya}$ of age $a$ salmon in calendar year $y$ is the product of the age at maturity scalar and the total return (recruitment) $R_{c}$ for from brood year $c=y−a$:
-
-$$
-N_{ya}~=~p_{(y-a)a}R_{(y-a)}
-$$
-
-Total run $N_{y}$ during calendar year $y$ is the sum of abundance at age across all ages:
-
-$$
-N_{y}~=~\sum_{a} N_{ya}
-$$
-
-Instantaneous fishing mortality $F_{y}=-log(1-U_y)$ is a function of the annual harvest rate $U_y$ and used to calculate escapement $S_y$:
-
-$$
-S_{y}~=~N_y*F_y
-$$
-
-Where $N_y^{obs}=N_y \textrm{exp}(\epsilon_N)$ with $\epsilon_{N}~\sim~\textrm{Normal}(0, \sigma^2_{N})$ and
-
-### Harvest process
-
-The annual harvest rate $U_{y}$, was modeled as a function of the observed total run $N_{y}^{obs}$, both bounds of the escapement goal $lb$ and $ub$, and the power of the fishery.
-
-$$
-U_{y}~=~\textrm{f}(N_y^{obs}, lb, ub, power)
-$$
-
-Where $N_y^{obs}=N_y \textrm{exp}(\epsilon_N)$ with $\epsilon_{N}~\sim~\textrm{Normal}(0, \sigma^2_{N})$. To determine the annual harvest rates we might expect under escapement goal management the following algorithm was used:
-
-$$
-U_y^{goal} = \textrm{minimum}(\textrm{Uniform}(U_{ub}, U_{lb}), power)
-$$
-
-where
-
-$$
-U_{lb} = \textrm{if}(N_Y^{obs} > lb)~\frac{N_y^{obs} - lb}{N_y^{obs}}~\textrm{else}~0
-$$
-
-$$
-U_{ub} = \textrm{if}(N_Y^{obs} > ub)~\frac{N_y^{obs} - ub}{N_y^{obs}}~\textrm{else}~0
-$$
-
-and $power$ represent the maximum harvest rate the fishery is capable of producing.
-
-### Simulation Parameters
-
-Simulations were run with 27 parameter combinations $\alpha = (1.0, 1.5, 2.0)$, $\sigma = (0.25, 0.50, 0.75)$, and $\phi = (0.00, 0.35, 0.70)$. $\beta=0.0001$ and $p_a=(0.10, 0.20, 0.30, 0.38, 0.02)$ were for all simulations while lower bound of the escapement goal was the escapement that predicted a mean return which produced 90% of MSY while the upper bound was was the escapement that predicted a mean return which produced 70% of MSY. The mean Ricker curve, MSY, S_max, and escapement goals are plotted below for all parameter combinations.
+Our collective best guess about why certain salmon stocks are struggling recently is that marine productivity has undergone a large decline. It would be convenient if we knew the SR relationship under both productivity regimes. I'm going to suggest that the current population dynamics for some of our struggling stocks is best described by holding the $\beta$ parameter constant and reducing $\textrm{log}(\alpha)$ such that $\textrm{log}(\alpha)^*=\frac{lb}{\beta}$ where $lb$ is the lower bound of the escapement goal range. This situation is represented in @fig-Ricker2. Notice that under current marine productivity conditions there is no harvestable surplus and the stock exactly replacing itself at the lower bound of the escapement goal range. Also note that maximizing recruitment would be strikingly inefficient. Why is this a reasonable representation reality? First, it fits that patterns we are seeing, i.e with no harvest total run continues to approximate the lower bound of the escapement goal which we might expect with stable age at maturity if the mean return equaled the lower bound of the escapement goal and actual return equaled the lower bound of the escapement goal plus process error. Second, $\beta$ is generally described as a measure of density dependence. It seems reasonable to suspect this event occurs in freshwater where density would be highest. This assumption may be difficult to verify empirically because SR pairs under low productivity regimes would appear as high leverage points in a linearized Ricker despite being produced by a change in the intercept ($\textrm{log}(\alpha)$) rather than the slope ($\beta$) of the stock recruit relationship. Lastly, an assumption of constant $\beta$ encourages conservative management because it implies minimal harvestable surplus below the lower bound of the goal (which appears to be true) rather than tempting mangers to chase harvestable surplus at lower estimates of $S_{MSY}$.
 
 ```{r, echo = FALSE, fig.height=8, fig.width=8}
-Ricker_plots[[1]] + coord_cartesian(xlim = c(0, 20000), ylim = c(0, 20000))
-Ricker_plots[[2]] + coord_cartesian(xlim = c(0, 30000), ylim = c(0, 30000))
-Ricker_plots[[3]] + coord_cartesian(xlim = c(0, 50000), ylim = c(0, 50000))
+#| label: fig-Ricker2
+#| fig.height: 8
+#| fig.width: 8
+#| fig.cap: "Stock recruit relationships and escapement goal ranges used to simulate Alaskan salmon population dynamics under 2 productivity regimes. The solid black line represents the mean return, dotted dashed line represents MSY, the dot represents R~max~, and the shaded area represents the escapement goal range under historical ocean productivity conditions. The red line / dot show the same parameters under reduced marine productivity. The dashed line represents the 1:1 line."
+#| layout-nrow: 3
+#| fig-subcap: 
+#|   - "log(\u03B1) = 1.0"
+#|   - "log(\u03B1) = 1.5"
+#|   - "log(\u03B1) = 2.0"
+Ricker_plots_Seq[[1]] + coord_cartesian(xlim = c(0, 20000), ylim = c(0, 20000))
+Ricker_plots_Seq[[2]] + coord_cartesian(xlim = c(0, 30000), ylim = c(0, 30000))
+Ricker_plots_Seq[[3]] + coord_cartesian(xlim = c(0, 50000), ylim = c(0, 50000))
 ```
+
+### Simulated Run Sizes with Historical and Low Productivity
+
+Two sets of simulations were run with 27 parameter combinations $\textrm{log}(\alpha) = (1.0, 1.5, 2.0)$, $\sigma = (0.25, 0.50, 0.75)$, and $\phi = (0.00, 0.35, 0.70)$. $\beta=0.0001$ and $p_a=(0.10, 0.20, 0.30, 0.38, 0.02)$ were for all simulations while lower bound of the escapement goal was the escapement that predicted a mean return which produced 90% of MSY while the upper bound was was the escapement that predicted a mean return which produced 70% of MSY. Power varied according to the productivity of the stock and was set to $0.6$, $0.7$, or $0.8$ when $\textrm{log}(\alpha)$ was set to $1.0$, $1.5$ and $2.0$ respectively. Management varibility was set to 0.2 for both observation ($\sigma_N$) and implementation ($\sigma_F$) error. The first simulation was exactly as described above while the second simulation was identical except that it reflected a low productivity situation where $\textrm{log}(\alpha)^*=\frac{lb}{\beta}$.
 
 ```{r include = FALSE}
 sim_base <- 
@@ -171,12 +168,30 @@ sim_base <-
          power = input$power,
          MoreArgs = list(beta = beta,
                          age0 = Chinook_age,
-                         Sims0 = 1500,
-                         sigN = 0,
-                         sigF = 0,
+                         Sims0 = input_sims,
+                         sigN = 0.2,
+                         sigF = 0.2,
                          Hfun = H_goal),
          SIMPLIFY = FALSE) %>%
   do.call("rbind", .)
+
+sim_Seq <- 
+  mapply(FUN = simSR_goal,
+         lnalpha = input$lb_pctMSY*beta,  #reduced ln_alpha
+         sigW = input$sigW,
+         phi = input$phi,
+         lb_goal = input$lb_pctMSY,
+         ub_goal = input$ub_pctMSY,
+         MoreArgs = list(beta = beta,
+                         age0 = Chinook_age,
+                         Sims0 = input_sims,
+                         sigN = 0.2,
+                         sigF = 0.2,
+                         Hfun = H_goal),
+         SIMPLIFY = FALSE) %>%
+  lapply(function(x) rename(x, lnalpha_red = lnalpha)) %>%
+  do.call("rbind", .) %>%
+  left_join(input[, c("lnalpha", "lb_pctMSY", "ub_pctMSY")], by = c("lb_goal" = "lb_pctMSY", "ub_goal" = "ub_pctMSY"))
 
 
 # * Plot time series --------------------------------------------------------
@@ -196,199 +211,132 @@ plot_ts <- function(dat, lnalpha0){
         geom_hline(aes(yintercept = ub_goal), linetype = 2) +
         scale_y_continuous(limits = c(0, limit)) +
         scale_x_continuous(name = "Simulation year") +
-        facet_grid(paste0("\u03C6: ", phi) ~ paste0("\u03C3: ", sigW)) +
-        ggtitle(label = bquote(log(alpha): .(lnalpha0)))
+        facet_grid(paste0("\u03C6: ", phi) ~ paste0("\u03C3: ", sigW))
 }
 
 ```
 
-Examining a time series of simulation results can help us understand an intuitive sense of the model. Because of the color scheme used (pink for total run and teal for escapement) grey areas represent simulations when there was minimal harvestable surplus. Notice that with modest process error ($\sigma=0.35$) and autocorrelation ($\phi=0$) the fishery is predictable and results in consistent harvestable surplus. As process error increases we see more variability in total run including instances of very large runs for which the fishery had insufficient power to harvest within the goal range and instances of smaller runs for which little or no harvestable surplus was available. Autocorelation also increases variability in total run (resulting in similar patters) as well as makes the large or small run sizes more persistent. Looking across these 3 panels we see similar patterns for all values of log($\alpha$) although larger values resulting in larger run sizes are more harvestable surplus.
+Comparison of historical and low productivity regimes across a wide variety of parameter combination show how the low productivity regime we are assuming results in negligible harvestable surplus and considerable difficulty achieving the lower bound of the escapement goal range.
 
-```{r echo = FALSE, warning = FALSE, fig.height=8, fig.width=8}
-# because of the colors used teal below the lower bound represents times we fished below the lower bound w abundant fish... call the a yield concern
-# while grey below the lower bound represent when the fish were not there to make the goal ... call that a management concern
-# When N is far below the lb it is a conservation concern 
-
+```{r echo = FALSE, warning = FALSE}
+#| label: fig-baseSeq1
+#| fig.height: 8
+#| fig.width: 8
+#| fig.cap: "Simulated total run and escapements for 9 possible stock recruit parameter combinations under historical and low productivity regimes when historical productivity was log(\u03B1) = 1.0. The y-axis scale differs between the top and bottom panel."
+#| layout-nrow: 3
+#| fig-subcap: 
+#|   - "Historical productivity: log(\u03B1) = 1.0"
+#|   - "Low productivity: log(\u03B1) = lb / \u03B2"
 plot_ts(sim_base, 1)
-plot_ts(sim_base, 1.5) #+ coord_cartesian(xlim = c(500, 600))
+plot_ts(sim_Seq, 1)
+```
+
+```{r echo = FALSE, warning = FALSE}
+#| label: fig-baseSeq2
+#| fig.height: 8
+#| fig.width: 8
+#| fig.cap: "Simulated total run and escapements for 9 possible stock recruit parameter combinations under historical and low productivity regimes when historical productivity was log(\u03B1) = 1.5. The y-axis scale differs between the top and bottom panel."
+#| layout-nrow: 3
+#| fig-subcap: 
+#|   - "Historical productivity: log(\u03B1) = 1.5"
+#|   - "Low productivity: log(\u03B1) = lb / \u03B2"
+plot_ts(sim_base, 1.5)
+plot_ts(sim_Seq, 1.5)
+```
+
+```{r echo = FALSE, warning = FALSE}
+#| label: fig-baseSeq3
+#| fig.height: 8
+#| fig.width: 8
+#| fig.cap: "Simulated total run and escapements for 9 possible stock recruit parameter combinations under historical and low productivity regimes when historical productivity was log(\u03B1) = 2.0. The y-axis scale differs between the top and bottom panel."
+#| layout-nrow: 3
+#| fig-subcap: 
+#|   - "Historical productivity: log(\u03B1) = 2.0"
+#|   - "Low productivity: log(\u03B1) = lb / \u03B2"
 plot_ts(sim_base, 2)
+plot_ts(sim_Seq, 2)
 ```
 
-Note that the simulations above were run with zero estimation error ($\sigma_N=0$) and no implementation error ($\sigma_F=0$). Increasing estimation error to $\sigma_N=0.3$ (shown below for $\textrm{log}(\alpha) = 1.5$) primarily increases the likelihood of over-escapement.
+### SOC Designations With Historical and Low Productivity
 
-```{r echo = FALSE, warning = FALSE, fig.height=8, fig.width=8}
-sim_baseN3 <- 
-  mapply(FUN = simSR_goal,
-         lnalpha = input$lnalpha,
-         sigW = input$sigW,
-         phi = input$phi,
-         lb_goal = input$lb_pctMSY,
-         ub_goal = input$ub_pctMSY,
-         power = input$power,
-         MoreArgs = list(beta = beta,
-                         age0 = Chinook_age,
-                         Sims0 = 1500,
-                         sigN = 0.3,
-                         sigF = 0,
-                         Hfun = H_goal),
-         SIMPLIFY = FALSE) %>%
-  do.call("rbind", .)
-
-plot_ts(sim_baseN3, 1.5)
-```
-
-Increasing implementation error to $\sigma_F=0.3$ (shown below for $\textrm{log}(\alpha) = 1.5$) increases the likelihood of both under- and over-escapement.
-
-```{r echo = FALSE, warning = FALSE, fig.height=8, fig.width=8}
-sim_baseF3 <- 
-  mapply(FUN = simSR_goal,
-         lnalpha = input$lnalpha,
-         sigW = input$sigW,
-         phi = input$phi,
-         lb_goal = input$lb_pctMSY,
-         ub_goal = input$ub_pctMSY,
-         power = input$power,
-         MoreArgs = list(beta = beta,
-                         age0 = Chinook_age,
-                         Sims0 = 1500,
-                         sigN = 0,
-                         sigF = 0.3,
-                         Hfun = H_goal),
-         SIMPLIFY = FALSE) %>%
-  do.call("rbind", .)
-
-plot_ts(sim_baseF3, 1.5)
-```
+These results manifest themselves likely close to what most of us might predict... SOC designations are rare under historical productivity regimes and become the expectation under low productivity regimes.
 
 ```{r include = FALSE}
-#demonstrate behavior of sigN and sigF
-sim_baseF15 <- 
-  mapply(FUN = simSR_goal,
-         lnalpha = input$lnalpha,
-         sigW = input$sigW,
-         phi = input$phi,
-         lb_goal = input$lb_pctMSY,
-         ub_goal = input$ub_pctMSY,
-         power = input$power,
-         MoreArgs = list(beta = beta,
-                         age0 = Chinook_age,
-                         Sims0 = 1500,
-                         sigN = 0,
-                         sigF = 0.15,
-                         Hfun = H_goal),
-         SIMPLIFY = FALSE) %>%
-  do.call("rbind", .)
+# * Base Seq compare -----------------------------------------------
+temp_base <- sim_base %>%
+  mutate(scenario = "Historical")
+temp_Seq <- sim_Seq %>%
+  mutate(scenario = "Low") %>%
+  select(-lnalpha_red)
+baseSeq_combined <- 
+  rbind(temp_base, temp_Seq) %>%
+  group_by(lnalpha, sigW, phi, scenario) %>%
+  select(-F, -U, -N) %>% 
+  mutate(change = case_when(SOC != lag(SOC) ~ TRUE, TRUE ~ FALSE),
+         n_change = cumsum(change),
+         deviation_lb = (S - lb_goal) / lb_goal) %>%
+  group_by(lnalpha, sigW, phi, scenario, n_change, SOC) %>%
+  summarise(length = length(n_change),
+            deviation_lb = mean(deviation_lb),
+            miss = sum((S < lb_goal)) / length,
+            mean_S = mean(S))
 
-sim_baseN15 <- 
-  mapply(FUN = simSR_goal,
-         lnalpha = input$lnalpha,
-         sigW = input$sigW,
-         phi = input$phi,
-         lb_goal = input$lb_pctMSY,
-         ub_goal = input$ub_pctMSY,
-         power = input$power,
-         MoreArgs = list(beta = beta,
-                         age0 = Chinook_age,
-                         Sims0 = 1500,
-                         sigN = 0.15,
-                         sigF = 0,
-                         Hfun = H_goal),
-         SIMPLIFY = FALSE) %>%
-  do.call("rbind", .)
-
-sim_baseF15N15 <- 
-  mapply(FUN = simSR_goal,
-         lnalpha = input$lnalpha,
-         sigW = input$sigW,
-         phi = input$phi,
-         lb_goal = input$lb_pctMSY,
-         ub_goal = input$ub_pctMSY,
-         power = input$power,
-         MoreArgs = list(beta = beta,
-                         age0 = Chinook_age,
-                         Sims0 = 1500,
-                         sigN = 0.15,
-                         sigF = 0.15,
-                         Hfun = H_goal),
-         SIMPLIFY = FALSE) %>%
-  do.call("rbind", .)
-
-sim_baseF3N3 <- 
-  mapply(FUN = simSR_goal,
-         lnalpha = input$lnalpha,
-         sigW = input$sigW,
-         phi = input$phi,
-         lb_goal = input$lb_pctMSY,
-         ub_goal = input$ub_pctMSY,
-         power = input$power,
-         MoreArgs = list(beta = beta,
-                         age0 = Chinook_age,
-                         Sims0 = 1500,
-                         sigN = 0.3,
-                         sigF = 0.3,
-                         Hfun = H_goal),
-         SIMPLIFY = FALSE) %>%
-  do.call("rbind", .)
-
-temp <-
-  rbind(sim_base, sim_baseF15) %>%
-  rbind(sim_baseN15) %>%
-  rbind(sim_baseN3) %>%
-  rbind(sim_baseF3) %>%
-  rbind(sim_baseF15N15) %>%
-  rbind(sim_baseF3N3) %>%
-  group_by(lnalpha, sigW, phi, sigN, sigF) %>%
-  # mutate(eg_range = ifelse(S < lb_goal, "under", 
-  #                          ifelse(S > ub_goal, "over", "within")))
-  summarize(under = mean(S < lb_goal),
-            over = mean(S > ub_goal),
-            within = mean(S >= lb_goal & S <= ub_goal)) %>%
-  pivot_longer(cols = c(under, over, within),
-               names_to = "eg_range",
-               values_to = "pct")
+baseSeq_pct_SOC <- list()
+for(i in 1:length(unique(input$lnalpha))){
+  baseSeq_pct_SOC[[i]] <-
+    baseSeq_combined %>% 
+    group_by(lnalpha, sigW, phi, scenario, SOC) %>% 
+    summarize(pct_SOC = sum(length)/input_sims) %>% 
+    ggplot(aes(x = scenario, y  = pct_SOC, fill = SOC)) + 
+    geom_bar(stat = "identity") +
+    theme_bw() +
+    facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
+                        ncol = 3, nrow = 3, page = i)
+}
 ```
 
-When $\sigma_F$ is varied between 0 and 0.3 we see an increasing percentage of under-escapements as $\sigma_F$ increases although the pattern is blurred by variability in the SR relationship at high levels of $\sigma$ or $\phi$.
+```{r echo = FALSE, warning = FALSE}
+#| label: fig-baseSeq
+#| fig.height: 8
+#| fig.width: 8
+#| fig.cap: "Percent of simulated runs under each sotck of concern designation for 27 possible stock recruit parameter combinations and 2 productivity regimes."
+#| layout-nrow: 3
+#| fig-subcap: 
+#|   - "Historical productivity: log(\u03B1) = 1.0"
+#|   - "Historical productivity: log(\u03B1) = 1.5"
+#|   - "Historical productivity: log(\u03B1) = 2.0"
+# * Base Seq compare -----------------------------------------------
+temp_base <- sim_base %>%
+  mutate(scenario = "Historical")
+temp_Seq <- sim_Seq %>%
+  mutate(scenario = "Low") %>%
+  select(-lnalpha_red)
+baseSeq_combined <- 
+  rbind(temp_base, temp_Seq) %>%
+  group_by(lnalpha, sigW, phi, scenario) %>%
+  select(-F, -U, -N) %>% 
+  mutate(change = case_when(SOC != lag(SOC) ~ TRUE, TRUE ~ FALSE),
+         n_change = cumsum(change),
+         deviation_lb = (S - lb_goal) / lb_goal) %>%
+  group_by(lnalpha, sigW, phi, scenario, n_change, SOC) %>%
+  summarise(length = length(n_change),
+            deviation_lb = mean(deviation_lb),
+            miss = sum((S < lb_goal)) / length,
+            mean_S = mean(S))
 
-```{r fig.caption = "Percent of years under the escapemnt goal"}
-temp %>%
-  filter(sigF %in% c(0, 0.15, 0.3) & sigN == 0) %>%
-  filter(eg_range == "under") %>%
-  ggplot(aes(x = as.character(lnalpha), y = pct, group = sigF, fill = as.character(sigF))) +
-  geom_bar(stat = "identity", position = "dodge") +
-  scale_alpha_manual(values = c(1, 0.5)) +
-  facet_grid(paste0("\u03C6: ", phi) ~ paste0("\u03C3: ", sigW))
-```
-
-With respect to over-escapement, when $\sigma_F$ is varied between 0 and 0.3 there are increases as both $\sigma_F$ and $\textrm{log}(\alpha)$ increase with the same masking by variability in the SR relationship at high levels of $\sigma$ or $\phi$.
-
-```{r}
-temp %>%
-  filter(sigF %in% c(0, 0.15, 0.3) & sigN == 0) %>%
-  filter(eg_range == "over") %>%
-  ggplot(aes(x = as.character(lnalpha), y = pct, group = sigF, fill = as.character(sigF))) +
-  geom_bar(stat = "identity", position = "dodge") +
-  facet_grid(paste0("\u03C6: ", phi) ~ paste0("\u03C3: ", sigW))
-```
-
-When $\sigma_N$ is varied between 0 and 0.3 we see negligible effects on the percentage of under-escapements as $\sigma_N$ increases.
-
-```{r}
-temp %>%
-  filter(sigN %in% c(0, 0.15, 0.3) & sigF == 0) %>%
-  filter(eg_range == "under") %>%
-  ggplot(aes(x = as.character(lnalpha), y = pct, group = sigN, fill = as.character(sigN))) +
-  geom_bar(stat = "identity", position = "dodge") +
-  facet_grid(paste0("\u03C6: ", phi) ~ paste0("\u03C3: ", sigW))
-```
-
-With respect to over-escapement, when $\sigma_N$ is varied between 0 and 0.3 there are increases as both $\sigma_N$ and $\textrm{log}(\alpha)$ increase with the same masking by variability in the SR relationship at high levels of $\sigma$ or $\phi$.
-
-```{r}
-temp %>%
-  filter(sigN %in% c(0, 0.15, 0.3) & sigF == 0) %>%
-  filter(eg_range == "over") %>%
-  ggplot(aes(x = as.character(lnalpha), y = pct, group = sigN, fill = as.character(sigN))) +
-  geom_bar(stat = "identity", position = "dodge") +
-  facet_grid(paste0("\u03C6: ", phi) ~ paste0("\u03C3: ", sigW))
+baseSeq_pct_SOC <- list()
+for(i in 1:length(unique(input$lnalpha))){
+  baseSeq_pct_SOC[[i]] <-
+    baseSeq_combined %>% 
+    group_by(lnalpha, sigW, phi, scenario, SOC) %>% 
+    summarize(pct_SOC = sum(length)/input_sims) %>% 
+    ggplot(aes(x = scenario, y  = pct_SOC, fill = SOC)) + 
+    geom_bar(stat = "identity") +
+    theme_bw() +
+    facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
+                        ncol = 3, nrow = 3, page = i)
+}
+baseSeq_pct_SOC[[1]]
+baseSeq_pct_SOC[[2]]
+baseSeq_pct_SOC[[3]]
 ```

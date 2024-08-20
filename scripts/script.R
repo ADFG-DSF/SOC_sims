@@ -108,9 +108,6 @@ sim_base <-
                          Hfun = H_goal),
          SIMPLIFY = FALSE) %>%
   do.call("rbind", .)
-  
-saveRDS(sim_base, file = ".\\sim_base.R")
-# sim_base <- readRDS(file = ".\\sim_base.R")
 
 # * Plot time series --------------------------------------------------------
 #writing function here since it has dubious use outside of this single application
@@ -286,8 +283,6 @@ sim_Seq <-
   lapply(function(x) rename(x, lnalpha_red = lnalpha)) %>%
   do.call("rbind", .) %>%
   left_join(input[, c("lnalpha", "lb_pctMSY", "ub_pctMSY")], by = c("lb_goal" = "lb_pctMSY", "ub_goal" = "ub_pctMSY"))
-saveRDS(sim_Seq, file = ".\\sim_Seq.R")
-#sim_Seq <- readRDS(file = ".\\sim_Seq.R")
 
 
 

@@ -96,8 +96,6 @@ for(i in 1:length(unique(input$lnalpha))){
 }
 ```
 
-![](images/clipboard-1606042173.png)
-
 ```{r, echo = FALSE, warning = FALSE}
 #| label: fig-lnRS
 #| fig.height: 8

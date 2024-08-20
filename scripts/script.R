@@ -249,12 +249,16 @@ Ricker_plots_Seq[[3]] + coord_cartesian(xlim = c(0, 50000), ylim = c(0, 50000))
 
 # * simulation reduced alpha -------------------------------------------------------------------
 #grid simulation using same lower bound as above (average productivity lb) but reduced productivity
-# % of average productivity ~ 15-20%
-input %>% 
+# % of average productivity ~ 25%
+dat_pctred <- 
+  input %>% 
   mutate(lnalpha_p = get_lnalpha_p(lnalpha, beta, sigW, phi),
          lnalpha_p_red = lb_pctMSY  * beta,
-         pct_red = lnalpha_p_red / lnalpha_p) %>%
-  print(n = 100)
+         pct_red = lnalpha_p_red / lnalpha_p)
+mean(dat_pctred$pct_red)
+median(dat_pctred$pct_red)
+range(dat_pctred$pct_red)
+
 
 # % of average productivity lower bound ~ .47%
 input %>% 
@@ -485,7 +489,7 @@ Seq_nSOC[[2]]
 #Seq_nSOC[[3]]
 
 # Percent of time spend in each designation?
-# I don't see a patterns relative to status qou or rebuild but there are patterns relative the SOC parameters.
+# I don't see a patterns relative to status quo or rebuild but there are patterns relative the SOC parameters.
 Seq_pSOC <- list()
 for(i in 1:length(unique(input$lnalpha))){
   Seq_pSOC[[i]] <-
@@ -503,7 +507,7 @@ Seq_pSOC[[2]]
 #Seq_pSOC[[3]]
 
 #Percent of lb_goal (the goal lb based on the historic dataset) met while in conservation or management concern (i.e. while managing to a rebuilding goal)
-#Unsurprisingly we do archive larger escapements but it's not huge
+#Unsurprisingly we do achive larger escapements but it's not huge
 Seq_S <- list()
 for(i in 1:length(unique(input$lnalpha))){
   Seq_S[[i]] <-
@@ -658,6 +662,7 @@ for(i in 1:length(unique(input$lnalpha))){
     regime_combined %>% 
     group_by(lnalpha, sigW, phi, scenario, SOC) %>% 
     summarize(pct_SOC = sum(length)/input_sims) %>% 
+    filter(SOC != "No concern") %>%
     ggplot(aes(x = scenario, y  = pct_SOC, fill = SOC)) + 
     geom_bar(stat = "identity") +
     theme_bw() +
@@ -687,7 +692,7 @@ regime_S[[3]] + coord_cartesian(ylim = c(-0.5, 0.5))
 regime_length <- list()
 for(i in 1:length(unique(input$lnalpha))){
   regime_length[[i]] <-
-    sq_rebuild_regime_combined %>% 
+    regime_combined %>% 
     group_by(lnalpha, sigW, phi, scenario, SOC) %>% 
     filter(SOC %in% c("Conservation", "Management")) %>%
     ggplot(aes(x = scenario, y  = length)) + 

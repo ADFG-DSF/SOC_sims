@@ -1,0 +1,124 @@
+---
+title: "SOC_conservation"
+author: "Adam Reimer"
+format:
+  html:
+    embed-resources: true
+editor: visual
+---
+
+```{r include = FALSE}
+packs <- c("tidyverse", "ggforce", "RcppRoll", "knitr")
+lapply(packs, require, character.only = TRUE)
+
+# source functions
+function_files <- list.files(path="..\\functions")
+lapply(function_files, function(x) source(paste0("..\\functions\\", x)))
+
+vec_lnalpha <- seq(1, 2, length.out = 3)
+vec_sigW <- seq(0.25, 0.75, length.out = 3)
+vec_phi <- seq(0, .7, length.out = 3)
+beta <- 0.0001
+df_power <- data.frame(lnalpha = vec_lnalpha,
+                       power = c(0.6, 0.7, 0.8)) #how to pick these. High for SOC sims. Should be lower for OPY sims.
+input <- 
+  expand.grid(lnalpha = vec_lnalpha, sigW = vec_sigW, phi = vec_phi) %>%
+  mutate(beta = beta, 
+         Smsy = get_Smsy(lnalpha, beta, TRUE, sigma = sigW, phi = phi),
+         lb_eggers = Smsy * 0.8, #Egger bounds
+         ub_eggers = Smsy * 1.6) %>%
+  rowwise() %>%
+  mutate(lb_pctMSY = optimise(get_bounds, #'true' OYP bounds
+                              1:Smsy, 
+                              lnalpha = lnalpha, 
+                              beta = beta,
+                              pct_MSY = 0.9,
+                              correct = TRUE,
+                              sigma = sigW,
+                              phi = phi)$minimum,
+          ub_pctMSY = optimise(get_bounds, 
+                              Smsy:(Smsy*5), 
+                              lnalpha = lnalpha, 
+                              beta = beta,
+                              pct_MSY = 0.7,
+                              correct = TRUE,
+                              sigma = sigW,
+                              phi = phi)$minimum) %>%
+  ungroup() %>%
+  left_join(df_power, by = "lnalpha")
+
+Chinook_age <- c('3' = 0.1, '4' = 0.2, '5' = 0.3, '6' = 0.38, '7' = 0.02)
+
+input_sims = 1000
+```
+
+## What are we concerned about?
+
+In the previous documents I suggested definitions for yield and management concern which clarify the reason ADF&G would be concerned for each type listing. In the case of a yield concern we would be worried about overharvest whereas during a management concern we would be worried about having lost our ability to manage the stock. On the surface conservation concern is considerably more clear... we are worried about the stocks ability to propagate itself. It also seems easy to assess... wait till you are in a management concern, monitor R/S and declare an SET when R/S dips below 1. The issue arises because according to the spawner-recruit theory we use to manage salmon populations in Alaska (i.e the Ricker curve) we will never observe this condition.
+
+```{r include = FALSE}
+lnRS_plots <- list()
+for(i in 1:length(unique(input$lnalpha))){
+  lnRS_plots[[i]] <- 
+    input %>%
+    rowwise() %>%
+    mutate(Rmax = Ricker(lnalpha = get_lnalpha_p(lnalpha, beta, sigW, phi), beta = beta, S = 1 / beta),
+           Rmsy = Ricker(lnalpha = get_lnalpha_p(lnalpha, beta, sigW, phi), beta = beta, S = Smsy),
+           c = 1.6,
+           a = gamma_par(1 / beta, Rmax, c)[[1]],
+           b = gamma_par(1 / beta, Rmax, c)[[2]]) %>%
+    rowwise() %>%
+    mutate(Seq = get_lnalpha_p(lnalpha, beta, sigW, phi) / beta,
+           b_match = uniroot(function(b) {a * Seq^c * exp(-b * Seq) - Seq}, interval = c(b/1.1, b/.9), tol = 0.00001)$root,
+           crit = uniroot(function(S) a * S^c * exp(-b_match * S) - S, c(5, 1000), tol = 0.00001)$root,
+           dep = uniroot(function(S) {-a * S^(c-2) * (b_match * S - c + 1)*exp(-b_match * S)}, c(0, 5000), tol = 0.00001)$root,
+           lnRS_gamma_crit = log(SR_gamma(a = a, b = b_match, c = c, S = crit) / crit),
+           lnRS_gamma_dep = log(SR_gamma(a = a, b = b_match, c = c, S = dep) / dep)) %>%
+    ungroup() %>%
+    slice(rep(1:n(), each = 251)) %>% 
+    mutate(S = rep(seq(0, 5 * 1 / max(beta), by = 200), times = nrow(input)),
+           R_Ricker = Ricker(lnalpha = get_lnalpha_p(lnalpha, beta, sigW, phi), beta = beta, S = S),
+           lnRS_Ricker = log(R_Ricker / S),
+           R_gamma = SR_gamma(a = a, b = b_match, c = c, S = S),
+           lnRS_gamma = log(R_gamma / S)) %>%
+    ggplot(aes(x = S, y = lnRS_Ricker)) +
+    geom_rect(aes(xmin = lb_pctMSY, xmax = ub_pctMSY, ymin = -Inf, ymax = Inf), fill = "grey95") +
+    geom_line() +
+    geom_line(aes(y = lnRS_gamma), color = "red") +
+    geom_point(aes(x = Smsy, y = log(Rmsy / Smsy))) +
+    geom_point(aes(x = crit, y = lnRS_gamma_crit), color = "red", shape = 4, size = 2) +
+    geom_hline(aes(yintercept = 0), linetype =2) +
+    geom_point(aes(x = dep, y = lnRS_gamma_dep), color = "red") +
+    theme_bw() +
+    facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
+                        #scales = "free_y",
+                        ncol = 3, nrow = 3, page = i)
+}
+```
+
+![](images/clipboard-1606042173.png)
+
+```{r, echo = FALSE, warning = FALSE}
+#| label: fig-lnRS
+#| fig.height: 8
+#| fig.width: 8
+#| fig.cap: "The relationship between the natural logarithm of recruits per spawner and spawning abundance for compensatory and decompensatory stock-recruit dynamics. The solid black line show recruits per spawner continuously increasing with decreasing spawning abundance (compensation) while the red line shows recruits per spawner decreasing with decreasing spawning abundance on the left side of the red dot (decompensation) and increasing with decreasing spawning abundance on the right side of the red dot (compensation). The red x represents an unstable equilibrium below which a stock would trend towards extinction."
+#| layout-nrow: 3
+#| fig-subcap: 
+#|   - "log(\u03B1) = 1.0"
+#|   - "log(\u03B1) = 1.5"
+#|   - "log(\u03B1) = 2.0"
+lnRS_plots[[1]] + coord_cartesian(xlim = c(0, 10000 * 1.25), ylim = c(-1, 2.5))
+lnRS_plots[[2]] + coord_cartesian(xlim = c(0, 15000 * 1.25), ylim = c(-1, 2.5))
+lnRS_plots[[3]] + coord_cartesian(xlim = c(0, 20000 * 1.25), ylim = c(-1, 2.5))
+```
+
+In fisheries we typically assume compensatory population dynamics meaning that R/S increases as spawning abundance decreases (i.e. the population *compensates* for a reduction in it's size by producing more recruits). These dynamics are common and allow for a harvestable surplus. They also mean that at any threshold spawning abundance we would expect R/S to increase below the threshold and decrease above the threshold. Unfortunately this behavior is inconsistent with the "in practice"' part of the definition of a Sustainable Escapement Threshold which implies that there is a spawning abundance **below** which R/S will decrease.
+
+The scenario described by the SET definition has been described... it's called decompensatory dynamics... but has only been rarely observed[^1]. The prevailing wisdom is that decompensatory dynamics do exist but they exist at low enough levels of spawning abundance that they have been rarely observed because they have been actively avoided by fishery managers. Decompensatory dynamics mean exactly what you might guess, R/S decreases as spawning abundance decreases. If there is a threshold where compensatory dynamics end and decompensatory dynamics begin as spawning abundance decreases then it would represent a spawning abundacne below which the stocks recovery capability is compromised. In some situations an unstable population equilibrium can exist meaning stocks with a spawning abundance above that point will increase in size while stocks with a spawning abundance below that size will decrease in abundance. That's dangerous although in practice the volatility of crossing below that point would be buffered by the age structure of the stock and process error associated with each brood.
+
+[^1]: At the population scale. There are examples of specific mortality mechanisms becoming more efficient at lower levels of abundance (i.e. being decompensatory). Think brown bear standing at the top of a waterfall.
+
+I suggest that this conundrum provides us with the basis for the research plan associated with any stock of management concern. In the near term our scientists and cliometricians can busy themselves with identifying our ability to detect compensatory dynamics. When tasked with how to address fishery disasters we should be focusing on improving our stock assessments with an eye towards detecting these dynamics early. Because we have an abundance of empirical evidence to suggest this point only occurs at low spawning abundances it would certainly be the SET.
+
+So where does that leave us? At a minimum we can not use the Ricker curve to describe the threats salmon populations might face when they continue to decline in abundance despite ADF&G exhausting it's management capabilities. We also lack a competing model which has been theoretically or empirically calibrated to estimate where compensatory dynamics end and decompensatory dynamics begin as population abundance declines. What we do have is a robust set of stock assessments in place for many of the fisheries in the state where these conditions currently exist. devoting additional resources towards these assessments, particularly after a management concern has been declared, is arguable a more responsible use of the state resources (human and fiscal) when disaster funds are sought and granted.

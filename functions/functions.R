@@ -1,5 +1,16 @@
 Ricker <- function(lnalpha, beta, S)  {S*exp(lnalpha - beta*S)}
 
+SR_gamma <- function(a, b, c, S) a * S^c * exp(-b * S) #Depensation
+
+#gamma params to match ricker Rmax, Smax. Quinn and Deriso pg 97
+gamma_par <- function(Smax, Rmax, gamma){
+  b <- gamma/Smax
+  list(
+    a = Rmax/((gamma/b)^gamma*exp(-gamma)),
+    b = b,
+    c = gamma)
+}
+
 get_lnalpha_p <- function(lnalpha, beta, sigma, phi, ...){
   lnalpha + sigma * sigma / 2 / (1 - phi * phi)
 }

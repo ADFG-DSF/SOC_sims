@@ -66,7 +66,17 @@ Conservation concern means a concern arising from a chronic inability, despite t
 
 In practice, these definitions have proven unworkable. While the definition of a management concern references bounds (implying over-escapement could be a management concern) we have always interpreted it to mean under-escapement. But this use collapses the definitions for yield and management concern and contradicts the implied order of severity.
 
-The department has yet to set an SET (which negates our ability to recommend a stock of conservation concern) but based on the definition of a SET we should probably at least be looking.
+There are two definitions embedded within the concern definitions that beg additional discussion. First, the definition of chronic inability is vague and had led to different interpretations at the division / regional level throughout the department.
+
+::: {.callout-note appearance="simple" icon="false"}
+### Chronic Inability
+
+Chronic Inability means the continuing or anticipated inability to meet escapement thresholds over a four to five year period, which is approximately the generation time of most salmon species.
+:::
+
+It's likely that this definition was left deliberately vague to enable latitude to layer professional judgement over SOC definitions. In practice I think it's been shown there remains considerable latitude to recommend, or fail to recommend a stock as a SOC without also needing a poorly defined threshold. That said, these simulations should allow us to quantify the utility of different SOC thresholds and hopefully coalesce around one with favorable properties ( see @sec-soc-designations). For the time being, our simulation will designate a stock as a SOC when the concern definition has been met in 4 out of the last 5 years and will will remove a stock as a SOC designation when the concern definition has not been met in 4 out of the last 5 years.
+
+The department has yet to set an SET (which negates our ability to recommend a stock of conservation concern) but based on the definition of a SET we should at least be looking.
 
 ::: {.callout-note appearance="simple" icon="false"}
 ### SET Definition
@@ -74,7 +84,7 @@ The department has yet to set an SET (which negates our ability to recommend a s
 "sustainable escapement threshold" or "SET" means a threshold level of escapement below which the ability of the salmon stock to sustain itself is jeopardized: in practice , SET can be estimated based on lower ranges of historical escapement levels, for which the salmon stock has consistently demonstrated the ability to sustain itself: the SET is lower than the lower bound of the BEG and lower than the lower bound of the SEG: the SET is established by the department in consultation with the board, as needed, for salmon stocks of management or conservation concern.
 :::
 
-In addition to the untenability of these 3 levels of concern is the department's response to a SOC designation... i.e. the action plan.
+The SOC policy could also use clarification regarding the department's response to a SOC designation... i.e. the action plan.
 
 ::: {.callout-note appearance="simple" icon="false"}
 ## Action Plan Components
@@ -90,7 +100,7 @@ In addition to the untenability of these 3 levels of concern is the department's
 \(5\) each action plan will include a research plan as necessary to provide information to address concerns; research needs and priorities will be evaluated periodically, based on the effectiveness on the monitoring described in (4) of this subsection
 :::
 
-The main issue with the action plan seems to be that by the time ADF&G has designated a SOC we have exhausted our management options. It's my opinion that the SSFP was written with an eye towards historical threats to fisheries (i.e. habitat degradation, poor hatchery practices, and over-fishing) and is poorly positioned to respond to reduced run sizes driven by factors largely outside of our control. Many of these issues could be solved by slight changes to the working definitions of the 2 of the concern types.
+The main issue with the action plan seems to be that by the time ADF&G has designated a SOC we have exhausted our management options. It's my opinion that the SSFP was written with an eye towards historical threats to fisheries (i.e. habitat degradation, poor hatchery practices, and over-fishing) and is poorly positioned to respond to reduced run sizes driven by factors largely outside of our control. Many of these issues could be solved by slight changes to the working definitions of 2 of the concern types.
 
 ::: {.callout-tip appearance="simple" icon="false"}
 ### Proposed Concern Definitions
@@ -100,13 +110,13 @@ Yield concern means a concern arising from a chronic inability, despite the use 
 Management concern means a concern arising from a chronic inability to **realize annual run sizes for a salmon stock above the lower bound** of the SEG, BEG, OEG or other specified management objectives for a fishery: a management concern is not as severe as a conservation concern.
 :::
 
-These definitions improve clarity about the responsibilities of both ADF&G and the board in the SOC process. The definition of a yield concern (S \< escapement goal lower bound and N \> escapement goal lower bound) implies that there is harvest which could be curtailed to rebuild thate stock. In this instance an action plan would be highly appropriate: ADF&G could present management options that exist relative the the choices our management staff made and the board would then be responsible for deciding if more restrictive action is appropriate.
+These definitions improve clarity about the responsibilities of both ADF&G and the board in the SOC process. The definition of a yield concern (S \< escapement goal lower bound and N \> escapement goal lower bound) implies that there is harvest which could be curtailed to rebuild the stock. In this instance an action plan would be highly appropriate: ADF&G could present management options that exist relative the the choices our management staff made and the board would then be responsible for deciding if more restrictive action is appropriate.
 
-The definition of a management concern (N \< escapement goal lower bound) makes it clear that we have exhausted our management capability. ADF&G should be transparent about this. In this instance a research plan is all that is necessary and appropriate. The goal of the research plan should be explicit: to collect the information necessary to determine an SET for the stock. Using the definition of an SET above this means we need to be paying for stock assessments robust enough to estimate returns from each spawning event. Returns per spawner of less than 1 from spawning events below the lower bound of the escapement goal would indicate the SET threshold had been crossed, thus defining the SET and putting ADF&G in a position to declare a conservation concern when necessary.
+The definition of a management concern (N \< escapement goal lower bound) makes it clear that we have exhausted our management capability. ADF&G should be transparent about this. In this instance a research plan is all that is necessary and appropriate. The goal of the research plan should be explicit: to improve stock assessments so that the state possesses the information necessary to determine an SET for the stock. Using the definition of an SET above this means we need to be paying for stock assessments robust enough to estimate returns from each spawning event. Returns per spawner of less than 1 from spawning events below the lower bound of the escapement goal would indicate the SET threshold had been crossed, thus defining the SET and putting ADF&G in a position to declare a conservation concern when necessary. Thus, SETs (and thus conservation concerns) would be determined on a case-by-case basis for individual stocks.
 
-Using these definitions SETs (and thus conservation concerns) would be determined on a case-by-case basis for individual stocks. We will discuss how to go about that in more detail later but for the moment lets define a SET as $1/2$ of the lower bound of the escapement goal and use these definitions in the simulation model described earlier to describe what our expectations might be with respect to SOC designations across a wide range of fisheries under both historic and current marine productivity regimes.
+We should test our ability to reliably detects and SET threshold (and will, later) but for the moment let's define an SET as $1/2$ of the lower bound of the escapement goal and use these definitions in the simulation model described earlier to describe what our expectations might be with respect to SOC designations across a wide range of fisheries under both historic and current marine productivity regimes.
 
-### Productivity Regimes
+### Productivity Regimes {#sec-productivity-regimes}
 
 ```{r include = FALSE}
 Ricker_plots_Seq <- list()
@@ -134,6 +144,16 @@ for(i in 1:length(unique(input$lnalpha))){
                         #scales = "free_y",
                         ncol = 3, nrow = 3, page = i)
 }
+
+#pecent reduction in lnalpha
+dat_pctred <- 
+  input %>% 
+  mutate(lnalpha_p = get_lnalpha_p(lnalpha, beta, sigW, phi),
+         lnalpha_p_red = lb_pctMSY  * beta,
+         pct_red = lnalpha_p_red / lnalpha_p)
+mean(dat_pctred$pct_red)
+median(dat_pctred$pct_red)
+range(dat_pctred$pct_red)
 ```
 
 Our collective best guess about why certain salmon stocks are struggling recently is that marine productivity has undergone a large decline. It would be convenient if we knew the SR relationship under both productivity regimes. I'm going to suggest that the current population dynamics for some of our struggling stocks is best described by holding the $\beta$ parameter constant and reducing $\textrm{log}(\alpha)$ such that $\textrm{log}(\alpha)^*=\frac{lb}{\beta}$ where $lb$ is the lower bound of the escapement goal range. This situation is represented in @fig-Ricker2. Notice that under current marine productivity conditions there is no harvestable surplus and the stock exactly replacing itself at the lower bound of the escapement goal range. Also note that maximizing recruitment would be strikingly inefficient. Why is this a reasonable representation reality? First, it fits that patterns we are seeing, i.e with no harvest total run continues to approximate the lower bound of the escapement goal which we might expect with stable age at maturity if the mean return equaled the lower bound of the escapement goal and actual return equaled the lower bound of the escapement goal plus process error. Second, $\beta$ is generally described as a measure of density dependence. It seems reasonable to suspect this event occurs in freshwater where density would be highest. This assumption may be difficult to verify empirically because SR pairs under low productivity regimes would appear as high leverage points in a linearized Ricker despite being produced by a change in the intercept ($\textrm{log}(\alpha)$) rather than the slope ($\beta$) of the stock recruit relationship. Lastly, an assumption of constant $\beta$ encourages conservative management because it implies minimal harvestable surplus below the lower bound of the goal (which appears to be true) rather than tempting mangers to chase harvestable surplus at lower estimates of $S_{MSY}$.
@@ -153,9 +173,11 @@ Ricker_plots_Seq[[2]] + coord_cartesian(xlim = c(0, 30000), ylim = c(0, 30000))
 Ricker_plots_Seq[[3]] + coord_cartesian(xlim = c(0, 50000), ylim = c(0, 50000))
 ```
 
-### Simulated Run Sizes with Historical and Low Productivity
+Under the assumption described above $\textrm{log}(\alpha^*)$ (stock productivity under low productivity scenarios , i.e. red lines in @fig-Ricker2) average about `r round(mean(dat_pctred$pct_red), 2)` of $\textrm{log}(\alpha)$ (stock productivity under historical productivity scenarios , i.e. black lines in @fig-Ricker2).
 
-Two sets of simulations were run with 27 parameter combinations $\textrm{log}(\alpha) = (1.0, 1.5, 2.0)$, $\sigma = (0.25, 0.50, 0.75)$, and $\phi = (0.00, 0.35, 0.70)$. $\beta=0.0001$ and $p_a=(0.10, 0.20, 0.30, 0.38, 0.02)$ were for all simulations while lower bound of the escapement goal was the escapement that predicted a mean return which produced 90% of MSY while the upper bound was was the escapement that predicted a mean return which produced 70% of MSY. Power varied according to the productivity of the stock and was set to $0.6$, $0.7$, or $0.8$ when $\textrm{log}(\alpha)$ was set to $1.0$, $1.5$ and $2.0$ respectively. Management varibility was set to 0.2 for both observation ($\sigma_N$) and implementation ($\sigma_F$) error. The first simulation was exactly as described above while the second simulation was identical except that it reflected a low productivity situation where $\textrm{log}(\alpha)^*=\frac{lb}{\beta}$.
+### Simulated Run Sizes with Historical and Low Productivity {#sec-simulated-run}
+
+Two sets of simulations were run with 27 parameter combinations $\textrm{log}(\alpha) = (1.0, 1.5, 2.0)$, $\sigma = (0.25, 0.50, 0.75)$, and $\phi = (0.00, 0.35, 0.70)$. $\beta=0.0001$ and $p_a=(0.10, 0.20, 0.30, 0.38, 0.02)$ were for all simulations while lower bound of the escapement goal was the escapement that predicted a mean return which produced 90% of MSY while the upper bound was was the escapement that predicted a mean return which produced 70% of MSY. Power varied according to the productivity of the stock and was set to $0.6$, $0.7$, or $0.8$ when $\textrm{log}(\alpha)$ was set to $1.0$, $1.5$ and $2.0$ respectively. Management variability was set to 0.2 for both observation ($\sigma_N$) and implementation ($\sigma_F$) error. The first simulation was exactly as described above while the second simulation was identical except that it reflected a low productivity situation where $\textrm{log}(\alpha)^*=\frac{lb}{\beta}$.
 
 ```{r include = FALSE}
 sim_base <- 
@@ -257,9 +279,9 @@ plot_ts(sim_base, 2)
 plot_ts(sim_Seq, 2)
 ```
 
-### SOC Designations With Historical and Low Productivity
+### SOC Designations with Historical and Low Productivity {#sec-soc-designations}
 
-These results manifest themselves likely close to what most of us might predict... SOC designations are rare under historical productivity regimes and become the expectation under low productivity regimes.
+These results manifest themselves closely to what most of us might predict... SOC designations are rare under historical productivity regimes and become the expectation under low productivity regimes. One way to interpret these results might be to consider them in light of a hypothesis test where $H_0= \textrm{stock productivity is at it's historic average}$. In that light the risk of a false negative (declaring a stock as a stock of concern when productivity is near it's historic average) is negligible while the power of the test (ability to detect low productivity when it occurs is \~$50$% or less. If this interpretation is deemed valid it suggests satisfying a SOC definition in 4 of the last 5 years is a lagging indicator of an extreme reduction in stock productivity and ADF&G staff should be quick to make a SOC recommendation when a 4 of 5 threshold is met. It also suggests a mechanism to test other SOC designation criteria (x of y years, y consecutive years, rolling mean escapement) as perhaps more powerful indicators of low contemporary productivity.
 
 ```{r include = FALSE}
 # * Base Seq compare -----------------------------------------------
@@ -305,38 +327,11 @@ for(i in 1:length(unique(input$lnalpha))){
 #|   - "Historical productivity: log(\u03B1) = 1.0"
 #|   - "Historical productivity: log(\u03B1) = 1.5"
 #|   - "Historical productivity: log(\u03B1) = 2.0"
-# * Base Seq compare -----------------------------------------------
-temp_base <- sim_base %>%
-  mutate(scenario = "Historical")
-temp_Seq <- sim_Seq %>%
-  mutate(scenario = "Low") %>%
-  select(-lnalpha_red)
-baseSeq_combined <- 
-  rbind(temp_base, temp_Seq) %>%
-  group_by(lnalpha, sigW, phi, scenario) %>%
-  select(-F, -U, -N) %>% 
-  mutate(change = case_when(SOC != lag(SOC) ~ TRUE, TRUE ~ FALSE),
-         n_change = cumsum(change),
-         deviation_lb = (S - lb_goal) / lb_goal) %>%
-  group_by(lnalpha, sigW, phi, scenario, n_change, SOC) %>%
-  summarise(length = length(n_change),
-            deviation_lb = mean(deviation_lb),
-            miss = sum((S < lb_goal)) / length,
-            mean_S = mean(S))
-
-baseSeq_pct_SOC <- list()
-for(i in 1:length(unique(input$lnalpha))){
-  baseSeq_pct_SOC[[i]] <-
-    baseSeq_combined %>% 
-    group_by(lnalpha, sigW, phi, scenario, SOC) %>% 
-    summarize(pct_SOC = sum(length)/input_sims) %>% 
-    ggplot(aes(x = scenario, y  = pct_SOC, fill = SOC)) + 
-    geom_bar(stat = "identity") +
-    theme_bw() +
-    facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
-                        ncol = 3, nrow = 3, page = i)
-}
 baseSeq_pct_SOC[[1]]
 baseSeq_pct_SOC[[2]]
 baseSeq_pct_SOC[[3]]
 ```
+
+### Rebuilding
+
+After a stock of concern is declared what can we do about it?

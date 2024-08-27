@@ -93,7 +93,7 @@ Ricker_plots[[3]] + coord_cartesian(xlim = c(0, 50000), ylim = c(0, 50000))
 # Base case -------------------------------------------------------------------
 # Simulation results
 sim_base <- 
-  mapply(FUN = simSR_goal,
+  mapply(FUN = sim_Ricker,
          lnalpha = input$lnalpha,
          sigW = input$sigW,
          phi = input$phi,
@@ -118,7 +118,7 @@ plot_ts <- function(dat, lnalpha0){
     filter(lnalpha == lnalpha0) %>%
     pivot_longer(c(S, N), names_to = "stat", values_to = "value")
   
-  limit <- quantile(df$value[df$stat == "N"], .95, na.rm = TRUE)
+  limit <- max(quantile(df$value[df$stat == "N"], .95, na.rm = TRUE), max(df$ub_goal) * 1.25)
   
       ggplot(df, aes(x = sim, y = value, color = stat)) +
         geom_line(alpha = 0.4) +
@@ -267,7 +267,7 @@ input %>%
 #simulation results
 # Simulation results
 sim_Seq <- 
-  mapply(FUN = simSR_goal,
+  mapply(FUN = sim_Ricker,
          lnalpha = input$lb_pctMSY*beta,  #reduced ln_alpha
          sigW = input$sigW,
          phi = input$phi,
@@ -320,7 +320,7 @@ sim_Seq %>%
                       "Management concern",
                       "Yield concern"))
 
-# * Base Seq compare -----------------------------------------------
+# * Compare to base -----------------------------------------------
 temp_base <- sim_base %>%
   mutate(scenario = "base")
 temp_Seq <- sim_Seq %>%
@@ -366,7 +366,7 @@ baseSeq_pct_SOC[[3]]
 # Can managing to a higher goal during management or conservation concerns reduce the duration of concern designations or 
 # increase escapement during concern designations
 sim_Seq_rebuild <- 
-  mapply(FUN = simSR_goal, 
+  mapply(FUN = sim_Ricker, 
          lnalpha = input$lb_pctMSY*beta,  #reduced ln_alpha 
          sigW = input$sigW, 
          phi = input$phi,
@@ -421,11 +421,45 @@ sim_Seq_rebuild %>%
                       "Management concern",
                       "Yield concern"))
 
+# * Compare to Seq  -----------------------------------------------
+# * * pct of time in each SOC designation  -----------------------------------------------
+temp_Seq <- sim_Seq %>%
+  mutate(scenario = "Seq") %>%
+  select(-lnalpha_red)
+temp_Seq_rebuild <- sim_Seq_rebuild %>%
+  mutate(scenario = "Seq_rebuild") %>%
+  select(-lnalpha_red)
+Seq_Seqrebuild_combined <- 
+  rbind(temp_Seq, temp_Seq_rebuild) %>%
+  group_by(lnalpha, sigW, phi, scenario) %>%
+  select(-F, -U, -N) %>% 
+  mutate(change = case_when(SOC != lag(SOC) ~ TRUE, TRUE ~ FALSE),
+         n_change = cumsum(change),
+         deviation_lb = (S - lb_goal) / lb_goal) %>%
+  group_by(lnalpha, sigW, phi, scenario, n_change, SOC) %>%
+  summarise(length = length(n_change),
+            deviation_lb = mean(deviation_lb),
+            miss = sum((S < lb_goal)) / length,
+            mean_S = mean(S))
 
+SeqSeqrebuild_pct_SOC <- list()
+for(i in 1:length(unique(input$lnalpha))){
+  SeqSeqrebuild_pct_SOC[[i]] <-
+    Seq_Seqrebuild_combined %>% 
+    group_by(lnalpha, sigW, phi, scenario, SOC) %>% 
+    summarize(pct_SOC = sum(length)/input_sims) %>% 
+    ggplot(aes(x = scenario, y  = pct_SOC, fill = SOC)) + 
+    geom_bar(stat = "identity") +
+    theme_bw() +
+    facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
+                        ncol = 3, nrow = 3, page = i)
+}
+SeqSeqrebuild_pct_SOC[[1]]
+SeqSeqrebuild_pct_SOC[[2]]
+SeqSeqrebuild_pct_SOC[[3]]
 
-# * Compare management under Seq regime ------------------------------------------------------
-#Summary statistics for status quo and Rebuilding fisheries under reduced productivity.
-
+# * * mean abundance ------------------------------------------------------
+#Summary statistics for status quo and Rebuilding fisheries under reduced productivity
 #Plot of point estimates for each Ricker parameter combination
 tab_rebuild <- sim_Seq_rebuild %>%
   filter(max(sim) == input_sims) %>%
@@ -448,97 +482,16 @@ bind_rows(tab_rebuild, tab_statusquo) %>%
   geom_abline(slope = 1, intercept = 0)
 
 #Compare different SOC designation statistics
-temp_sq <- sim_Seq %>%
-  mutate(scenario = "StatusQuo")
-temp_rebuild <- sim_Seq_rebuild %>%
-  mutate(scenario = "Rebuild")
-Seq_combined <- 
-  rbind(temp_rebuild, temp_sq) %>%
-  group_by(lnalpha, sigW, phi, scenario) %>%
-  select(-F, -U, -N) %>% 
-  mutate(change = case_when(SOC != lag(SOC) ~ TRUE, TRUE ~ FALSE),
-         n_change = cumsum(change),
-         deviation_lb = (S - lb_goal) / lb_goal) %>%
-  group_by(lnalpha, sigW, phi, scenario, n_change, SOC) %>%
-  summarise(length = length(n_change),
-            deviation_lb = mean(deviation_lb),
-            miss = sum(S < lb_goal) / length,
-            mean_S = mean(S))
+  # mutate(change = case_when(SOC != lag(SOC) ~ TRUE, TRUE ~ FALSE),
+  #        n_change = cumsum(change),
+  #        deviation_lb = (S - lb_goal) / lb_goal) %>%
+  # group_by(lnalpha, sigW, phi, scenario, n_change, SOC) %>%
+  # summarise(length = length(n_change),
+  #           deviation_lb = mean(deviation_lb),
+  #           miss = sum(S < lb_goal) / length,
+  #           mean_S = mean(S))
 
-# How many SOC designations?
-Seq_nSOC <- list()
-for(i in 1:length(unique(input$lnalpha))){
-  Seq_nSOC[[i]] <-
-    Seq_combined %>% 
-    group_by(lnalpha, sigW, phi, scenario, SOC) %>% 
-    filter(SOC != "No concern") %>%
-    summarize(delta_SOC = length(n_change)) %>% 
-    ggplot(aes(x = scenario, y  = delta_SOC, fill = SOC)) + 
-    geom_bar(stat = "identity") +
-    theme_bw() +
-    facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
-                        ncol = 3, nrow = 3, page = i)
-}
-#Seq_nSOC[[1]]
-Seq_nSOC[[2]]
-#Seq_nSOC[[3]]
-
-# Percent of time spend in each designation?
-# I don't see a patterns relative to status quo or rebuild but there are patterns relative the SOC parameters.
-Seq_pSOC <- list()
-for(i in 1:length(unique(input$lnalpha))){
-  Seq_pSOC[[i]] <-
-    Seq_combined %>% 
-    group_by(lnalpha, sigW, phi, scenario, SOC) %>% 
-    summarize(pct_SOC = sum(length)/input_sims) %>% 
-    ggplot(aes(x = scenario, y  = pct_SOC, fill = SOC)) + 
-    geom_bar(stat = "identity") +
-    theme_bw() +
-    facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
-                        ncol = 3, nrow = 3, page = i)
-}
-#Seq_pSOC[[1]]
-Seq_pSOC[[2]]
-#Seq_pSOC[[3]]
-
-#Percent of lb_goal (the goal lb based on the historic dataset) met while in conservation or management concern (i.e. while managing to a rebuilding goal)
-#Unsurprisingly we do achive larger escapements but it's not huge
-Seq_S <- list()
-for(i in 1:length(unique(input$lnalpha))){
-  Seq_S[[i]] <-
-    Seq_combined %>% 
-    group_by(lnalpha, sigW, phi, scenario, SOC) %>% 
-    filter(SOC %in% c("Conservation", "Management")) %>%
-    ggplot(aes(x = scenario, y  = deviation_lb)) + 
-    geom_boxplot() +
-    theme_bw() +
-    facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
-                        ncol = 3, nrow = 3, page = i)
-}
-Seq_S[[1]] + coord_cartesian(ylim = c(-0.5, 0.5))
-Seq_S[[2]] + coord_cartesian(ylim = c(-0.5, 0.5))
-Seq_S[[3]] + coord_cartesian(ylim = c(-0.5, 0.5))
-
-# Length of SOC designations (Conservation and Management)
-# I don't see much here
-Seq_length <- list()
-for(i in 1:length(unique(input$lnalpha))){
-  Seq_length[[i]] <-
-    Seq_combined %>% 
-    group_by(lnalpha, sigW, phi, scenario, SOC) %>% 
-    filter(SOC %in% c("Conservation", "Management")) %>%
-    ggplot(aes(x = scenario, y  = length)) + 
-    geom_boxplot() +
-    theme_bw() +
-    facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
-                        ncol = 3, nrow = 3, page = i)
-}
-Seq_length[[1]]
-Seq_length[[2]] + coord_cartesian(ylim = c(0, 25))
-Seq_length[[3]]
-
-
-# Rebuilding with shifting lnalpha ----------------------------------------
+# Regimes - shifting lnalpha ----------------------------------------
 #Build a vector of lnalpha values where regimes shift every 15-25 years
 get_lnalpha_ts <- function(base, red){
   out <- 
@@ -551,7 +504,7 @@ lnalpha_regime <- mapply(get_lnalpha_ts, base = input$lnalpha, red = input$lb_pc
 
 #fixed escapement goals
 sim_regime_statusquo <- 
-  mapply(FUN = simSR_goal, 
+  mapply(FUN = sim_Ricker, 
          lnalpha = lnalpha_regime,  
          sigW = input$sigW, 
          phi = input$phi,
@@ -570,7 +523,7 @@ sim_regime_statusquo <-
 
 #raise escapement goals when in Conservation or Management concern
 sim_regime_rebuild <- 
-  mapply(FUN = simSR_goal,
+  mapply(FUN = sim_Ricker,
          lnalpha = lnalpha_regime,
          sigW = input$sigW,
          phi = input$phi,
@@ -590,7 +543,44 @@ sim_regime_rebuild <-
   left_join(input[, c("lnalpha", "lb_pctMSY", "ub_pctMSY")], by = c("lb_goal" = "lb_pctMSY", "ub_goal" = "ub_pctMSY"))
 
 
-# * Compare management under Seq regime ------------------------------------------------------
+# * Compare to strategies  -----------------------------------------------
+# * * pct of time in each SOC designation  -----------------------------------------------
+temp_regime <- sim_regime_statusquo %>%
+  mutate(scenario = "regime_statusquo") %>%
+  select(-lnalpha_red)
+temp_regime_rebuild <- sim_regime_rebuild %>%
+  mutate(scenario = "regime_rebuild") %>%
+  select(-lnalpha_red)
+regime_combined <- 
+  rbind(temp_regime, temp_regime_rebuild) %>%
+  group_by(lnalpha, sigW, phi, scenario) %>%
+  select(-F, -U, -N) %>% 
+  mutate(change = case_when(SOC != lag(SOC) ~ TRUE, TRUE ~ FALSE),
+         n_change = cumsum(change),
+         deviation_lb = (S - lb_goal) / lb_goal) %>%
+  group_by(lnalpha, sigW, phi, scenario, n_change, SOC) %>%
+  summarise(length = length(n_change),
+            deviation_lb = mean(deviation_lb),
+            miss = sum((S < lb_goal)) / length,
+            mean_S = mean(S))
+
+regime_pct_SOC <- list()
+for(i in 1:length(unique(input$lnalpha))){
+  regime_pct_SOC[[i]] <-
+    regime_combined %>% 
+    group_by(lnalpha, sigW, phi, scenario, SOC) %>% 
+    summarize(pct_SOC = sum(length)/input_sims) %>% 
+    ggplot(aes(x = scenario, y  = pct_SOC, fill = SOC)) + 
+    geom_bar(stat = "identity") +
+    theme_bw() +
+    facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
+                        ncol = 3, nrow = 3, page = i)
+}
+regime_pct_SOC[[1]]
+regime_pct_SOC[[2]]
+regime_pct_SOC[[3]]
+
+# * * mean abundance ------------------------------------------------------
 #Summary statistics for status quo and Rebuilding fisheries under reduced productivity.
 
 #Plot of point estimates for each Ricker parameter combination
@@ -614,13 +604,128 @@ bind_rows(tab_regime_rebuild, tab_regime_statusquo) %>%
   geom_jitter(width = 0, height = 0) +
   geom_abline(slope = 1, intercept = 0)
 
-#Compare different SOC designation statistics
-temp_sq <- sim_regime_statusquo %>%
-  mutate(scenario = "StatusQuo")
-temp_rebuild <- sim_regime_rebuild %>%
-  mutate(scenario = "Rebuild")
-regime_combined <- 
-  rbind(temp_rebuild, temp_sq) %>%
+
+# Depensation ----------------------------------------
+#Create input parameters
+input <- 
+  input %>%
+  rowwise() %>%
+  mutate(Rmax = Ricker(lnalpha = get_lnalpha_p(lnalpha, beta, sigW, phi), beta = beta, S = 1 / beta),
+         Rmax_Seq = Ricker(lnalpha = lb_pctMSY * beta, beta = beta, S = 1 / beta),
+         Seq = get_lnalpha_p(lnalpha, beta, sigW, phi) / beta,
+         c = 1.1,
+         a = gamma_par(1 / beta, Rmax, c)[[1]],
+         b = gamma_par(1 / beta, Rmax, c)[[2]],
+         a_Seq = gamma_par(1 / beta, Rmax_Seq, c)[[1]],
+         b_Seq = gamma_par(1 / beta, Rmax_Seq, c)[[2]]) %>%
+  rowwise() %>%
+  #mutate(b_match = uniroot(function(b) {a * Seq^c * exp(-b * Seq) - Seq}, interval = c(b/1.1, b/.9), tol = 0.00001)$root,
+         #crit = uniroot(function(S) a * S^c * exp(-b_match * S) - S, c(5, 1000), tol = 0.00001)$root,
+         #dep = uniroot(function(S) {-a * S^(c-2) * (b_match * S - c + 1)*exp(-b_match * S)}, c(0, 5000), tol = 0.00001)$root,
+         #lnRS_gamma_crit = log(SR_gamma(a = a, b = b_match, c = c, S = crit) / crit),
+         #lnRS_gamma_dep = log(SR_gamma(a = a, b = b_match, c = c, S = dep) / dep)) %>%
+  ungroup()
+
+
+gamma_plots <- list()
+for(i in 1:length(unique(input$lnalpha))){
+  gamma_plots[[i]] <- 
+    input %>%
+    slice(rep(1:n(), each = 251)) %>% 
+    mutate(S = rep(seq(0, 5 * 1 / max(beta), by = 200), times = nrow(input)),
+           R_Ricker = Ricker(lnalpha = get_lnalpha_p(lnalpha, beta, sigW, phi), beta = beta, S = S),
+           RSeq_Ricker = Ricker(lnalpha = lb_pctMSY * beta, beta = beta, S = S),
+           R_gamma = SRgamma(alpha = a, beta = b, gamma = c, S = S),
+           RSeq_gamma = SRgamma(alpha = a_Seq, beta = b_Seq, gamma = c, S = S)) %>%
+    ggplot(aes(x = S, y = R_Ricker)) +
+    geom_rect(aes(xmin = lb_pctMSY, xmax = ub_pctMSY, ymin = -Inf, ymax = Inf), fill = "grey95") +
+    geom_line() +
+    geom_line(aes(y = RSeq_Ricker), color = "black", linetype = 2) +
+    geom_line(aes(y = R_gamma), color = "red") +
+    geom_line(aes(y = RSeq_gamma), color = "red", linetype = 2) +
+    geom_abline() +
+    theme_bw() +
+    facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
+                        #scales = "free_y",
+                        ncol = 3, nrow = 3, page = i)
+} 
+
+#gamma_plots[[1]] + coord_cartesian(xlim = c(0, 20000), ylim = c(0, 20000))
+gamma_plots[[2]] + coord_cartesian(xlim = c(0, 30000), ylim = c(0, 30000))
+#gamma_plots[[3]] + coord_cartesian(xlim = c(0, 50000), ylim = c(0, 50000))
+
+lnRS_plots <- list()
+for(i in 1:length(unique(input$lnalpha))){
+  lnRS_plots[[i]] <- 
+    input %>%
+    slice(rep(1:n(), each = 201)) %>% 
+    mutate(S = rep(seq(0, 6000, by = 6000*1/200), times = nrow(input)),
+           R_Ricker = Ricker(lnalpha = get_lnalpha_p(lnalpha, beta, sigW, phi), beta = beta, S = S),
+           RSeq_Ricker = Ricker(lnalpha = lb_pctMSY * beta, beta = beta, S = S),
+           lnRS_Ricker = log(R_Ricker / S),
+           lnRSSeq_Ricker = log(RSeq_Ricker / S),
+           R_gamma = SRgamma(alpha = a, beta = b, gamma = c, S = S),
+           RSeq_gamma = SRgamma(alpha = a_Seq, beta = b_Seq, gamma = c, S = S),
+           lnRS_gamma = log(R_gamma / S),
+           lnRSSeq_gamma = log(RSeq_gamma / S)) %>%
+    rowwise() %>%
+    mutate(dep = uniroot(function(S) {-a * S^(c-2) * (b * S - c + 1)*exp(-b * S)}, c(0, 5000), tol = 0.00001)$root,
+           lnRS_gamma_dep = log(SRgamma(a, b, c, S = dep) / dep),
+           dep_Seq = uniroot(function(S) {-a_Seq * S^(c-2) * (b_Seq * S - c + 1)*exp(-b_Seq * S)}, c(0, 5000), tol = 0.00001)$root,
+           lnRS_gamma_dep_Seq = log(SRgamma(a_Seq, b_Seq, c, S = dep_Seq) / dep_Seq)) %>%
+    ungroup() %>%
+    ggplot(aes(x = S, y = lnRS_Ricker)) +
+    geom_rect(aes(xmin = lb_pctMSY, xmax = Inf, ymin = -Inf, ymax = Inf), fill = "grey95") +
+    geom_line() +
+    geom_line(aes(y = lnRSSeq_Ricker), color = "black", linetype = 2) +
+    geom_line(aes(y = lnRS_gamma), color = "red") +
+    geom_line(aes(y = lnRSSeq_gamma), color = "red", linetype = 2) +
+    geom_point(aes(x = dep, y = lnRS_gamma_dep), color = "red") +
+    geom_point(aes(x = dep_Seq, y = lnRS_gamma_dep_Seq), color = "red") +
+    geom_hline(yintercept = 0) +
+    theme_bw() +
+    facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
+                        #scales = "free_y",
+                        ncol = 3, nrow = 3, page = i)
+} 
+
+lnRS_plots[[1]]
+gamma_plots[[1]] + coord_cartesian(xlim = c(0, 500), ylim = c( 0, 500))
+lnRS_plots[[2]]
+lnRS_plots[[3]]
+
+# * Historic Productivity ---------------------------------------------------
+sim_gamma <- 
+  mapply(FUN = sim_SRgamma, 
+         alpha = input$a,
+         beta = input$b,
+         gamma = input$c,
+         sigW = input$sigW, 
+         phi = input$phi,
+         lb_goal = input$lb_pctMSY,
+         ub_goal = input$ub_pctMSY,
+         MoreArgs = list(age0 = Chinook_age,
+                         Sims0 = input_sims, 
+                         sigN = 0.2,
+                         sigF = 0,
+                         Hfun = H_goal),
+         SIMPLIFY = FALSE) %>%
+  do.call("rbind", .) %>%
+  left_join(input[, c("lnalpha", "lb_pctMSY", "ub_pctMSY")], by = c("lb_goal" = "lb_pctMSY", "ub_goal" = "ub_pctMSY"))
+
+#plot_ts(sim_base, 1)
+plot_ts(sim_gamma, 1.5) +coord_cartesian(ylim = c( 0, 30000))
+#plot_ts(sim_base, 2)
+
+# * * Compare to sim_base from Ricker  -----------------------------------------------
+# * * * pct of time in each SOC designation  -----------------------------------------------
+temp_gamma <- sim_gamma %>%
+  select(-alpha, -beta, -gamma) %>%
+  mutate(scenario = "gamma")
+temp_base2 <- temp_base %>%
+  select(-lnalpha.y)
+basegamma_combined <- 
+  rbind(temp_base2, temp_gamma) %>%
   group_by(lnalpha, sigW, phi, scenario) %>%
   select(-F, -U, -N) %>% 
   mutate(change = case_when(SOC != lag(SOC) ~ TRUE, TRUE ~ FALSE),
@@ -629,78 +734,111 @@ regime_combined <-
   group_by(lnalpha, sigW, phi, scenario, n_change, SOC) %>%
   summarise(length = length(n_change),
             deviation_lb = mean(deviation_lb),
-            miss = sum(S < lb_goal) / length,
+            miss = sum((S < lb_goal)) / length,
             mean_S = mean(S))
 
-# How many SOC designations?
-regime_Nsoc <- list()
+basegamma_pct_SOC <- list()
 for(i in 1:length(unique(input$lnalpha))){
-  regime_Nsoc[[i]] <-
-    regime_combined %>% 
-    group_by(lnalpha, sigW, phi, scenario, SOC) %>% 
-    filter(SOC != "No concern") %>%
-    summarize(delta_SOC = length(n_change)) %>% 
-    ggplot(aes(x = scenario, y  = delta_SOC, fill = SOC)) + 
-    geom_bar(stat = "identity") +
-    theme_bw() +
-    facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
-                        ncol = 3, nrow = 3, page = i)
-}
-#regime_Nsoc[[1]]
-regime_Nsoc[[2]]
-#regime_Nsoc[[3]]
-
-# Percent of time spend in each designation?
-regime_pSOC <- list()
-for(i in 1:length(unique(input$lnalpha))){
-  regime_pSOC[[i]] <-
-    regime_combined %>% 
+  basegamma_pct_SOC[[i]] <-
+    basegamma_combined %>% 
     group_by(lnalpha, sigW, phi, scenario, SOC) %>% 
     summarize(pct_SOC = sum(length)/input_sims) %>% 
-    filter(SOC != "No concern") %>%
     ggplot(aes(x = scenario, y  = pct_SOC, fill = SOC)) + 
     geom_bar(stat = "identity") +
     theme_bw() +
     facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
                         ncol = 3, nrow = 3, page = i)
 }
-#regime_pSOC[[1]]
-regime_pSOC[[2]]
-#regime_pSOC[[3]]
+basegamma_pct_SOC[[1]]
+basegamma_pct_SOC[[2]]
+basegamma_pct_SOC[[3]]
 
-regime_S <- list()
+# no abundance comparisons because they focus on abundance during 
+# management and conservation concerns.
+
+# * Low Productivity --------------------------------------------------------
+sim_Seq_gamma <- 
+  mapply(FUN = sim_SRgamma, 
+         alpha = input$a_Seq,
+         beta = input$b_Seq,
+         gamma = input$c,
+         sigW = input$sigW, 
+         phi = input$phi,
+         lb_goal = input$lb_pctMSY,
+         ub_goal = input$ub_pctMSY,
+         MoreArgs = list(age0 = Chinook_age,
+                         Sims0 = input_sims, 
+                         sigN = 0.2,
+                         sigF = 0,
+                         Hfun = H_goal),
+         SIMPLIFY = FALSE) %>%
+  do.call("rbind", .) %>%
+  left_join(input[, c("lnalpha", "lb_pctMSY", "ub_pctMSY")], by = c("lb_goal" = "lb_pctMSY", "ub_goal" = "ub_pctMSY"))
+
+#plot_ts(sim_Seq_gamma, 1)
+plot_ts(sim_Seq_gamma, 1.5)
+#plot_ts(sim_Seq_gamma, 2)
+
+
+# * * Compare to sim_Seq from Ricker  -----------------------------------------------
+# * * * pct of time in each SOC designation  -----------------------------------------------
+temp_Seq_gamma <- sim_Seq_gamma %>%
+  select(-alpha, -beta, -gamma) %>%
+  mutate(scenario = "Seq_gamma")
+temp_Seq2 <- temp_Seq %>%
+  select(-lnalpha.y)
+Seq_combined <- 
+  rbind(temp_Seq, temp_Seq_gamma) %>%
+  group_by(lnalpha, sigW, phi, scenario) %>%
+  select(-F, -U, -N) %>% 
+  mutate(change = case_when(SOC != lag(SOC) ~ TRUE, TRUE ~ FALSE),
+         n_change = cumsum(change),
+         deviation_lb = (S - lb_goal) / lb_goal) %>%
+  group_by(lnalpha, sigW, phi, scenario, n_change, SOC) %>%
+  summarise(length = length(n_change),
+            deviation_lb = mean(deviation_lb),
+            miss = sum((S < lb_goal)) / length,
+            mean_S = mean(S))
+
+Seq_pct_SOC <- list()
 for(i in 1:length(unique(input$lnalpha))){
-  regime_S[[i]] <-
-    regime_combined %>% 
+  Seq_pct_SOC[[i]] <-
+    Seq_combined %>% 
     group_by(lnalpha, sigW, phi, scenario, SOC) %>% 
-    filter(SOC %in% c("Conservation", "Management")) %>%
-    ggplot(aes(x = scenario, y  = deviation_lb)) + 
-    geom_boxplot() +
+    summarize(pct_SOC = sum(length)/input_sims) %>% 
+    ggplot(aes(x = scenario, y  = pct_SOC, fill = SOC)) + 
+    geom_bar(stat = "identity") +
     theme_bw() +
     facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
                         ncol = 3, nrow = 3, page = i)
 }
-regime_S[[1]] + coord_cartesian(ylim = c(-0.5, 0.5))
-regime_S[[2]] + coord_cartesian(ylim = c(-0.5, 0.5))
-regime_S[[3]] + coord_cartesian(ylim = c(-0.5, 0.5))
+Seq_pct_SOC[[1]]
+Seq_pct_SOC[[2]]
+Seq_pct_SOC[[3]]
 
-regime_length <- list()
-for(i in 1:length(unique(input$lnalpha))){
-  regime_length[[i]] <-
-    regime_combined %>% 
-    group_by(lnalpha, sigW, phi, scenario, SOC) %>% 
-    filter(SOC %in% c("Conservation", "Management")) %>%
-    ggplot(aes(x = scenario, y  = length)) + 
-    geom_boxplot() +
-    theme_bw() +
-    facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
-                        ncol = 3, nrow = 3, page = i)
-}
-regime_length[[1]]
-regime_length[[2]] + coord_cartesian(ylim = c(0, 25))
-regime_length[[3]]
+# * * * mean abundance ------------------------------------------------------
+#Summary statistics for status quo and Rebuilding fisheries under reduced productivity.
 
-
+#Plot of point estimates for each Ricker parameter combination
+tab_Seq <- sim_Seq %>%
+  filter(max(sim) == input_sims) %>%
+  filter(SOC %in% c("Conservation", "Management")) %>%
+  group_by(lnalpha, sigW, phi) %>% 
+  summarise(S = mean(S), N = mean(N), R = mean(R)) %>%
+  mutate(scenario = "Seq") %>%
+  pivot_longer(cols = c(S, N, R), names_to = "stat", values_to = "value")
+tab_Seq_gamma <- sim_Seq_gamma %>%
+  filter(max(sim) == input_sims) %>%
+  filter(SOC %in% c("Conservation", "Management")) %>%
+  group_by(lnalpha, sigW, phi) %>% 
+  summarise(S = mean(S), N = mean(N), R = mean(R)) %>%
+  mutate(scenario = "Seq_gamma") %>%
+  pivot_longer(cols = c(S, N, R), names_to = "stat", values_to = "value")
+bind_rows(tab_Seq, tab_Seq_gamma) %>%
+  pivot_wider(names_from = scenario, values_from = value) %>%
+  ggplot(aes(x = Seq, y = Seq_gamma, color = stat)) +
+  geom_jitter(width = 0, height = 0) +
+  geom_abline(slope = 1, intercept = 0)
 
 
 # #Shnute params

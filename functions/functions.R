@@ -1,6 +1,6 @@
 Ricker <- function(lnalpha, beta, S)  {S*exp(lnalpha - beta*S)}
 
-SR_gamma <- function(a, b, c, S) a * S^c * exp(-b * S) #Depensation
+SRgamma <- function(alpha, beta, gamma, S) {alpha * S^gamma * exp(-beta * S)}
 
 #gamma params to match ricker Rmax, Smax. Quinn and Deriso pg 97
 gamma_par <- function(Smax, Rmax, gamma){
@@ -43,13 +43,15 @@ get_bounds <- function(S, lnalpha, beta, pct_MSY, correct = FALSE, ...){
 
 #Simulate salmon population dynamics with age-at-maturity and management strategy inputs.
 #Arguments:
-#   lnalpha, beta, sigW, phi: Ricker SR parameters
+#   lnalpha, beta: Ricker SR parameters
+#   sigW: process error standard deviation on the log scale
+#   phi: autocorrelation parameter
 #   age0: a named vector where the names are numeric total age formatted as a characters(e,g, '3'), and the vector values are proportional age-at-maturity
 #   Sims0: number of simulations to run
 #   sigN: estimation error
 #   sigF: management error
 #   Hfun: a function which provides an annual harvest rate based on the management strategy simulated by the function. 
-simSR_goal <- function(lnalpha, beta, sigW, phi, age0, Sims0, sigN = 0, sigF = 0, Hfun, ...){
+sim_Ricker <- function(lnalpha, beta, sigW, phi, age0, Sims0, sigN = 0, sigF = 0, Hfun, ...){
   Sims = Sims0 + 100
   
   #format age-at-maturity input and draw indexing values
@@ -127,6 +129,97 @@ simSR_goal <- function(lnalpha, beta, sigW, phi, age0, Sims0, sigN = 0, sigF = 0
                     mc = mc[(length(mc) - Sims0):(length(mc) - 1)],
                     yc = yc[(length(yc) - Sims0):(length(yc) - 1)],
                     SOC = SOC[(length(SOC) - Sims0):(length(SOC) - 1)]) %>%
+           filter(R != 0))
+}
+
+#Simulate salmon population dynamics with age-at-maturity and management strategy inputs.
+#Arguments:
+#   a, b, c: gamma SR function parameters
+#   sigW: process error standard deviation on the log scale
+#   phi: autocorrelation parameter
+#   age0: a named vector where the names are numeric total age formatted as a characters(e,g, '3'), and the vector values are proportional age-at-maturity
+#   Sims0: number of simulations to run
+#   sigN: estimation error
+#   sigF: management error
+#   Hfun: a function which provides an annual harvest rate based on the management strategy simulated by the function. 
+sim_SRgamma <- function(alpha, beta, gamma, sigW, phi, age0, Sims0, sigN = 0, sigF = 0, Hfun, ...){
+  Sims = Sims0 + 100
+  
+  #format age-at-maturity input and draw indexing values
+  A <- length(age0)
+  a.min <- as.numeric(names(age0)[1])
+  a.max <- a.min + A - 1
+  age <- if(is.vector(age0)){matrix(age0, Sims + A + a.min + 1, A, byrow = TRUE)} else {age0}
+  # Gamma parameters
+  R0 <- alpha * (gamma / beta)^gamma * exp(-gamma) * 0.75 #fraction of Rmax
+  
+  # initial values
+  R <- E1R <- E2R <- redresid <- rep(0, Sims + A + a.min + 1)
+  N_age <- matrix(NA, Sims + A + a.min + a.max + 1, A)
+  for (c in 1:(A + a.min)) { 
+    R[c] <- R0
+    for (a in 1:A) {
+      N_age[c + a.max - (a - 1), (A + 1 - a)] <- age[c, (A + 1 - a)] * R[c]
+    }
+  }
+  
+  S <- N <- N_hat <- epsF <- U <- Ft <- H <- cc <- mc <- yc <- SOC <- vec_lb_manage <- vec_ub_manage <- vec_lb_goal <- vec_ub_goal <- rep(NA, Sims + A + a.min + 1)
+  
+  # recursive portion...
+  for (c in (A + a.min):(Sims + A + a.min)) {
+    
+    epsF[c] <- rnorm(1, 0, sigF)
+    N[c] <- sum(N_age[c, ])
+    N_hat[c] <- N[c]*rlnorm(1, sdlog = sigN)
+    try(if(length(R0) >1) print(R0))
+    temp_U <- Hfun(N_sim = N_hat[c], SOC_sim = SOC[c - 1], ...)
+    U[c] <- temp_U[[1]]
+    vec_lb_goal[c] <- temp_U[[2]]
+    vec_ub_goal[c] <- temp_U[[3]]
+    vec_lb_manage[c] <- temp_U[[4]]
+    vec_ub_manage[c] <- temp_U[[5]]
+    Ft[c] <- -log(1 - U[c])*exp(epsF[c])
+    S[c] <- N[c] * exp(-Ft[c])
+    cc[c] <- get_cc(S_sim = S[c], ...)
+    mc[c] <- get_mc(N_sim = N[c], ...)
+    yc[c] <- get_yc(S_sim = S[c], ...)
+    SOC[c] <- if(c >= (A + a.min + 5)){get_SOC(SOC_sim = SOC[c - 1], cc_sim = cc[(c-4):c], mc_sim = mc[(c-4):c], yc_sim = yc[(c-4):c])} else(NA)
+    H[c] <- N[c] - S[c]
+    
+    E1R[c + 1] <- SRgamma(alpha, beta, gamma, S[c])
+    E2R[c + 1] <- E1R[c + 1]*exp(phi * redresid[c])
+    R[c + 1] <- if(S[c] <= 1){0} else{E2R[c + 1]*rlnorm(1, 0, sigW)}
+    redresid[c + 1] <- log(R[c + 1] / E1R[c + 1])
+    
+    for (a in 1:A) {
+      N_age[(c + 1) + a.max - (a - 1), (A + 1 - a)] <- age[c, (A + 1 - a)] * R[c + 1]
+    }
+  }
+
+  return(data.frame(sim = 1:Sims0,
+                    alpha = rep(alpha, Sims0),
+                    beta = rep(beta, Sims0),
+                    gamma = rep(gamma, Sims0),
+                    sigW = rep(sigW, Sims0),
+                    phi = rep(phi, Sims0),
+                    sigN = rep(sigN, Sims0),
+                    sigF = rep(sigF, Sims0),
+                    S = S[(length(S) - Sims0):(length(S) - 1)],
+                    F = Ft[(length(Ft) - Sims0):(length(Ft) - 1)],
+                    U = U[(length(U) - Sims0):(length(U) - 1)],
+                    R = R[(length(R) + 1 - Sims0):length(R)],
+                    N = N[(length(N) - Sims0):(length(N) - 1)],
+                    N_hat = N_hat[(length(N_hat) - Sims0):(length(N_hat) - 1)],
+                    N_age = N_age[(dim(N_age)[1] + 1 - A - a.min - Sims0):(dim(N_age)[1] - A - a.min), ],
+                    lb_goal = vec_lb_goal[(length(vec_lb_goal) - Sims0):(length(vec_lb_goal) - 1)],
+                    ub_goal = vec_ub_goal[(length(vec_ub_goal) - Sims0):(length(vec_ub_goal) - 1)],
+                    lb_manage = vec_lb_manage[(length(vec_lb_manage) - Sims0):(length(vec_lb_manage) - 1)],
+                    ub_manage = vec_ub_manage[(length(vec_ub_manage) - Sims0):(length(vec_ub_manage) - 1)],
+                    cc = cc[(length(cc) - Sims0):(length(cc) - 1)],
+                    mc = mc[(length(mc) - Sims0):(length(mc) - 1)],
+                    yc = yc[(length(yc) - Sims0):(length(yc) - 1)],
+                    SOC = SOC[(length(SOC) - Sims0):(length(SOC) - 1)]
+                    ) %>%
            filter(R != 0))
 }
 
@@ -255,5 +348,14 @@ H_soc <- function(N_sim, SOC_sim, lb_goal, ub_goal, lb_manage, ub_manage, power 
   U <- min(runif(1, U_ub, U_lb), power)
   
   return(list(U, lb_goal, ub_goal, lb_manage, ub_manage, power))
+}
+
+# #Function to set U to 0
+#Arguments:
+#   Accepts arguments to fit within simulation fucntion. They are not used
+H_null <- function(N_sim, SOC_sim){
+  U <- 0
+  
+  return(list(U, NA, NA, NA, NA, NA))
 }
 

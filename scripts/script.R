@@ -284,7 +284,8 @@ sim_Seq <-
   do.call("rbind", .) %>%
   left_join(input[, c("lnalpha", "lb_pctMSY", "ub_pctMSY")], by = c("lb_goal" = "lb_pctMSY", "ub_goal" = "ub_pctMSY"))
 
-
+example_SOC <- sim_Seq[15:27, c(7, 9, 11:12, 19, 23:26)]
+saveRDS(example_SOC, file = ".\\sims\\example_SOC.rds")
 
 # * Plot time series --------------------------------------------------------
 # because of the colors used teal below the lower bound represents times we fished below the lower bound w abundant fish... call the a yield concern
@@ -451,6 +452,10 @@ for(i in 1:length(unique(input$lnalpha))){
     ggplot(aes(x = scenario, y  = pct_SOC, fill = SOC)) + 
     geom_bar(stat = "identity") +
     theme_bw() +
+    scale_x_discrete(name = "Management",
+                     breaks = c("Seq", "Seq_rebuild"), 
+                     labels = c("Standard", "Rebuilding")) +
+    scale_y_continuous(name = "Percent of Simulations") +
     facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
                         ncol = 3, nrow = 3, page = i)
 }
@@ -606,6 +611,55 @@ bind_rows(tab_regime_rebuild, tab_regime_statusquo) %>%
 
 
 # Depensation ----------------------------------------
+#example plot
+#parameter set
+temp_par <- gamma_par(1 / beta, Ricker(1.5, 0.0001, 1 / beta), c(1, 1.1, 1.6))
+
+#depensation points
+dat_dep <- 
+  as.data.frame(temp_par) %>%
+  filter(c != 1) %>%
+  rowwise() %>%
+  mutate(S = uniroot(function(S) {-a * S^(c-2) * (b * S - c + 1)*exp(-b * S)}, c(1, 10000), tol = 0.00001)$root,
+         R = SRgamma(a, b, c, S = S),
+         logRS = log(SRgamma(a, b, c, S = S) / S),
+         gamma = as.character(c)) %>%
+  ungroup() %>%
+  pivot_longer(c(R, logRS), names_to = "Parameter", values_to = "Value")
+
+#critical values
+dat_crit <- 
+  as.data.frame(temp_par) %>%
+  filter(c > 1.2) %>%
+  rowwise() %>%
+  mutate(S = uniroot(function(S) {SRgamma(a, b, c, S) - S}, c(5, 2500), tol = 0.00001)$root,
+         R = SRgamma(a, b, c, S = S),
+         logRS = log(SRgamma(a, b, c, S = S) / S),
+         gamma = as.character(c)) %>%
+  ungroup() %>%
+  pivot_longer(c(R, logRS), names_to = "Parameter", values_to = "Value")
+
+#create plot
+data.frame(S = rep(seq(0, 20000, length.out = 100), times = length(temp_par[[3]])),
+           alpha = rep(temp_par[[1]], each = 100),
+           beta = rep(temp_par[[2]], each = 100),
+           gamma = rep(temp_par[[3]], each = 100)) %>%
+  mutate(R = SRgamma(alpha =  alpha, beta = beta, gamma = gamma, S),
+         logRS = log(R / S)) %>%
+  pivot_longer(c(R, logRS), names_to = "Parameter", values_to = "Value") %>%
+  ggplot(aes(x = S, y = Value, color = as.character(gamma))) +
+  geom_line() +
+  geom_point(data = dat_dep) +
+  geom_segment(data = dat_dep, aes(xend = S, y = -Inf, yend = Value), linetype = 4) +
+  geom_segment(data = dat_crit, aes(xend = S, y = -Inf, yend = Value), linetype = 2) +  
+  geom_abline(aes(slope = x, intercept = y), data.frame(x = 1, y = 0, Parameter = "R")) +
+  geom_hline(aes(yintercept = y), data.frame(y = 0, Parameter = "logRS")) +
+  scale_x_continuous(breaks = seq(0, 20000, 2500)) +
+  scale_color_discrete(name = "Gamma", 
+                       labels = c("1 (Ricker)", "1.1", "1.6")) +
+  theme_bw() +
+  facet_grid(Parameter ~ ., scales = "free_y")
+
 #Create input parameters
 input <- 
   input %>%
@@ -641,9 +695,10 @@ for(i in 1:length(unique(input$lnalpha))){
     geom_rect(aes(xmin = lb_pctMSY, xmax = ub_pctMSY, ymin = -Inf, ymax = Inf), fill = "grey95") +
     geom_line() +
     geom_line(aes(y = RSeq_Ricker), color = "black", linetype = 2) +
-    geom_line(aes(y = R_gamma), color = "red") +
-    geom_line(aes(y = RSeq_gamma), color = "red", linetype = 2) +
+    geom_line(aes(y = R_gamma), color = scales::hue_pal()(3)[[3]]) +
+    geom_line(aes(y = RSeq_gamma), color = scales::hue_pal()(3)[[3]], linetype = 2) +
     geom_abline() +
+    scale_y_continuous(name = "R") +
     theme_bw() +
     facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
                         #scales = "free_y",
@@ -653,6 +708,9 @@ for(i in 1:length(unique(input$lnalpha))){
 #gamma_plots[[1]] + coord_cartesian(xlim = c(0, 20000), ylim = c(0, 20000))
 gamma_plots[[2]] + coord_cartesian(xlim = c(0, 30000), ylim = c(0, 30000))
 #gamma_plots[[3]] + coord_cartesian(xlim = c(0, 50000), ylim = c(0, 50000))
+
+
+
 
 lnRS_plots <- list()
 for(i in 1:length(unique(input$lnalpha))){
@@ -678,10 +736,10 @@ for(i in 1:length(unique(input$lnalpha))){
     geom_rect(aes(xmin = lb_pctMSY, xmax = Inf, ymin = -Inf, ymax = Inf), fill = "grey95") +
     geom_line() +
     geom_line(aes(y = lnRSSeq_Ricker), color = "black", linetype = 2) +
-    geom_line(aes(y = lnRS_gamma), color = "red") +
-    geom_line(aes(y = lnRSSeq_gamma), color = "red", linetype = 2) +
-    geom_point(aes(x = dep, y = lnRS_gamma_dep), color = "red") +
-    geom_point(aes(x = dep_Seq, y = lnRS_gamma_dep_Seq), color = "red") +
+    geom_line(aes(y = lnRS_gamma), color = scales::hue_pal()(3)[[3]]) +
+    geom_line(aes(y = lnRSSeq_gamma), color = scales::hue_pal()(3)[[3]], linetype = 2) +
+    geom_point(aes(x = dep, y = lnRS_gamma_dep), color = scales::hue_pal()(3)[[3]]) +
+    geom_point(aes(x = dep_Seq, y = lnRS_gamma_dep_Seq), color = scales::hue_pal()(3)[[3]]) +
     geom_hline(yintercept = 0) +
     theme_bw() +
     facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
@@ -788,7 +846,7 @@ temp_Seq_gamma <- sim_Seq_gamma %>%
 temp_Seq2 <- temp_Seq %>%
   select(-lnalpha.y)
 Seq_combined <- 
-  rbind(temp_Seq, temp_Seq_gamma) %>%
+  rbind(temp_Seq2, temp_Seq_gamma) %>%
   group_by(lnalpha, sigW, phi, scenario) %>%
   select(-F, -U, -N) %>% 
   mutate(change = case_when(SOC != lag(SOC) ~ TRUE, TRUE ~ FALSE),

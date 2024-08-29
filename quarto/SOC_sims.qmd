@@ -49,16 +49,10 @@ input <-
 
 Chinook_age <- c('3' = 0.1, '4' = 0.2, '5' = 0.3, '6' = 0.38, '7' = 0.02)
 
-input_sims = 1000
-```
+input_sims = 5000
 
-### Simulated Run Sizes with Historical and Low Productivity
-
-Two sets of simulations were run with 27 parameter combinations $\textrm{log}(\alpha) = (1.0, 1.5, 2.0)$, $\sigma = (0.25, 0.50, 0.75)$, and $\phi = (0.00, 0.35, 0.70)$. $\beta=0.0001$ and $p_a=(0.10, 0.20, 0.30, 0.38, 0.02)$ were for all simulations while lower bound of the escapement goal was the escapement that predicted a mean return which produced 90% of MSY while the upper bound was was the escapement that predicted a mean return which produced 70% of MSY. Power varied according to the productivity of the stock and was set to $0.6$, $0.7$, or $0.8$ when $\textrm{log}(\alpha)$ was set to $1.0$, $1.5$ and $2.0$ respectively. Management variability was set to 0.2 for both observation ($\sigma_N$) and implementation ($\sigma_F$) error. The first simulation was exactly as described above while the second simulation was identical except that it reflected a low productivity situation where $\textrm{log}(\alpha)^*=\frac{lb}{\beta}$.
-
-```{r include = FALSE}
 sim_base <- 
-  mapply(FUN = simSR_goal,
+  mapply(FUN = sim_Ricker,
          lnalpha = input$lnalpha,
          sigW = input$sigW,
          phi = input$phi,
@@ -75,7 +69,7 @@ sim_base <-
   do.call("rbind", .)
 
 sim_Seq <- 
-  mapply(FUN = simSR_goal,
+  mapply(FUN = sim_Ricker,
          lnalpha = input$lb_pctMSY*beta,  #reduced ln_alpha
          sigW = input$sigW,
          phi = input$phi,
@@ -120,6 +114,8 @@ for(i in 1:length(unique(input$lnalpha))){
     ggplot(aes(x = scenario, y  = pct_SOC, fill = SOC)) + 
     geom_bar(stat = "identity") +
     theme_bw() +
+    scale_x_discrete(name = "Productivity") +
+    scale_y_continuous(name = "Percent of Simulations") +
     facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
                         ncol = 3, nrow = 3, page = i)
 }
@@ -127,13 +123,13 @@ for(i in 1:length(unique(input$lnalpha))){
 
 ### SOC Designations with Historical and Low Productivity {#sec-soc-designations}
 
-Having seen a time series of run sizes and escapemtns under each productivity regime lets take a look at the freqency of SOC designations under each regime (@fig-baseSeq). The results are generally similar to what most of us might predict... SOC designations are rare under historical productivity regimes and become the expectation under low productivity regimes. One way to interpret these results might be to consider them in light of a hypothesis test where $H_0= \textrm{stock productivity is at it's historic average}$. In that light the risk of a false negative (declaring a stock as a stock of concern when productivity is near it's historic average) is negligible while the power of the test (ability to detect low productivity when it occurs is \~$50$% or less. If this interpretation is deemed valid it suggests that recommending a SOC definition when the criteria has been satisfied in 4 of the last 5 years and recommending desisting when the criteria has not been met in 4 of the last 5 years is a weak indicator of an extreme reduction in stock productivity.
+Having seen a time series of run sizes and escapements under each productivity regime lets take a look at the frequency of SOC designations under each regime (@fig-baseSeq). The results are generally similar to what one might predict... SOC designations are rare under historical productivity regimes and become the expectation under low productivity regimes. One way to interpret these results might be to consider them in light of a hypothesis test where $H_0= \textrm{stock productivity is at it's historic average}$. In that light the risk of a false negative (declaring a stock as a stock of concern when productivity is near it's historic average) is negligible while the power of the test (ability to detect low productivity when it occurs is \~$50$% or less. If this interpretation is deemed valid it suggests that recommending a SOC definition when the criteria has been satisfied in 4 of the last 5 years and recommending desisting when the criteria has not been met in 4 of the last 5 years is a weak indicator of an extreme reduction in stock productivity.
 
-My observation would be that ADF&G staff are in general reluctant to make SOC recomendations and these results suggest we might consider being less so. While this technique suggests a mechanism to test other interpretations of *chronic inability* (x of y years, y consecutive years, rolling mean escapement) as perhaps more powerful indicators of low contemporary productivity I though it was best to postpone that work untill staff have an opportunity to weigh in.
+My observation would be that ADF&G staff are in general reluctant to make SOC recommendations and these results suggest we might consider being less so. While this technique suggests a mechanism to test other interpretations of *chronic inability* (x of y years, y consecutive years, rolling mean escapement) as perhaps more powerful indicators of low contemporary productivity I though it was best to postpone that work until staff have an opportunity to weigh in.
 
 ```{r echo = FALSE, warning = FALSE}
 #| label: fig-baseSeq
-#| fig.height: 8
+#| fig.height: 6
 #| fig.width: 8
 #| fig.cap: "Percent of simulated runs under each stock of concern designation for 27 possible stock recruit parameter combinations and 2 productivity regimes."
 #| layout-nrow: 3
@@ -148,4 +144,84 @@ baseSeq_pct_SOC[[3]]
 
 ### Rebuilding
 
-After a stock of concern is declared what can we do about it?
+```{r include = FALSE}
+# Rebuild -----------------------------------------------------------------
+# Can managing to a higher goal during management or conservation concerns reduce the duration of concern designations or 
+# increase escapement during concern designations
+sim_Seq_rebuild <- 
+  mapply(FUN = sim_Ricker, 
+         lnalpha = input$lb_pctMSY*beta,  #reduced ln_alpha 
+         sigW = input$sigW, 
+         phi = input$phi,
+         lb_goal = input$lb_pctMSY,
+         ub_goal = input$ub_pctMSY,
+         lb_manage = input$ub_pctMSY,
+         ub_manage = input$ub_pctMSY,
+         MoreArgs = list(beta = beta, 
+                         age0 = Chinook_age,
+                         Sims = input_sims, 
+                         sigN = 0.2,
+                         sigF = 0,
+                         Hfun = H_soc),
+         SIMPLIFY = FALSE) %>%
+  lapply(function(x) rename(x, lnalpha_red = lnalpha)) %>%
+  do.call("rbind", .) %>%
+  left_join(input[, c("lnalpha", "lb_pctMSY", "ub_pctMSY")], by = c("lb_goal" = "lb_pctMSY", "ub_goal" = "ub_pctMSY"))
+
+# * Compare to Seq  -----------------------------------------------
+# * * pct of time in each SOC designation  -----------------------------------------------
+temp_Seq <- sim_Seq %>%
+  mutate(scenario = "Seq") %>%
+  select(-lnalpha_red)
+temp_Seq_rebuild <- sim_Seq_rebuild %>%
+  mutate(scenario = "Seq_rebuild") %>%
+  select(-lnalpha_red)
+Seq_Seqrebuild_combined <- 
+  rbind(temp_Seq, temp_Seq_rebuild) %>%
+  group_by(lnalpha, sigW, phi, scenario) %>%
+  select(-F, -U, -N) %>% 
+  mutate(change = case_when(SOC != lag(SOC) ~ TRUE, TRUE ~ FALSE),
+         n_change = cumsum(change),
+         deviation_lb = (S - lb_goal) / lb_goal) %>%
+  group_by(lnalpha, sigW, phi, scenario, n_change, SOC) %>%
+  summarise(length = length(n_change),
+            deviation_lb = mean(deviation_lb),
+            miss = sum((S < lb_goal)) / length,
+            mean_S = mean(S))
+
+SeqSeqrebuild_pct_SOC <- list()
+for(i in 1:length(unique(input$lnalpha))){
+  SeqSeqrebuild_pct_SOC[[i]] <-
+    Seq_Seqrebuild_combined %>% 
+    group_by(lnalpha, sigW, phi, scenario, SOC) %>% 
+    summarize(pct_SOC = sum(length)/input_sims) %>% 
+    ggplot(aes(x = scenario, y  = pct_SOC, fill = SOC)) + 
+    geom_bar(stat = "identity") +
+    theme_bw() +
+    scale_x_discrete(name = "Management",
+                     breaks = c("Seq", "Seq_rebuild"), 
+                     labels = c("Standard", "Rebuilding")) +
+    scale_y_continuous(name = "Percent of Simulations") +
+    facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
+                        ncol = 3, nrow = 3, page = i)
+}
+```
+
+One of the stated goals of a SOC action plan is to rebuild the stock. These simulations are inherently hostile to the idea of rebuilding in that we have predetermined that the population has a stable equilibrium at the lower bound of the established escapement goal. Our low productivity assumption also flattens the Ricker curve, effectively limiting the returns we can expect from adding addition fish to the system. That said under a prolonged period of low productivity is a rebuilding goal of much use? To find out I ran our simulation model for 5000 generations using the low productivity scenario with 2 management strategies. One strategy used standard escapement goal management where the escapement goal was set at values that predicted a mean return which produced 90% of MSY at the lower bound and 70% of MSY at the upper bound, all using using historical productivity values. The second strategy used the same escapement goal as described above when the stock was not listed as a stock of concern or listed as a stock of yield concern and used a escapement threshold set at the upper bound of the standard goal when the stock was listed as a stock of management of conservation concern.
+
+The results from these simulations are difficult to interpret (@fig-Seqrebuild). There are parameter combinations where a rebuilding goal appears to confer a modest benefit but if there is a patterns it is often broken. I've struggled with the best way to present this material, which metric is most important, etc.. I also question the utility of spending much time on these simulations given the overall shape of the underlying productivity curve being assumed and felt if additional resources were going to be spend demonstrating the utility of rebuilding it was best to postpone that work until staff have an opportunity to weigh in.
+
+```{r, echo = FALSE, warning = FALSE}
+#| label: fig-Seqrebuild
+#| fig.height: 6
+#| fig.width: 8
+#| fig.cap: "Percent of simulated runs under each stock of concern designation for 27 possible stock recruit parameter combinations under the low productivity scenario."
+#| layout-nrow: 3
+#| fig-subcap: 
+#|   - "Historical productivity: log(\u03B1) = 1.0"
+#|   - "Historical productivity: log(\u03B1) = 1.5"
+#|   - "Historical productivity: log(\u03B1) = 2.0"
+SeqSeqrebuild_pct_SOC[[1]]
+SeqSeqrebuild_pct_SOC[[2]]
+SeqSeqrebuild_pct_SOC[[3]]
+```

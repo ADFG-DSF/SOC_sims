@@ -8,7 +8,7 @@ editor: visual
 ---
 
 ```{r include = FALSE}
-packs <- c("tidyverse", "ggforce", "RcppRoll", "knitr")
+packs <- c("tidyverse", "ggforce", "RcppRoll", "knitr", "paletteer")
 lapply(packs, require, character.only = TRUE)
 
 # source functions
@@ -49,74 +49,270 @@ input <-
 
 Chinook_age <- c('3' = 0.1, '4' = 0.2, '5' = 0.3, '6' = 0.38, '7' = 0.02)
 
-input_sims = 1000
+input_sims = 5000
 ```
 
-## What are we concerned about?
+## Spawner-Recruit Dynamics
 
-In the previous documents I suggested definitions for yield and management concern which clarify the reason ADF&G would be concerned for each type listing. In the case of a yield concern we would be worried about overharvest whereas during a management concern we would be worried about having lost our ability to manage the stock. On the surface conservation concern is considerably more clear... we are worried about the stocks ability to propagate itself. It also seems easy to assess as "the lower ranges of historical escapement levels, for which the salmon stock has consistently demonstrated the ability to sustain itself". There main issues with this definition is that compensatory stock recruit dynamics predict that the number of returning fish for every spawning fish should increase as spawning escapement increases which implies that you cant set a lower threshold for spawning abundance based on this definition.
+In fisheries we typically assume compensatory population dynamics meaning that R/S increases as spawning abundance decreases[^1] (red lines in @fig-gamma). These dynamics are common and allow for a harvestable surplus. They also mean that at any threshold spawning abundance we would expect R/S to increase below the threshold and decrease above the threshold. Unfortunately this behavior is inconsistent with the definition of a Sustainable Escapement Threshold which implies that there is a spawning abundance **below** which R/S will decrease.
+
+[^1]: i.e. the population *compensates* for a reduction in it's size by producing more recruits
+
+The scenario described by the SET definition has been described... it's called decompensatory dynamics... but has only been rarely observed[^2]. My best guess is that decompensatory dynamics do exist but at low enough levels of spawning abundance that they have been rarely observed because they have been actively avoided by fishery managers. We also lack a well established and vetted decompensatory SR relationship, although one option in shown in @fig-gamma. Decompensatory dynamics mean exactly what you might guess, R/S decreases as spawning abundance decreases (see the green and blue lines in @fig-gamma). This spawner-recruit relationship implies there is a threshold where compensatory dynamics end and decompensatory dynamics begin as spawning abundance decreases (dots in @fig-gamma). In some situations an unstable population equilibrium (low abundance where the blues line cross the black lines in @fig-gamma) can exist meaning stocks with a spawning abundance above that point will increase in size while stocks with a spawning abundance below that size will decrease in abundance.
+
+[^2]: At the population scale. There are examples of specific mortality mechanisms becoming more efficient at lower levels of abundance (i.e. being decompensatory). Think brown bear standing at the top of a waterfall.
+
+```{r, echo = FALSE, warning = FALSE}
+#| label: fig-gamma
+#| fig.height: 6
+#| fig.width: 8
+#| fig.cap: "Spawner-recruit dynamics under compensatory (red line) and decompensatory (green and blue lines) assumptions. Dots and dot-dash lines represent the point where SR dynamics shift from decompensatory to compensatory as you increase spawning abundance. The point where the blue line cross the black line and associated blue dashed lines represent an unstable equilibria where populations with spawning abundances below that point would tend towards extinction in a deterministic relationship."
+
+#example plot
+#parameter set
+temp_par <- gamma_par(1 / beta, Ricker(1.5, 0.0001, 1 / beta), c(1, 1.1, 1.6))
+
+#depensation points
+dat_dep <- 
+  as.data.frame(temp_par) %>%
+  filter(c != 1) %>%
+  rowwise() %>%
+  mutate(S = uniroot(function(S) {-a * S^(c-2) * (b * S - c + 1)*exp(-b * S)}, c(1, 10000), tol = 0.00001)$root,
+         R = SRgamma(a, b, c, S = S),
+         logRS = log(SRgamma(a, b, c, S = S) / S),
+         gamma = as.character(c)) %>%
+  ungroup() %>%
+  pivot_longer(c(R, logRS), names_to = "Parameter", values_to = "Value")
+
+#critical values
+dat_crit <- 
+  as.data.frame(temp_par) %>%
+  filter(c > 1.2) %>%
+  rowwise() %>%
+  mutate(S = uniroot(function(S) {SRgamma(a, b, c, S) - S}, c(5, 2500), tol = 0.00001)$root,
+         R = SRgamma(a, b, c, S = S),
+         logRS = log(SRgamma(a, b, c, S = S) / S),
+         gamma = as.character(c)) %>%
+  ungroup() %>%
+  pivot_longer(c(R, logRS), names_to = "Parameter", values_to = "Value")
+
+pal <- scales::hue_pal()(3)
+
+#create plot
+data.frame(S = rep(seq(0, 20000, length.out = 100), times = length(temp_par[[3]])),
+           alpha = rep(temp_par[[1]], each = 100),
+           beta = rep(temp_par[[2]], each = 100),
+           gamma = rep(temp_par[[3]], each = 100)) %>%
+  mutate(R = SRgamma(alpha =  alpha, beta = beta, gamma = gamma, S),
+         logRS = log(R / S)) %>%
+  pivot_longer(c(R, logRS), names_to = "Parameter", values_to = "Value") %>%
+  ggplot(aes(x = S, y = Value, color = as.character(gamma))) +
+  geom_line() +
+  geom_point(data = dat_dep) +
+  geom_segment(data = dat_dep, aes(xend = S, y = -Inf, yend = Value), linetype = 4) +
+  geom_segment(data = dat_crit, aes(xend = S, y = -Inf, yend = Value), linetype = 2) +  
+  geom_abline(aes(slope = x, intercept = y), data.frame(x = 1, y = 0, Parameter = "R")) +
+  geom_hline(aes(yintercept = y), data.frame(y = 0, Parameter = "logRS")) +
+  scale_x_continuous(breaks = seq(0, 20000, 2500)) +
+  scale_color_manual(name = "Gamma", 
+                     labels = c("1 (Ricker)", "1.1", "1.6"),
+                     values = pal) +
+  theme_bw() +
+  facet_grid(Parameter ~ ., scales = "free_y")
+```
+
+As figure @fig-gamma demonstrates decompensatory spawner-recruit relationships contain inflection points that could be used to define a SET. Recall that we don't use a decompensatory relationship to model salmon population dynamics. Why not? I'd suggest it's partially because we lack empirical evidence for their existence, partially for parsimony (2 parameters instead of 3), and partially because of estimatability of the extra parameter. This is easy to understand as weak decompensatory ($\gamma=1.1$) dynamics (red lines in @fig-SR) result in SR relationships which are nearly indistinguishable from a Ricker relationship (black lines in @fig-SR) under either of our productivity scenarios.
+
+```{r, include = FALSE}
+input <- 
+  input %>%
+  rowwise() %>%
+  mutate(Rmax = Ricker(lnalpha = get_lnalpha_p(lnalpha, beta, sigW, phi), beta = beta, S = 1 / beta),
+         Rmax_Seq = Ricker(lnalpha = lb_pctMSY * beta, beta = beta, S = 1 / beta),
+         Seq = get_lnalpha_p(lnalpha, beta, sigW, phi) / beta,
+         c = 1.1,
+         a = gamma_par(1 / beta, Rmax, c)[[1]],
+         b = gamma_par(1 / beta, Rmax, c)[[2]],
+         a_Seq = gamma_par(1 / beta, Rmax_Seq, c)[[1]],
+         b_Seq = gamma_par(1 / beta, Rmax_Seq, c)[[2]]) %>%
+  rowwise() %>%
+  ungroup()
+
+gamma_plots <- list()
+for(i in 1:length(unique(input$lnalpha))){
+  gamma_plots[[i]] <- 
+    input %>%
+    slice(rep(1:n(), each = 251)) %>% 
+    mutate(S = rep(seq(0, 5 * 1 / max(beta), by = 200), times = nrow(input)),
+           R_Ricker = Ricker(lnalpha = get_lnalpha_p(lnalpha, beta, sigW, phi), beta = beta, S = S),
+           RSeq_Ricker = Ricker(lnalpha = lb_pctMSY * beta, beta = beta, S = S),
+           R_gamma = SRgamma(alpha = a, beta = b, gamma = c, S = S),
+           RSeq_gamma = SRgamma(alpha = a_Seq, beta = b_Seq, gamma = c, S = S)) %>%
+    ggplot(aes(x = S, y = R_Ricker)) +
+    geom_rect(aes(xmin = lb_pctMSY, xmax = ub_pctMSY, ymin = -Inf, ymax = Inf), fill = "grey95") +
+    geom_line(color = pal[1]) +
+    geom_line(aes(y = RSeq_Ricker), color = pal[1], linetype = 2) +
+    geom_line(aes(y = R_gamma), color = pal[2]) +
+    geom_line(aes(y = RSeq_gamma), color = pal[2], linetype = 2) +
+    geom_abline() +
+    scale_y_continuous(name = "R") +
+    theme_bw() +
+    facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
+                        #scales = "free_y",
+                        ncol = 3, nrow = 3, page = i)
+} 
+```
+
+```{r, echo = FALSE, warning = FALSE}
+#| label: fig-SR
+#| fig.height: 6
+#| fig.width: 8
+#| fig.cap: "Spawner-recruit dynamics under compensatory (black lines) and decompensatory (red lines) assumptions for both historical and low productivity scenarios."
+gamma_plots[[2]] + coord_cartesian(xlim = c(0, 30000), ylim = c(0, 30000))
+```
+
+That said, the ability of the stock to replace itself is severely compromised under the low productivity scenario both because the safety margin provided by the compensatory dynamics assumption is erased and because decompensatory dynamics barely replace themselves at any level of spawning escapement.
 
 ```{r include = FALSE}
 lnRS_plots <- list()
 for(i in 1:length(unique(input$lnalpha))){
   lnRS_plots[[i]] <- 
     input %>%
-    rowwise() %>%
-    mutate(Rmax = Ricker(lnalpha = get_lnalpha_p(lnalpha, beta, sigW, phi), beta = beta, S = 1 / beta),
-           Rmsy = Ricker(lnalpha = get_lnalpha_p(lnalpha, beta, sigW, phi), beta = beta, S = Smsy),
-           c = 1.6,
-           a = gamma_par(1 / beta, Rmax, c)[[1]],
-           b = gamma_par(1 / beta, Rmax, c)[[2]]) %>%
-    rowwise() %>%
-    mutate(Seq = get_lnalpha_p(lnalpha, beta, sigW, phi) / beta,
-           b_match = uniroot(function(b) {a * Seq^c * exp(-b * Seq) - Seq}, interval = c(b/1.1, b/.9), tol = 0.00001)$root,
-           crit = uniroot(function(S) a * S^c * exp(-b_match * S) - S, c(5, 1000), tol = 0.00001)$root,
-           dep = uniroot(function(S) {-a * S^(c-2) * (b_match * S - c + 1)*exp(-b_match * S)}, c(0, 5000), tol = 0.00001)$root,
-           lnRS_gamma_crit = log(SR_gamma(a = a, b = b_match, c = c, S = crit) / crit),
-           lnRS_gamma_dep = log(SR_gamma(a = a, b = b_match, c = c, S = dep) / dep)) %>%
-    ungroup() %>%
-    slice(rep(1:n(), each = 251)) %>% 
-    mutate(S = rep(seq(0, 5 * 1 / max(beta), by = 200), times = nrow(input)),
+    slice(rep(1:n(), each = 201)) %>% 
+    mutate(S = rep(seq(0, 6000, by = 6000*1/200), times = nrow(input)),
            R_Ricker = Ricker(lnalpha = get_lnalpha_p(lnalpha, beta, sigW, phi), beta = beta, S = S),
+           RSeq_Ricker = Ricker(lnalpha = lb_pctMSY * beta, beta = beta, S = S),
            lnRS_Ricker = log(R_Ricker / S),
-           R_gamma = SR_gamma(a = a, b = b_match, c = c, S = S),
-           lnRS_gamma = log(R_gamma / S)) %>%
+           lnRSSeq_Ricker = log(RSeq_Ricker / S),
+           R_gamma = SRgamma(alpha = a, beta = b, gamma = c, S = S),
+           RSeq_gamma = SRgamma(alpha = a_Seq, beta = b_Seq, gamma = c, S = S),
+           lnRS_gamma = log(R_gamma / S),
+           lnRSSeq_gamma = log(RSeq_gamma / S)) %>%
+    rowwise() %>%
+    mutate(dep = uniroot(function(S) {-a * S^(c-2) * (b * S - c + 1)*exp(-b * S)}, c(0, 5000), tol = 0.00001)$root,
+           lnRS_gamma_dep = log(SRgamma(a, b, c, S = dep) / dep),
+           dep_Seq = uniroot(function(S) {-a_Seq * S^(c-2) * (b_Seq * S - c + 1)*exp(-b_Seq * S)}, c(0, 5000), tol = 0.00001)$root,
+           lnRS_gamma_dep_Seq = log(SRgamma(a_Seq, b_Seq, c, S = dep_Seq) / dep_Seq)) %>%
+    ungroup() %>%
     ggplot(aes(x = S, y = lnRS_Ricker)) +
-    geom_rect(aes(xmin = lb_pctMSY, xmax = ub_pctMSY, ymin = -Inf, ymax = Inf), fill = "grey95") +
-    geom_line() +
-    geom_line(aes(y = lnRS_gamma), color = "red") +
-    geom_point(aes(x = Smsy, y = log(Rmsy / Smsy))) +
-    geom_point(aes(x = crit, y = lnRS_gamma_crit), color = "red", shape = 4, size = 2) +
-    geom_hline(aes(yintercept = 0), linetype =2) +
-    geom_point(aes(x = dep, y = lnRS_gamma_dep), color = "red") +
+    geom_rect(aes(xmin = lb_pctMSY, xmax = Inf, ymin = -Inf, ymax = Inf), fill = "grey95") +
+    geom_line(color = pal[1]) +
+    geom_line(aes(y = lnRSSeq_Ricker), color = pal[1], linetype = 2) +
+    geom_line(aes(y = lnRS_gamma), color = pal[2]) +
+    geom_line(aes(y = lnRSSeq_gamma), color = pal[2], linetype = 2) +
+    geom_point(aes(x = dep, y = lnRS_gamma_dep), color = pal[2]) +
+    geom_point(aes(x = dep_Seq, y = lnRS_gamma_dep_Seq), color = pal[2]) +
+    geom_hline(yintercept = 0) +
     theme_bw() +
     facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
                         #scales = "free_y",
                         ncol = 3, nrow = 3, page = i)
-}
+} 
 ```
 
 ```{r, echo = FALSE, warning = FALSE}
 #| label: fig-lnRS
-#| fig.height: 8
+#| fig.height: 6
 #| fig.width: 8
-#| fig.cap: "The relationship between the natural logarithm of recruits per spawner and spawning abundance for compensatory and decompensatory stock-recruit dynamics. The solid black line show recruits per spawner continuously increasing with decreasing spawning abundance (compensation) while the red line shows recruits per spawner decreasing with decreasing spawning abundance on the left side of the red dot (decompensation) and increasing with decreasing spawning abundance on the right side of the red dot (compensation). The red x represents an unstable equilibrium below which a stock would trend towards extinction."
-#| layout-nrow: 3
-#| fig-subcap: 
-#|   - "log(\u03B1) = 1.0"
-#|   - "log(\u03B1) = 1.5"
-#|   - "log(\u03B1) = 2.0"
-lnRS_plots[[1]] + coord_cartesian(xlim = c(0, 10000 * 1.25), ylim = c(-1, 2.5))
-lnRS_plots[[2]] + coord_cartesian(xlim = c(0, 15000 * 1.25), ylim = c(-1, 2.5))
-lnRS_plots[[3]] + coord_cartesian(xlim = c(0, 20000 * 1.25), ylim = c(-1, 2.5))
+#| fig.cap: "The relationship between the natural logarithm of recruits per spawner and spawning abundance at low spawning abundance levels for compensatory (black lines) and decompensatory (red lines) spawner-recruit dynamics for both historical and low productivity scenarios."
+lnRS_plots[[2]]
 ```
 
-In fisheries we typically assume compensatory population dynamics meaning that R/S increases as spawning abundance decreases (i.e. the population *compensates* for a reduction in it's size by producing more recruits). These dynamics are common and allow for a harvestable surplus. They also mean that at any threshold spawning abundance we would expect R/S to increase below the threshold and decrease above the threshold. Unfortunately this behavior is inconsistent with the "in practice"' part of the definition of a Sustainable Escapement Threshold which implies that there is a spawning abundance **below** which R/S will decrease.
+These minor differences could have profound management and conservation implications. If we simulate populations using compensatory and weak decompensatory ($\gamma=1.1$) dynamics we see that compensatory dynamics result in more management actions in most cases and extinction in some cases.
 
-The scenario described by the SET definition has been described... it's called decompensatory dynamics... but has only been rarely observed[^1]. The prevailing wisdom is that decompensatory dynamics do exist but they exist at low enough levels of spawning abundance that they have been rarely observed because they have been actively avoided by fishery managers. Decompensatory dynamics mean exactly what you might guess, R/S decreases as spawning abundance decreases. If there is a threshold where compensatory dynamics end and decompensatory dynamics begin as spawning abundance decreases then it would represent a spawning abundacne below which the stocks recovery capability is compromised. In some situations an unstable population equilibrium can exist meaning stocks with a spawning abundance above that point will increase in size while stocks with a spawning abundance below that size will decrease in abundance. That's dangerous although in practice the volatility of crossing below that point would be buffered by the age structure of the stock and process error associated with each brood.
+```{r, include = FALSE}
+sim_Seq <- 
+  mapply(FUN = sim_Ricker,
+         lnalpha = input$lb_pctMSY*beta,  #reduced ln_alpha
+         sigW = input$sigW,
+         phi = input$phi,
+         lb_goal = input$lb_pctMSY,
+         ub_goal = input$ub_pctMSY,
+         MoreArgs = list(beta = beta,
+                         age0 = Chinook_age,
+                         Sims0 = input_sims,
+                         sigN = 0.2,
+                         sigF = 0,
+                         Hfun = H_goal),
+         SIMPLIFY = FALSE) %>%
+  lapply(function(x) rename(x, lnalpha_red = lnalpha)) %>%
+  do.call("rbind", .) %>%
+  left_join(input[, c("lnalpha", "lb_pctMSY", "ub_pctMSY")], by = c("lb_goal" = "lb_pctMSY", "ub_goal" = "ub_pctMSY"))
 
-[^1]: At the population scale. There are examples of specific mortality mechanisms becoming more efficient at lower levels of abundance (i.e. being decompensatory). Think brown bear standing at the top of a waterfall.
+sim_Seq_gamma <- 
+  mapply(FUN = sim_SRgamma, 
+         alpha = input$a_Seq,
+         beta = input$b_Seq,
+         gamma = input$c,
+         sigW = input$sigW, 
+         phi = input$phi,
+         lb_goal = input$lb_pctMSY,
+         ub_goal = input$ub_pctMSY,
+         MoreArgs = list(age0 = Chinook_age,
+                         Sims0 = input_sims, 
+                         sigN = 0.2,
+                         sigF = 0,
+                         Hfun = H_goal),
+         SIMPLIFY = FALSE) %>%
+  do.call("rbind", .) %>%
+  left_join(input[, c("lnalpha", "lb_pctMSY", "ub_pctMSY")], by = c("lb_goal" = "lb_pctMSY", "ub_goal" = "ub_pctMSY"))
 
-I suggest that this conundrum provides us with the basis for the research plan associated with any stock of management concern. In the near term our scientists and cliometricians can busy themselves with identifying our ability to detect compensatory dynamics. When tasked with how to address fishery disasters we should be focusing on improving our stock assessments with an eye towards detecting these dynamics early. Because we have an abundance of empirical evidence to suggest this point only occurs at low spawning abundances it would certainly be the SET.
+# * * Compare to sim_Seq from Ricker  -----------------------------------------------
+# * * * pct of time in each SOC designation  -----------------------------------------------
+temp_Seq_gamma <- sim_Seq_gamma %>%
+  select(-alpha, -beta, -gamma) %>%
+  mutate(scenario = "Seq_gamma")
+temp_Seq2 <- sim_Seq %>%
+  mutate(scenario = "Seq") %>%
+  select(-lnalpha_red, -lnalpha.y)
+Seq_combined <- 
+  rbind(temp_Seq2, temp_Seq_gamma) %>%
+  group_by(lnalpha, sigW, phi, scenario) %>%
+  select(-F, -U, -N) %>% 
+  mutate(change = case_when(SOC != lag(SOC) ~ TRUE, TRUE ~ FALSE),
+         n_change = cumsum(change),
+         deviation_lb = (S - lb_goal) / lb_goal) %>%
+  group_by(lnalpha, sigW, phi, scenario, n_change, SOC) %>%
+  summarise(length = length(n_change),
+            deviation_lb = mean(deviation_lb),
+            miss = sum((S < lb_goal)) / length,
+            mean_S = mean(S))
 
-So where does that leave us? At a minimum we can not use the Ricker curve to describe the threats salmon populations might face when they continue to decline in abundance despite ADF&G exhausting it's management capabilities. We also lack a competing model which has been theoretically or empirically calibrated to estimate where compensatory dynamics end and decompensatory dynamics begin as population abundance declines. What we do have is a robust set of stock assessments in place for many of the fisheries in the state where these conditions currently exist. devoting additional resources towards these assessments, particularly after a management concern has been declared, is arguable a more responsible use of the state resources (human and fiscal) when disaster funds are sought and granted.
+Seq_pct_SOC <- list()
+for(i in 1:length(unique(input$lnalpha))){
+  Seq_pct_SOC[[i]] <-
+    Seq_combined %>% 
+    group_by(lnalpha, sigW, phi, scenario, SOC) %>% 
+    summarize(pct_SOC = sum(length)/input_sims) %>% 
+    ggplot(aes(x = scenario, y  = pct_SOC, fill = SOC)) + 
+    geom_bar(stat = "identity") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 5)) +
+    scale_x_discrete(name = "Spawner-Recruit Dynamics", 
+                     breaks = c("Seq", "Seq_gamma"),
+                     labels = c("Compensatory", "Decompensatory")) +
+    scale_y_continuous(name = "Percent of Simulations") +
+    facet_grid_paginate(paste0("\u03C6: ", phi) ~ paste0("ln(\u03B1): ", lnalpha) + paste0("\u03C3: ", sigW), 
+                        ncol = 3, nrow = 3, page = i)
+}
+
+```
+
+```{r, echo = FALSE, warning = FALSE}
+#| label: fig-SeqRickergamma
+#| fig.height: 6
+#| fig.width: 8
+#| fig.cap: "Percent of simulated runs in each stock of concern designation for 27 possible stock recruit parameter combinations with low productivity and under compensatory and decompensatory SR dynamics."
+#| layout-nrow: 3
+#| fig-subcap: 
+#|   - "Low productivity: log(\u03B1) = 1.0"
+#|   - "Low productivity: log(\u03B1) = 1.5"
+#|   - "Low productivity: log(\u03B1) = 2.0"
+Seq_pct_SOC[[1]]
+Seq_pct_SOC[[2]]
+Seq_pct_SOC[[3]]
+```
+
+It's important to note that we are pretty far ahead of anything we know at this point in this document... we don't know if current, low ocean productivity is best modeled by assuming a stable equilibrium at the lower bound of the historic escapement goal, we don't know if decompensatory SR dynamics exist, we don't know how to parameterize a decompensatory SR relationship, and we don't know what those parameter values should be. What we do know is that we are experiencing never before seen low escapements which could provide empirical answers to these unknown.
+
+I suggest that these questions should be the basis for research plans associated with stocks of management concern. In the near term our scientists and biometricians can busy themselves with developing methods to detect and estimate decompensatory dynamics. When tasked with how to address fishery disasters we should be focusing on improving our stock assessments with an eye towards detecting these dynamics early.

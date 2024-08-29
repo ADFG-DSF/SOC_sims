@@ -98,7 +98,7 @@ sim_Ricker <- function(lnalpha, beta, sigW, phi, age0, Sims0, sigN = 0, sigF = 0
     
     E1R[c + 1] <- S[c]*exp(lnalpha_vec[c] - beta*S[c])
     E2R[c + 1] <- E1R[c + 1]*exp(phi * redresid[c])
-    R[c + 1] <- if(S[c] <= 100){0} else{E2R[c + 1]*rlnorm(1, 0, sigW)}
+    R[c + 1] <- if(S[c] <= 1){0} else{E2R[c + 1]*rlnorm(1, 0, sigW)}
     redresid[c + 1] <- log(R[c + 1] / E1R[c + 1])
     lnalpha.y[c + 1] <- lnalpha_vec[c] + redresid[c + 1]
     

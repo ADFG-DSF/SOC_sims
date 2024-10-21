@@ -80,7 +80,7 @@ Conservation concern means a concern arising from a chronic inability, despite t
 
 In practice, the definition for yield concern has proved unworkable. One issue is that it's not clear how it differs from the definition for management concern. One interpretation would be that a yield concern covers situations when we failed to have available yield over the top end of the escapement goal. While that would be a clean definition it contradicts both the theory and practice of escapement goal management in which we strive to distribute escapements throughout the escapement goal range. In contrast, while the definition of a management concern references bounds (implying over-escapement could be a management concern) we have always interpreted it to mean under-escapement. But this use collapses the definitions for yield and management concern and contradicts the implied order of severity. Over time, ADF&G has transitioned to declaring management concerns exclusively and stopped recommending yield concerns.
 
-In contrast, the definition of a conservation concern is very clear, provided a sustainable escapement threshold has been established. In practice, the department has yet to set an SET which negates our ability to recommend a stock of conservation concern and may leave us venerable to other forms on conservation-based management.
+In contrast, the definition of a conservation concern is very clear, provided a sustainable escapement threshold has been established. In practice, the department has yet to set an SET which negates our ability to recommend a stock of conservation concern and may leave us venerable to other forms of conservation-based management.
 
 ::: {.callout-note appearance="simple" icon="false"}
 ### SET Definition

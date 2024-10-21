@@ -119,7 +119,7 @@ $$
 Instantaneous fishing mortality $F_y$ is a function of the annual harvest rate $U_y$ and used to calculate escapement $S_y$:
 
 $$
-S_{y}~=~N_yF_y
+S_{y}~=~N_ye^{-F_y}
 $$
 
 Where $$F_{y}=-\textrm{log}(1-U_y)\textrm{exp}(\epsilon_F)$$ with $\epsilon_{F}~\sim~\textrm{Normal}(0, \sigma^2_{F})$ and
@@ -226,7 +226,7 @@ plot_ts <- function(dat, lnalpha0){
     facet_grid(paste0("\u03C6: ", phi) ~ paste0("\u03C3: ", sigW)) } 
 ```
 
-Examining a time series of simulation results can help us gain an intuitive sense of the model. Two sets of simulations were run with 27 parameter combinations $\textrm{log}(\alpha) = (1.0, 1.5, 2.0)$, $\sigma = (0.25, 0.50, 0.75)$, and $\phi = (0.00, 0.35, 0.70)$. $\beta=0.0001$ and $p_a=(0.10, 0.20, 0.30, 0.38, 0.02)$ were for all simulations while lower bound of the escapement goal was the escapement that predicted a mean return which produced 90% of MSY while the upper bound was was the escapement that predicted a mean return which produced 70% of MSY. Power varied according to the productivity of the stock and was set to $0.6$, $0.7$, or $0.8$ when historical $\textrm{log}(\alpha)$ was set to $1.0$, $1.5$ and $2.0$ respectively. Management variability was set to 0.2 for both observation ($\sigma_N$) and implementation ($\sigma_F$) error. The first simulation was exactly as described above while the second simulation was identical except that it reflected a low productivity situation where $\textrm{log}(\alpha)^*=\frac{lb}{\beta}$.
+Examining a time series of simulation results can help us gain an intuitive sense of the model. Two sets of simulations were run with 27 parameter combinations $\textrm{log}(\alpha) = (1.0, 1.5, 2.0)$, $\sigma = (0.25, 0.50, 0.75)$, and $\phi = (0.00, 0.35, 0.70)$. $\beta=0.0001$ and $p_a=(0.10, 0.20, 0.30, 0.38, 0.02)$ were used for all simulations while lower bound of the escapement goal was the escapement that predicted a mean return which produced 90% of MSY while the upper bound was was the escapement that predicted a mean return which produced 70% of MSY. Power varied according to the productivity of the stock and was set to $0.6$, $0.7$, or $0.8$ when historical $\textrm{log}(\alpha)$ was set to $1.0$, $1.5$ and $2.0$ respectively. Management variability was set to 0.2 for both observation ($\sigma_N$) and implementation ($\sigma_F$) error. The first simulation was exactly as described above while the second simulation was identical except that it reflected a low productivity situation where $\textrm{log}(\alpha)^*=\frac{lb}{\beta}$.
 
 Because of the color scheme used (pink for total run and teal for escapement) grey areas represent simulations when there was no harvestable surplus. Notice that with modest process error ($\sigma=0.25$) and autocorrelation ($\phi=0$) the fishery is predictable and result in a consistent harvestable surplus under historical productivity (@fig-baseSeq1-1). As process error increases we see more variability in total run including instances of very large runs for which the fishery had insufficient fishing power to maintain escapements within the goal range and instances of smaller runs for which little or no harvestable surplus was available. Autocorrelation also increases variability in total run (resulting in similar patterns) as well as making large or small run sizes more persistent. Looking across these 3 panels we see similar patterns for larger values of log($\alpha$) (see @fig-baseSeq2-1 & @fig-baseSeq3-1) although larger values result in larger run sizes and more harvestable surplus.
 

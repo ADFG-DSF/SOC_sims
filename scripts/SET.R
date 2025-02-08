@@ -948,20 +948,17 @@ sims_gamma <-
     mutate(regime = as.integer(regime))
   })
 
-sims_sigma <- 
-  lapply(1:post_tvRicker_rt$data$G, function(x){
-    sims_gamma[[g]] %>%
-      mutate(sigma = 0.5) %>%
-      select(-gamma)
-})
-# sims_sigma <-
-#   data.frame(sample = 1:1000,
-#              sigma = post_tvRicker_rt$sims.list$sigma[draw, ]) %>%
-#   pivot_longer(cols = starts_with("sigma"), 
-#                names_to = "regime", 
-#                names_prefix = "sigma.", 
-#                values_to = "sigma") %>%
-#   mutate(regime = as.integer(regime))
+sims_sigma <-
+  lapply(1:post_tvRicker_rt$data$G, function(g){
+    data.frame(sample = 1:1000,
+               sigma = post_tvRicker_rt$sims.list$sigma[draw, , g]) %>%
+      pivot_longer(cols = starts_with("sigma"), 
+                   names_to = "regime", 
+                   names_prefix = "sigma.", 
+                   values_to = "sigma") %>%
+      mutate(regime = as.integer(regime))
+  })
+
 
 #create a dataframe with 100 years of future regimes for each 1000 samples
 regimes <-

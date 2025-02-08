@@ -1,0 +1,25 @@
+model
+{   
+for (g in 1:G) {
+    for (y in 1:nyrs) {
+        R[y, g] ~ dlnorm(mu[y, g], Tau[g])
+        fit[y, g] <- log(S[y, g]) + lnalpha[g] - beta[g] * S[y, g]
+        e[y, g] <- log(R[y, g]) - fit[y, g]
+    }
+    mu[1, g] <- fit[1, g] + ar1 * phi[g] * e0[g]
+    cw[1, g] ~ dnorm(0, tauw[g])
+    for (y in 2:nyrs) {
+        cw[y, g] ~ dnorm(cw[y - 1, g], tauw[g])
+        mu[y, g] <- fit[y, g] + kf * cw[y, g] + ar1 * phi[g] * e[y - 1, g]
+    }
+
+    lnalpha[g] ~ dunif(0, 4)
+    beta[g] ~ dunif(0, 1)
+    sigma[g] ~ dunif(0, 2)
+    sigmaw[g] ~ dunif(0, 2)
+    phi[g] ~ dnorm(0, 4)T(-1, 1)
+    e0[g] ~ dnorm(0, 0.001)
+    Tau[g] <- 1/(sigma[g] * sigma[g])
+    tauw[g] <- 1/(sigmaw[g] * sigmaw[g])
+}
+}

@@ -13,25 +13,45 @@ lapply(function_files, function(x) source(paste0(".\\functions\\", x)))
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-#Pull a simulation to get a bunch of SR pairs
-sim_base_list <- readRDS(file = ".\\sim_base_list.R")
-input[5, ]
-#lnalpha = 1.5, sigW = 0.5, phi = 0.0
-sim_base_list <- sim_base_list[[5]]
+ub_pctMSY = optimise(get_bounds, #'true' OYP bounds
+                     get_Smsy(1.5, 0.0001):(get_Smsy(1.5, 0.0001)*5), 
+                     lnalpha = 1.5, 
+                     beta = 0.0001,
+                     pct_MSY = 0.7,
+                     correct = TRUE,
+                     sigma = 0.5,
+                     phi = 0)$minimum
+lb_pctMSY = optimise(get_bounds, #'true' OYP bounds
+                     1:get_Smsy(1.5, 0.0001), 
+                     lnalpha = 1.5, 
+                     beta = 0.0001,
+                     pct_MSY = 0.9,
+                     correct = TRUE,
+                     sigma = 0.5,
+                     phi = 0)$minimum
 
-years <- 25
+# Read data ---------------------------------------------------------------
+sim <- sim_Ricker(1.5, beta = 0.0001, sigW = 0.5, phi = 0, 
+                  age0 = c('3' = 0.1, '4' = 0.2, '5' = 0.3, '6' = 0.38, '7' = 0.02), 
+                  Sims0 = 1500, 
+                  Hfun = H_goal,
+                  lb_goal = lb_pctMSY,
+                  ub_goal = ub_pctMSY,
+                  power = 0.5, 
+                  sigN = 0.2)
+
+years <- 50
 
 # get SR pairs for a Ricker regression
-data <- 
-  data.frame(R = sim_base_list$R,
-             S = sim_base_list$S) %>%
-  mutate(lnRS = ifelse(is.finite(log(R/S)) & !is.na(log(R/S)), log(R/S), NA),
-         sim = row_number()) %>%
+data <-
+  sim %>% 
+  select(sim, R, S) %>%
+  mutate(lnRS = ifelse(is.finite(log(R/S)) & !is.na(log(R/S)), log(R/S), NA)) %>%
   mutate(group = (sim - 1) %/% years)
 
 # Recruits per Spawner plot ----------------------------------------------------
 #looks like a permission issue to render this plot!
-# p <- 
+# p <-
 #   ggplot(data, aes(x = S, y = R)) +
 #     geom_point(alpha = 0.2) +
 #     geom_abline(aes(slope = 1, intercept = 0)) +
@@ -44,7 +64,6 @@ data <-
 boot_reps <- 500
 mods <- 
   data %>%
-  mutate(group = (sim - 1) %/% years) %>% #number 25 year groups
   group_by(group) %>%
   nest() %>%
   mutate(mod = map(data, ~ lm(lnRS ~ S, data = .)), #regular regression 
@@ -60,7 +79,7 @@ mods <-
   mutate(resamp = map(resid, ~ sample(., replace = TRUE)),
          lnRS_boot = map2(fit, resamp, function(x, y) x + y),
          data_boot = map2(data, lnRS_boot, function(x, y) 
-           data.frame(data, lnRS_boot) %>% setNames(c("S", "lnRS", "sim", "lnRS_boot"))),
+           data.frame(data, lnRS_boot) %>% setNames(c("sim", "R", "S", "lnRS", "lnRS_boot"))),
          mod_boot = map(data_boot, ~ lm(lnRS_boot ~ S, data = .)),
          lnalpha_boot = map_dbl(mod_boot, ~ .$coefficients[1]),
          beta_boot = map_dbl(mod_boot, ~ -.$coefficients[2]),

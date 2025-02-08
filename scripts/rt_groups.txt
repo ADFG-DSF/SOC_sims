@@ -1,0 +1,42 @@
+model
+{   
+for (g in 1:G) {
+    for (y in 1:nyrs) {
+        R[y, g] ~ dlnorm(mu[y, g], tau[lambda[y, g], g])
+        fit[y, g] <- log(S[y, g]) * gamma[lambda[y, g], g] + lnalpha[lambda[y, g], g] - beta[lambda[y, g], g] * S[y, g]
+        e[y, g] <- log(R[y, g]) - fit[y, g]
+        lambda[y, g] ~ dcat(rt_gamma[y, 1:2, g])
+        lambda_1[y, g] <- lambda[y, g] - 1
+    }
+    mu[1, g] <- fit[1, g] + ar1 * phi[g] * e0[g]
+    for (y in 2:nyrs) {
+        mu[y, g] <- fit[y, g] + ar1 * phi[g] * e[y - 1, g]
+        for(r in 1:2){
+          rt_gamma[y, r, g] <- pi[lambda[y - 1, g], r, g]
+        }
+    }
+
+    for (r in 1:2){
+    #   lnalpha[r] ~ dunif(0, 5)
+    #   beta[r] ~ dunif(0, 5)
+     sigma[r, g] ~ dgamma(5, 15)
+     tau[r, g] <- 1/(sigma[r, g] * sigma[r, g])
+    }
+    lnalpha[1, g] ~ dunif(-4, 4) #~ dnorm(0, 1)T(lnalpha[2, g], )
+    lnalpha[2, g] ~ dunif(-4, lnalpha[1, g]) #~ dnorm(0, 1)T(0, )
+    beta[1, g] ~ dnorm(0, 1)T(0, )
+	beta[2, g] <- beta[1, g] * gamma[2, g]
+	gamma[1, g] <- 1
+    gamma[2, g] ~ dunif(0, 3)
+    rt_gamma[1, 1, g] ~ dbeta(1, 1)
+    rt_gamma[1, 2, g] ~ dbeta(1, 1)
+    pi[1, 1, g] <- p_1[1, g]
+    pi[1, 2, g] <- p_1[2, g]
+    pi[2, 1, g] <- p_2[1, g]
+    pi[2, 2, g] <- p_2[2, g]
+    p_1[1:2, g] ~ ddirch(c(1, 1))
+    p_2[1:2, g] ~ ddirch(c(1, 1))
+    phi[g] ~ dnorm(0, 4)T(-1, 1)
+    e0[g] ~ dnorm(0, 0.001)  
+}
+}

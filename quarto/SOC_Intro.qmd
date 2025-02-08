@@ -54,7 +54,7 @@ input_sims = 1000
 
 The stock of concern process included in the Sustainable Salmon Policy has been identifed as in need of revision. Herein I present a simulation framework to help inform and evaluate this policy revision. This document has several goals:
 
--   To suggest new definitions for yield and management concerns that clarify both the reason for the designation and the Department's responsibility once a designation is recommended to the Board.
+-   To suggest new names and definitions for yield and management concerns that clarify both the reason for the designation and the Department's responsibility once a designation is recommended to the Board.
 
 -   Establish a connection between SOC designations and reductions in the productivity of a salmon stock.
 
@@ -122,19 +122,19 @@ That said, the action plan section does discuss 2 concepts that are perhaps unde
 
 ## Proposed SOC Definitions
 
-The definitions of yield and management concern could be reworded to make a distinction between harvest related concerns and concerns which are outside of human control.
+Yield and management concern could be renamed and have their defintions reworded to make a distinction between harvest related concerns and concerns which are outside of human control.
 
 ::: {.callout-tip appearance="simple" icon="false"}
-### Proposed Concern Definitions
+### Proposed Concern Names and Definitions
 
-Yield concern means a concern arising from a chronic inability, despite the use of specific management measures, to **maintain escapements for a salmon stock above the lower bound** of the SEG, BEG, OEG or other specified management objectives for a fishery: a yield concern is not as severe as a management concern.
+**Fishery concern** means a concern arising from a chronic inability, despite the use of specific management measures, to **maintain escapements for a salmon stock above the lower bound** of the SEG, BEG, OEG or other specified management objectives for a fishery: a fishery concern is not as severe as a productivity concern.
 
-Management concern means a concern arising from a chronic inability to **realize annual run sizes for a salmon stock above the lower bound** of the SEG, BEG, OEG or other specified management objectives for a fishery: a management concern is not as severe as a conservation concern.
+**Productivity concern** means a concern arising from a chronic inability to **realize annual run sizes for a salmon stock above the lower bound** of the SEG, BEG, OEG or other specified management objectives for a fishery: a productivty concern is not as severe as a conservation concern.
 :::
 
-These definitions clearly distinguish between the two concern types, clarify the cause of each concern recommendation, and provide guidance about the responsibilities of both ADF&G and the board in the SOC process. The definition of a yield concern (S \< escapement goal lower bound and N \> escapement goal lower bound) implies that there is harvest which could be curtailed to rebuild the stock. In this instance an action plan would be highly appropriate because over harvest is responsible for the recommendation and either inseason management or the management plan need to change to correct the situation.
+These definitions clearly distinguish between the two concern types, clarify the cause of each concern recommendation, and provide guidance about the responsibilities of both ADF&G and the board in the SOC process. The definition of a fishery concern (S \< escapement goal lower bound and N \> escapement goal lower bound) implies that there is harvest which could be curtailed to rebuild the stock. In this instance an action plan would be highly appropriate because over harvest is responsible for the recommendation and either inseason management or the management plan need to change to correct the situation.
 
-The definition of a management concern (N \< escapement goal lower bound) makes it clear that we have exhausted our management capability. ADF&G should be transparent about this. In this instance[^1] a research plan is likely all that is necessary and appropriate. The goal of the research plan should be explicit: to improve or maintain stock assessments so that the state possesses the information necessary to determine an SET for the stock. Using the definition of an SET this means we need to be paying for stock assessments robust enough to estimate returns from each spawning event. Therefore, SETs (and thus conservation concerns) would be determined on a case-by-case basis for individual stocks.
+The definition of a productivity concern (N \< escapement goal lower bound) makes it clear that we have exhausted our management capability. ADF&G should be transparent about this. In this instance[^1] a research plan is likely all that is necessary and appropriate. The goal of the research plan should be explicit: to improve or maintain stock assessments so that the state possesses the information necessary to determine an SET for the stock. Using the definition of an SET this means we need to be paying for stock assessments robust enough to estimate returns from each spawning event. Therefore, SETs (and thus conservation concerns) would be determined on a case-by-case basis for individual stocks.
 
 [^1]: Assuming there is no obvious action we can take (i.e. a habitat issue we have to tools to address).
 

@@ -90,6 +90,7 @@ sim_Ricker <- function(lnalpha, beta, sigW, phi, age0, Sims0, sigN = 0, sigF = 0
     vec_ub_manage[c] <- temp_U[[5]]
     Ft[c] <- -log(1 - U[c])*exp(epsF[c])
     S[c] <- N[c] * exp(-Ft[c])
+    try(if(is.na(N[c])) print(N[c]))
     cc[c] <- get_cc(S_sim = S[c], ...)
     mc[c] <- get_mc(N_sim = N[c], ...)
     yc[c] <- get_yc(S_sim = S[c], ...)
@@ -228,8 +229,8 @@ sim_SRgamma <- function(alpha, beta, gamma, sigW, phi, age0, Sims0, sigN = 0, si
 #Arguments:
 #   S_sim: Escapement from the simulation
 #   lb_manage: Lower bound of the escapement goal based on historical SR relationship.
-get_cc <- function(S_sim, lb_goal, ...){  
-  cc <- if(S_sim < lb_goal * 0.5){TRUE} else(FALSE)
+get_cc <- function(S_sim, lb_goal = NA, ...){  
+  cc <- if(is.na(lb_goal)){NA} else(if(S_sim < lb_goal * 0.5){TRUE} else(FALSE))
   return(cc)
 }
 
@@ -238,8 +239,8 @@ get_cc <- function(S_sim, lb_goal, ...){
 #Arguments:
 #   N_sim: Run size from the simulation.
 #   lb_sim: Lower bound of the escapement goal based on historical SR relationship.
-get_mc <- function(N_sim, lb_goal, ...){  
-  mc <- if(N_sim < lb_goal){TRUE} else(FALSE)
+get_mc <- function(N_sim, lb_goal = NA, ...){  
+  mc <- if(is.na(lb_goal)){NA} else(if(N_sim < lb_goal){TRUE} else(FALSE))
   return(mc)
 }
 
@@ -248,8 +249,8 @@ get_mc <- function(N_sim, lb_goal, ...){
 #Arguments:
 #   S_sim: Escapement from the simulation.
 #   lb_sim: Lower bound of the escapement goal based on historical SR relationship.
-get_yc <- function(S_sim, lb_goal, ...){  
-  yc <- if(S_sim < lb_goal){TRUE} else(FALSE)
+get_yc <- function(S_sim, lb_goal = NA, ...){  
+  yc <- if(is.na(lb_goal)){NA} else(if(S_sim < lb_goal){TRUE} else(FALSE))
   return(yc)
 }
 
@@ -352,10 +353,9 @@ H_soc <- function(N_sim, SOC_sim, lb_goal, ub_goal, lb_manage, ub_manage, power 
 
 # #Function to set U to 0
 #Arguments:
-#   Accepts arguments to fit within simulation fucntion. They are not used
+#   Accepts arguments to fit within simulation function. They are not used
 H_null <- function(N_sim, SOC_sim){
   U <- 0
-  
   return(list(U, NA, NA, NA, NA, NA))
 }
 

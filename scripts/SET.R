@@ -1012,20 +1012,74 @@ est_Y <-
 
 # Simulation / GLMM eg ranges
 #build dataset
+# Seems like this should be a weighted average to account for the very skewed range of 
+# escapements we are likely to observed under each regime.
+# I'm not sure how to do that but here is a very rough approach
+sim_fullRicker <- 
+  sim_Ricker(1.5, 
+             0.0001, 
+             sigW = 0.5, 
+             phi = 0, 
+             age0 = c('3' = 0.1, '4' = 0.2, '5' = 0.3, '6' = 0.38, '7' = 0.02), 
+             Sims0 = 100000, 
+             Hfun = H_goal,
+             lb_goal = lb_pctMSY,
+             ub_goal = ub_pctMSY,
+             sigF = 0.4,
+             sigN = 0.0) %>%
+  mutate(S_group = cut(S, 
+                       breaks = seq(0, 40000, length.out = 101), 
+                       labels = seq(400, 40000, length.out = 100))) %>%
+  group_by(S_group) %>%
+  summarise(n_full = n())
+sim_redRicker <- 
+  sim_Ricker(lnalpha * 0.25, 
+             0.0001, 
+             sigW = 0.5, 
+             phi = 0, 
+             age0 = c('3' = 0.1, '4' = 0.2, '5' = 0.3, '6' = 0.38, '7' = 0.02), 
+             Sims0 = 100000, 
+             Hfun = H_goal,
+             lb_goal = lb_pctMSY,
+             ub_goal = ub_pctMSY,
+             sigF = 0.4,
+             sigN = 0.0) %>%
+  mutate(S_group = cut(S, 
+                       breaks = seq(0, 40000, length.out = 101), 
+                       labels = seq(400, 40000, length.out = 100))) %>%
+  group_by(S_group) %>%
+  summarise(n_reduced = n())
+weights <-
+  sim_fullRicker %>% 
+  full_join(sim_redRicker, by = "S_group") %>%
+  mutate(n_full = ifelse(is.na(n_full), 0, n_full),
+         n_reduced = ifelse(is.na(n_reduced), 0, n_reduced),
+         weight_2 = n_reduced / (n_full + n_reduced),
+         weight_1 = 1 - weight_2,
+         S = as.numeric(as.character(S_group))) %>%
+  pivot_longer(cols = starts_with("weight"), 
+               names_to = "regime", 
+               names_pattern = ".*_(\\d)", 
+               values_to = "weight") %>%
+  mutate(regime = as.numeric(regime))
+
 sim_Y <-
   lapply(est_Y, function(x){
     x %>%
+    mutate(Y_epsilon_clean = 
+             ifelse(Y_epsilon > quantile(x$Y_epsilon, probs = 0.99), 
+                    quantile(x$Y_epsilon, probs = 0.99),
+                    Y_epsilon)) %>%
+    group_by(regime, S) %>%
+    summarise(Y_epsilon_mean = mean(Y_epsilon_clean)) %>%
+    left_join(weights, by = c("regime", "S")) %>%
+    mutate(weighted_summand = Y_epsilon_mean * weight) %>%
     group_by(S) %>%
-    summarise(Y_mean = mean(Y_epsilon),
-              Y_median = median(Y_epsilon),
-              Y_10 = quantile(Y_epsilon, 0.1),
-              Y_90 = quantile(Y_epsilon, 0.9),
-              R_mean = mean(R_epsilon),
-              R_median = median(R_epsilon))
+    summarise(Y_epsilon_wmean = sum(weighted_summand) / sum(weight))
   })
 
 #  * Smsy and eg range (mean)
-mod_Ymean <- lapply(sim_Y, function(x) gam(Y_mean ~ s(S), data = x))
+mod_Ymean <- lapply(sim_Y, function(x) gam(Y_epsilon_wmean ~ s(S), data = x))
 fit_Ymean <- lapply(mod_Ymean, 
                     function(x){
                       predict(x, newdata = data.frame(S = 1:40000)) %>% 
@@ -1033,7 +1087,7 @@ fit_Ymean <- lapply(mod_Ymean,
                     })
 #Smsy
 Smsy_tvRicker_rt <- sapply(fit_Ymean, function(x) as.numeric(names(x[which.max(x)])))
-#eg bounds based on 90% of MSY
+#eg bounds based on 90% and 70% of MSY
 eg_tvRicker_rt <- 
     sapply(fit_Ymean, function(x){
       lb <- x[x > round(max(x) * 0.9)] %>% 
@@ -1057,7 +1111,7 @@ ref_tvRicker_rt <-
   est_tvRicker_rt %>%
   left_join(eg_tvRicker_rt, by = "group") %>%
   rowwise() %>%
-  mutate(set = 
+  mutate(set = #(g-1)/d will also do it
            optimize(
              function(a, b, g, x){
                -log(SRgamma(alpha = a, beta = b, gamma = g, S = x) / x)
@@ -1077,7 +1131,7 @@ ref_tvRicker_rt <-
 # during the conservation concern years.
 # Trying to take beta mostly from the "normal" regime.
 # gamma coming only from the low regime.
-pull_groups <- sample(1:max(data_tvRicker$group), 3, replace = FALSE)
+#pull_groups <- sample(1:max(data_tvRicker$group), 3, replace = FALSE)
 rbind(estimated_tvRicker_rt, assumed_tvRicker_rt) %>%
   filter(group %in% pull_groups) %>%
   ggplot(aes(x = S, y = value, color = source, shape = regime)) +
@@ -1099,6 +1153,43 @@ rbind(estimated_tvRicker_rt, assumed_tvRicker_rt) %>%
              aes(xintercept = Smsy), 
              linetype = 3) +
   facet_grid(stat ~ group, scales = "free_y")
+
+#Demonstration of how the weighting is poor
+#In essesence there is not yield to weight under regime 2
+Ymean <- est_Y[[10]] %>%
+  mutate(Y_epsilon_clean = 
+           ifelse(Y_epsilon > quantile(est_Y[[1]]$Y_epsilon, probs = 0.99), 
+                  quantile(est_Y[[1]]$Y_epsilon, probs = 0.99),
+                  Y_epsilon)) %>%
+  group_by(regime, S) %>%
+  summarise(Y_epsilon_mean = mean(Y_epsilon_clean))
+
+Yw <- est_Y[[10]] %>%
+  mutate(Y_epsilon_clean = 
+           ifelse(Y_epsilon > quantile(est_Y[[1]]$Y_epsilon, probs = 0.99), 
+                  quantile(est_Y[[1]]$Y_epsilon, probs = 0.99),
+                  Y_epsilon)) %>%
+  group_by(regime, S) %>%
+  summarise(Y_epsilon_mean = mean(Y_epsilon_clean)) %>%
+  left_join(weights, by = c("regime", "S")) %>%
+  mutate(weighted_summand = Y_epsilon_mean * weight)
+
+Ywmean <- est_Y[[10]] %>%
+  mutate(Y_epsilon_clean = 
+           ifelse(Y_epsilon > quantile(est_Y[[1]]$Y_epsilon, probs = 0.99), 
+                  quantile(est_Y[[1]]$Y_epsilon, probs = 0.99),
+                  Y_epsilon)) %>%
+  group_by(regime, S) %>%
+  summarise(Y_epsilon_mean = mean(Y_epsilon_clean)) %>%
+  left_join(weights, by = c("regime", "S")) %>%
+  mutate(weighted_summand = Y_epsilon_mean * weight) %>%
+  group_by(S) %>%
+  summarise(Y_epsilon_wmean = sum(weighted_summand) / sum(weight))
+
+plot(Ymean$S, Ymean$Y_epsilon_mean, col = Ymean$regime)
+points(Yw$S, Yw$weighted_summand, col = Yw$regime, pch = 2)
+lines(Ywmean$S, Ywmean$Y_epsilon_wmean)
+#end of demonstration
 
 # compare parameter estimates
 data.frame(gamma_Ricker = post_Ricker$q50$gamma,
@@ -1148,3 +1239,4 @@ ref_tvRicker_rt %>%
          pct_lb = set / lb) %>% 
   ggplot(aes(x = regime, y = pct_lb)) + 
   geom_boxplot()
+

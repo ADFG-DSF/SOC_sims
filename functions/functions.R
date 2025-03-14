@@ -152,7 +152,8 @@ sim_SRgamma <- function(alpha, beta, gamma, sigW, phi, age0, Sims0, sigN = 0, si
   a.max <- a.min + A - 1
   age <- if(is.vector(age0)){matrix(age0, Sims + A + a.min + 1, A, byrow = TRUE)} else {age0}
   # Gamma parameters
-  R0 <- alpha * (gamma / beta)^gamma * exp(-gamma) * 0.75 #fraction of Rmax
+  alpha_vec <- if(length(alpha) == 1){rep(alpha, Sims + A + a.min)}else(c(rep(alpha[1], Sims - length(alpha) + A + a.min), alpha))
+  R0 <- alpha[[1]] * (gamma / beta)^gamma * exp(-gamma) * 0.75 #fraction of Rmax
   
   # initial values
   R <- E1R <- E2R <- redresid <- rep(0, Sims + A + a.min + 1)
@@ -187,7 +188,7 @@ sim_SRgamma <- function(alpha, beta, gamma, sigW, phi, age0, Sims0, sigN = 0, si
     SOC[c] <- if(c >= (A + a.min + 5)){get_SOC(SOC_sim = SOC[c - 1], cc_sim = cc[(c-4):c], mc_sim = mc[(c-4):c], yc_sim = yc[(c-4):c])} else(NA)
     H[c] <- N[c] - S[c]
     
-    E1R[c + 1] <- SRgamma(alpha, beta, gamma, S[c])
+    E1R[c + 1] <- SRgamma(alpha_vec[c], beta, gamma, S[c])
     E2R[c + 1] <- E1R[c + 1]*exp(phi * redresid[c])
     R[c + 1] <- if(S[c] <= 1){0} else{E2R[c + 1]*rlnorm(1, 0, sigW)}
     redresid[c + 1] <- log(R[c + 1] / E1R[c + 1])
@@ -198,7 +199,7 @@ sim_SRgamma <- function(alpha, beta, gamma, sigW, phi, age0, Sims0, sigN = 0, si
   }
 
   return(data.frame(sim = 1:Sims0,
-                    alpha = rep(alpha, Sims0),
+                    alpha = alpha_vec[(length(alpha_vec) - Sims0):(length(alpha_vec) - 1)],
                     beta = rep(beta, Sims0),
                     gamma = rep(gamma, Sims0),
                     sigW = rep(sigW, Sims0),

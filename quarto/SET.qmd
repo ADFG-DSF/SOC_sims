@@ -1,0 +1,650 @@
+---
+title: "Potential Sustainable Escapement Threshold (SET) procedure"
+author: "Adam Reimer"
+format:
+  html:
+    embed-resources: true
+editor: visual
+toc: TRUE
+number-sections: true
+---
+
+```{r include = FALSE}
+packs <- c("tidyverse", "ggforce", "RcppRoll", "knitr", "flextable", "ggpubr")
+lapply(packs, require, character.only = TRUE)
+
+# source functions
+function_files <- list.files(path="..\\functions")
+lapply(function_files, function(x) source(paste0("..\\functions\\", x)))
+
+rep_scenarios_gp <- 
+  readRDS(file = "..\\rep_scenarios_gp2.rds") %>%
+  mutate(set = map_dbl(mod_gamma, function(x) (x$q50$gamma[2] - 1) / x$q50$beta[2])) %>%
+  group_by(scenario) %>%
+  mutate(set_q10 = quantile(set, 0.1),
+         set_q40 = quantile(set, 0.4),
+         set_q60 = quantile(set, 0.6),
+         set_q90 = quantile(set, 0.9))
+```
+
+The stock of concern process requires a sustainable escapement threshold (SET) to be determined before a stock can be identified as a stock of conservation concern. Herein, I present a simulation framework to help evaluate using the gamma stock recruit relationship as a tool to identify and estimate SETs for Alaskan salmon. Let's begin by considering the codified definitions within the Sustainable Salmon Policy as they relate to conservation concerns.
+
+::: {.callout-note appearance="simple" icon="false"}
+### Codified SOC Definitions
+
+*Conservation Concern*
+
+Conservation concern means a concern arising from a chronic inability, despite the use of specific management measures, to maintain escapements for a stock above a sustainable escapement threshold (SET): a conservation concern is more severe than a management concern.
+
+*SET*
+
+"sustainable escapement threshold" or "SET" means a threshold level of escapement below which the ability of the salmon stock to sustain itself is jeopardized: in practice, an SET can be estimated based on lower ranges of historical escapement levels, for which the salmon stock has consistently demonstrated the ability to sustain itself: the SET is lower than the lower bound of the BEG and lower than the lower bound of the SEG: the SET is established by the department in consultation with the board, as needed, for salmon stocks of management or conservation concern.
+:::
+
+The definition of a conservation concern is very clear, provided a sustainable escapement threshold has been established. In practice, the department has yet to set an SET which negates our ability to recommend a stock of conservation concern and may leave us venerable to other forms of conservation-based management.
+
+Unfortunately, the current definition of a SET is less clear. Issues with this definition include:
+
+-   Our most commonly used stock-recruit relationships assume assume per capita production increases as population size decreases which is contrary to the idea of a sustainability threshold.
+
+-   Using empirical observations alone to set an SET implies:
+
+    -   They will be sensitive to escapement goal lower bounds and fishery trends.
+
+    -   Never identified a priori.
+
+    -   Inconsistently applied.
+
+-   Conservation objectives should trump yield objectives when necessary implying a SET could and should exceed the lower bound of an escapement goal in some scenarios.
+
+## Stock-Recruit Dynamics
+
+In fisheries we typically assume compensatory population dynamics (red lines in @fig-gamma) which assume per capita production **increases** as population size decreases[^1]. An alternative assumption is decompensatory population dynamics which assume per capita production **decreases** as population size decreases. Because compensatory dynamics have been frequently observed at large population sizes models that allow for decompensatory dynamics include an inflection point where compensatory dynamics end and decompensatory dynamics begin as spawning abundance decreases (dots in @fig-gamma).
+
+[^1]: i.e. the population *compensates* for a reduction in it's size by producing more recruits
+
+```{r}
+#| warning: FALSE
+#| echo: FALSE
+#| label: fig-gamma
+#| fig.height: 6
+#| fig.width: 8
+#| fig.cap: "Spawner-recruit dynamics under compensatory (red line) and decompensatory assumptions. Dot-dash lines represent the point where SR dynamics shift from decompensatory to compensatory as you increase spawning abundance."
+
+#example plot
+#parameter set
+beta <- 0.0001
+temp_par <- gamma_par(1 / beta, Ricker(1.5, 0.0001, 1 / beta), seq(1, 1.6, 0.1)) #c(1, 1.1, 1.6))
+
+#depensation points
+dat_dep <- 
+  as.data.frame(temp_par) %>%
+  filter(c != 1) %>%
+  rowwise() %>%
+  mutate(S = (c-1) / b,
+         R = SRgamma(a, b, c, S = S),
+         logRS = log(SRgamma(a, b, c, S = S) / S),
+         gamma = as.character(c)) %>%
+  ungroup() %>%
+  pivot_longer(c(R, logRS), names_to = "Parameter", values_to = "Value")
+
+#critical values
+dat_crit <- 
+  as.data.frame(temp_par) %>%
+  filter(c > 1.2) %>%
+  rowwise() %>%
+  mutate(S = uniroot(function(S) {SRgamma(a, b, c, S) - S}, c(5, 2500), tol = 0.00001)$root,
+         R = SRgamma(a, b, c, S = S),
+         logRS = log(SRgamma(a, b, c, S = S) / S),
+         gamma = as.character(c)) %>%
+  ungroup() %>%
+  pivot_longer(c(R, logRS), names_to = "Parameter", values_to = "Value")
+
+pal <- scales::hue_pal()(7)
+
+#create plot
+data.frame(S = rep(seq(0, 20000, length.out = 100), times = length(temp_par[[3]])),
+           alpha = rep(temp_par[[1]], each = 100),
+           beta = rep(temp_par[[2]], each = 100),
+           gamma = rep(temp_par[[3]], each = 100)) %>%
+  mutate(R = SRgamma(alpha =  alpha, beta = beta, gamma = gamma, S),
+         logRS = log(R / S)) %>%
+  pivot_longer(c(R, logRS), names_to = "Parameter", values_to = "Value") %>%
+  ggplot(aes(x = S, y = Value, color = as.character(gamma))) +
+  geom_line() +
+  geom_point(data = dat_dep) +
+  geom_segment(data = dat_dep, aes(xend = S, y = -Inf, yend = Value), linetype = 4) +
+  #geom_segment(data = dat_crit, aes(xend = S, y = -Inf, yend = Value), linetype = 2) +  
+  geom_abline(aes(slope = x, intercept = y), data.frame(x = 1, y = 0, Parameter = "R")) +
+  geom_hline(aes(yintercept = y), data.frame(y = 0, Parameter = "logRS")) +
+  scale_x_continuous(breaks = seq(0, 20000, 2500)) +
+  scale_color_manual(name = "Gamma (\u03B3)", 
+                     labels = c("1 (Ricker)", "1.1", "1.2", "1.3", "1.4", "1.5", "1.6"),
+                     values = pal) +
+  theme_bw() +
+  facet_grid(Parameter ~ ., scales = "free_y")
+```
+
+The inflection point were decompensatory dynamics begin represents a possible SET. In the model shown in @fig-gamma all of the SR curves are adjusted to have the same values for $S_{max}$ and $R_{max}$ and the inflection point is a function of the value of $\gamma$. The relationship between this inflection point and the escapement goals for these stocks depends on how aggressively we are fishing at the lower bound of the goal (@fig-setlb1). Also note that when decompensatory dynamics are present both the SET and the lower bound of the escapement goal increase as $\gamma$ increases.
+
+```{r}
+#| warning: FALSE
+#| echo: FALSE
+#| label: fig-setlb1
+#| fig.height: 6
+#| fig.width: 8
+#| fig.cap: "The relationship between the SET (defined as the point where stock recruit dynamics switch from compensatory to decompensatory) and the lower bound of the escapement goal for 3 values of \u03B3 and 2 yield objectives at the lower bound of the escapement goal."
+SET_point <-
+  expand.grid(lnalpha = c(1, 1.5, 2),
+              beta = c(0.001, 0.0001, 0.00001, 0.000001),
+              sigma = c(0.25, 0.5, 0.75),
+              gamma = seq(1, 1.6, 0.1),
+              pct_MSY = c(0.5, 0.6, 0.7, 0.8, 0.9)) %>%
+  mutate(Smsy_Ricker = get_Smsy(lnalpha, beta),
+         Smax = 1 / beta,
+         Rmax = Ricker(lnalpha, beta, Smax),
+         a = gamma_par(Smax, Rmax, gamma)[[1]],
+         b = gamma_par(Smax, Rmax, gamma)[[2]],
+         SET = (gamma - 1) / b) %>%
+  rowwise() %>%
+  mutate(lb_Ricker = optimise(f = get_bounds, #'true' OYP bounds
+                              interval = 1:Smsy_Ricker,
+                              lnalpha = lnalpha,
+                              beta = beta,
+                              pct_MSY = pct_MSY,
+                              correct = FALSE)$minimum,
+         ub_Ricker = optimise(f = get_bounds, #'true' OYP bounds
+                              interval = Smsy_Ricker:(Smsy_Ricker*3),
+                              lnalpha = lnalpha,
+                              beta = beta,
+                              pct_MSY = 0.7,
+                              correct = FALSE)$minimum,
+         Smsy_gamma =   
+           optimize(
+             function(a, b, g, x){
+               SRgamma(alpha = a, beta = b, gamma = g, S = x) - x
+             },
+             interval = c(0, 4 * 1 / beta),
+             maximum = TRUE,
+             a = a,
+             b = b,
+             g = gamma)$maximum,
+         MSY_gamma = SRgamma(alpha = a, beta = b, gamma = gamma, S = Smsy_gamma) - Smsy_gamma) %>%
+  mutate(lb_gamma = 
+           optimize(
+             function(a, b, g, pct_MSY, MSY_gamma, x){
+               ((SRgamma(alpha = a, beta = b, gamma = g, S = x) - x) - pct_MSY * MSY_gamma)^2
+             },
+             interval = c(Smsy_gamma / 10, Smsy_gamma),
+             a = a,
+             b = b,
+             g = gamma,
+             pct_MSY = pct_MSY,
+             MSY = MSY_gamma)$minimum,
+         ub_gamma = 
+           optimize(
+             function(a, b, g, pct_MSY, MSY_gamma, x){
+               ((SRgamma(alpha = a, beta = b, gamma = g, S = x) - x) - pct_MSY * MSY_gamma)^2
+             },
+             interval = c(Smsy_gamma, Smsy_gamma * 3),
+             a = a,
+             b = b,
+             g = gamma,
+             pct_MSY = 0.7,
+             MSY = MSY_gamma)$minimum)
+
+SET_point %>%
+  filter(pct_MSY %in% c(0.5, 0.9),
+         gamma %in% c(1, 1.3, 1.6),
+         lnalpha == 1.5,
+         beta == 0.0001,
+         sigma == 0.25) %>%
+  mutate(curves = list(data.frame(S = rep(seq(0, 15000, 100), times = 3),
+                                  R = SRgamma(a, b, gamma, rep(seq(0, 15000, 100), times = 3))))) %>% 
+  unnest(curves) %>%
+  ggplot(aes(x = S, y = R)) +
+  geom_line() +
+  geom_rect(aes(xmin = lb_gamma, xmax = ub_gamma, ymin = -Inf, ymax = Inf), alpha = 0.005, fill = "green") +
+  geom_vline(aes(xintercept = SET), color = "red", linetype = 2) +
+  geom_abline(aes(intercept = 0, slope = 1))+
+  facet_grid(paste0("\u03B3: ", ifelse(gamma == 1, "1 (Ricker)", gamma)) ~ paste0("%MSY @ lb: ", pct_MSY))
+```
+
+The relationship between the the lower bound of the escapement goal and the proposed SET depends on the strength of depensation ($\gamma$), the MSY objective at the lower bound of the escapement goal and the productivity of the stock (@fig-setlb2). Notice that while the SET can be higher than the lower bound of a Ricker based escapement goal (dashed lines) 2 important caveats exist;
+
+1.  If we are estimating an SET we would also be assuming a different underlying stock recruit relationship and should modify the goal range appropriately (solid lines). This would largely mitigate the issue.
+
+2.  Cases where the lower bound of the escapement goal remain below the SET represent situations where the department is fishing very aggressively on either a low productivity stock an/or on a stock with strong depensation. The combination of all 3 of those conditions existing for the same stock is likely very rare. It's more likely that when the department has chosen an extremely aggressive escapement goal lower bound the stock is either highly productive, depensatory behavior is moderate (small and medium $\gamma$), or both.
+
+```{r}
+#| warning: FALSE
+#| echo: FALSE
+#| label: fig-setlb2
+#| fig.height: 4
+#| fig.width: 8
+SET_point %>%
+  mutate(pct_lbRicker = SET / lb_Ricker,
+         pct_lbgamma = SET / lb_gamma) %>%
+  pivot_longer(cols = c("pct_lbRicker", "pct_lbgamma"), 
+               names_to = "Reference", 
+               values_to = "Percentage") %>%
+  ggplot(aes(x = gamma, y = Percentage, color = as.character(lnalpha), linetype = Reference)) +
+    geom_line() +
+    geom_hline(aes(yintercept = 1)) +
+    scale_x_continuous(breaks = c(1, 1.3, 1.6)) +
+    scale_y_continuous(name = "SET / EG lower bound") +
+    scale_color_discrete(name = "ln(\u03B1)") +
+    scale_linetype_manual(name = "Goal Reference",
+                          labels = c("gamma SR", "Ricker SR"), 
+                          values = c(1,2)) +
+    facet_grid(. ~ pct_MSY) #beta makes no difference
+```
+
+## Simulation Model
+
+We will use simulation to describe our ability to detect depensatory stock-recruit dynamics and use the inflection point between compensatory and depensatory stock-recruit dynamics as an SET. The simulation model used for this exercise is described in @sec-sim_model. The general strategy was to simulate 50 replicate datasets for each of 36 combinations of stock-recruit parameters and fishery characteristics and then analyze each dataset in an attempt to recover the data generating mechanism and the implied SET. Each simulated dataset was 40 years long.
+
+### Parameter Space for Salmon Populations
+
+In an effort to represent a wide variety of species and populations, simulations will be performed across a grid of stock-recruit parameters. In the absence of depensation, we will assume salmon population dynamics are described by a Ricker curve where the parameter space is inclusive of $\textrm{log}(\alpha)$ of either $1$, $1.5$ and $2$ and process error $\sigma$ of either $0.25$ or $0.5$, while setting $\beta=0.0001$ for all simulations. In addition, we assume 2 levels of depensation[^2] with $\gamma$ equal to $1.3$ or $1.6$ while adjusting the values for $\alpha$ and $\beta$ when $\gamma > 1$ such that $R_{max}$ and $S_{max}$ of the stock recruit relationship is equal regardless of the value of $\gamma$. Finally, we will use 2 values for the percentage of MSY staff aim to achieve at the lower bound of the escapement goal, 50% representing an extremely aggressive fishery and 90% representing a conservative fishery.
+
+[^2]: Three total since the Ricker stock-recruit relationship is equal to a gamma stock-recruit relationship when $\gamma = 1$.
+
+```{r}
+#| echo: FALSE
+scenarios_g <-
+  expand.grid(lnalpha = c(1, 1.5, 2),
+              beta = 0.0001, #c(0.001, 0.0001, 0.000001),
+              sigma = c(0.25, 0.5),
+              phi = 0,
+              pct_lb = c(0.5, 0.9),
+              gamma = seq(1, 1.6, length.out = 3)) %>%
+  mutate(scenario = 1:n(),
+         Smsy = get_Smsy(lnalpha, beta, correct = FALSE), #notice no log alpha correction for right now.
+         power = lnalpha / 2 - .2,
+         Smax = 1/ beta,
+         Rmax = Ricker(lnalpha, beta, Smax),
+         a = gamma_par(Smax, Rmax, gamma)[[1]],
+         b = gamma_par(Smax, Rmax, gamma)[[2]]) %>% # very crude. 
+  rowwise() %>%
+  mutate(lb_pctMSY = optimise(f = get_bounds, #'true' OYP bounds
+                              interval = 1:get_Smsy(lnalpha, beta),
+                              lnalpha = lnalpha,
+                              beta = beta,
+                              pct_MSY = pct_lb,
+                              correct = TRUE, #but used the log alpha correction here!
+                              sigma = sigma,
+                              phi = phi)$minimum,
+         ub_pctMSY = optimise(f = get_bounds, #'true' OYP bounds
+                              interval = get_Smsy(lnalpha, beta):(get_Smsy(lnalpha, beta)*5),
+                              lnalpha = lnalpha,
+                              beta = beta,
+                              pct_MSY = 0.7,
+                              correct = TRUE,
+                              sigma = sigma,
+                              phi = phi)$minimum) %>%
+  mutate(lnalpha_red = lb_pctMSY * beta,
+         Rmax_red = Ricker(lnalpha_red, beta, Smax),
+         a_red = gamma_par(Smax, Rmax_red, gamma)[[1]]) %>% 
+  ungroup()
+
+pal2 <- pal[c(1, 4, 7)]
+```
+
+```{r}
+#| echo: FALSE
+#| tbl-cap: "Stock-recruit and fishery parameter combinations used in this simulation study."
+scenarios_g %>% 
+  select(scenario, gamma, pct_lb, sigma, lnalpha) %>%
+  flextable() %>%
+  set_header_labels(
+    scenario = "Scenario",
+    lnalpha = "ln(\u03b1)",
+    sigma = "\u03c3",
+    gamma = "\u03b3",
+    pct_lb = "MSY % @ EG \n lower bound"
+  ) %>%
+  merge_v(j = c("lnalpha", "sigma", "gamma", "pct_lb")) %>%
+  valign(j = c("lnalpha", "sigma", "gamma", "pct_lb"), valign = "top") %>%
+  autofit()
+```
+
+### Productivity Regimes {#sec-productivity-regimes}
+
+When a salmon stock consistently misses the lower bound of it's escapement goal it's likely marine productivity has undergone a large decline and this decline was explicitly included in each simulation. For this exercise we assumed the first half (20 years) of each simulated dataset occured under the produtivity assumptions described above while for the second half (20 years) the the data was generated assuming reduced productivity. Specifically, during the last 20 years for each simulated dataset the $\beta$ parameter was held constant while productivity was lowered[^3] such that $\textrm{log}(\alpha)^*=\frac{lb}{\beta}$ where $lb$ is the lower bound of the escapement goal range[^4]. The assumed stock-recruit relationships for each productivity regime are shown in @fig-regime. For labeling and discussion purposes we will continue to describe parameter combinations based on historical productivity and distinguish low productivity simulations with the words "low productivity". Notice that under low productivity conditions there is little harvestable surplus when assuming compensatory stock-recruit dynamics and the stock often fails to replace itself when assume depensatory stock-recruit dynamics.
+
+[^3]: This adjustment moved the escapement associated with equilibrium abundance $S_{EQ}$ to be equal to the lower bound of the escapement goal while leaving the escapement associated the maximum recruitment unchanged $S_{MAX}$.
+
+[^4]: Recall that when $\gamma > 1$, $\alpha$ and $\beta$ are adjusted such that $S_{max}$ and $R_{max}$ are the same for the compensatory ($\gamma = 1$) and the decompensatory ($\gamma > 1$) cases. When calculating reduced productivity $\textrm{log}(\alpha)^*$ the adjustment for low productivity in the compensatory case was made before the adjustment to the $\alpha$ and $\beta$ parameters for the depensatory cases.
+
+```{r}
+#| echo: FALSE
+#| label: fig-regime
+#| fig.height: 6
+#| fig.width: 8
+#| fig.cap: "The assumed stock-recruit relationships used in this simulation study. Each panel shows 3 stock-recruit relationships for both the normal and low productivity regimes. The 18 relationships thus shown represent 1/2 of the total number of scenarios considered (variability in process error manifests during data generation)."
+scenarios_g %>%
+  filter(sigma == 0.25) %>%
+  slice(rep(1:n(), each = 101)) %>% 
+  mutate(S = rep(seq(0, 2 * 1 / max(beta), by = 200), times = nrow(scenarios_g[scenarios_g$sigma == 0.25, ])),
+         R = SRgamma(alpha = a, beta = b, gamma = gamma, S = S),
+         R_red = SRgamma(alpha = a_red, beta = b, gamma = gamma, S = S)) %>%
+  ggplot(aes(x = S, y = R, color = as.character(gamma))) +
+    geom_rect(aes(xmin = lb_pctMSY, 
+                  xmax = ub_pctMSY, 
+                  ymin = -Inf, 
+                  ymax = Inf), 
+              fill = "grey95",
+              inherit.aes = FALSE) +
+    geom_line() +
+    geom_line(aes(y = R_red), linetype = 2) +
+    geom_abline() +
+    scale_y_continuous(name = "R") +
+    scale_color_manual(name = "Gamma", 
+                       labels = c("1 (Ricker)", "1.3", "1.6"),
+                       values = pal2) +
+    theme_bw() +
+    facet_grid(paste0("ln(\u03B1): ", lnalpha) ~ paste0("%MSR @ lb: ", pct_lb),
+               scales = "free_y")
+```
+
+## Analysis model
+
+The analysis model used is provided in @sec-analysis_mod. This model is motivated by the observation that the dataset is unlikely to contain useful information about depensation while experiencing a high productivity regime and unlikely to contain useful information about compensation while observing the low productivity regime. Instead the model assumes 2 sequential (normal and then low) regimes and estimates the year of the transition as a changepoint. While this formulation may not be a terrible starting place for many Chinook stocks in the state it's likely the anaylist would need to employ a more sophisticated regime transition component when working with real data.
+
+## Results
+
+```{r}
+#| echo: FALSE
+#| warning: FALSE
+#| label: fig-fit
+#| fig.height: 6
+#| fig.width: 8
+#| fig.cap: "Historic and low productivity scenarios"
+plot_fit <- function(scenario_file, ...){
+  filters <- enquos(...)
+  
+  data0 <- 
+    scenario_file %>%
+    filter(!!!filters)
+  
+  rep_var = sample(unique(data0$rep), 1, replace = FALSE)
+  
+  data <- 
+    data0 %>%
+    filter(rep == rep_var)
+  
+  maxS <- round(max(data$data_jags[[1]]$S), -2)
+  
+  true <- 
+    data %>%
+    select(scenario, rep, a, a_red, b, gamma, lb_pctMSY, ub_pctMSY) %>%
+    mutate(set = (gamma - 1)/ b,
+           source = "simulated")
+  
+  estimates <- 
+    data %>%
+    select(scenario, rep, mod_gamma) %>%
+    mutate(a_1 = map_dbl(mod_gamma, ~exp(.$q50$lnalpha[1])),
+           a_2 = map_dbl(mod_gamma, ~exp(.$q50$lnalpha[2])),
+           b_1 = map_dbl(mod_gamma, ~.$q50$beta[1]),
+           b_2 = map_dbl(mod_gamma, ~.$q50$beta[2]),
+           gamma_1 = map_dbl(mod_gamma, ~.$q50$gamma[1]),
+           gamma_2 = map_dbl(mod_gamma, ~.$q50$gamma[2]),
+           set = (gamma_2 - 1) / b_2,
+           source = "estimated")
+  
+  plot1 <- 
+    data %>%
+    mutate(lnRS = map(data_jags, function(x) data.frame(year = 1:40, lnRS = x$lnRS, S = x$S)),
+           cut = map_dbl(mod_gamma, ~.$q50$y_d)) %>%
+    select(scenario, rep, a, a_red, b, gamma, lb_pctMSY, ub_pctMSY, cut, lnRS) %>%
+    unnest(lnRS) %>%
+    mutate(regime = ifelse(year <= cut, "normal", "reduced")) %>%
+    ggplot(aes(x = S, y = lnRS)) +
+    geom_point(aes(color = regime)) +
+    geom_vline(data = true, aes(xintercept = set, linetype = source), 
+               color = "red") +
+    geom_vline(data = estimates, aes(xintercept = set, linetype = source), 
+               color = "red") +
+    geom_rect(data = true, aes(xmin = lb_pctMSY, xmax = ub_pctMSY, ymin = -Inf, ymax = Inf),
+              inherit.aes = FALSE, 
+              alpha= .25) +
+    geom_function(fun = function(x) log(SRgamma(true$a, true$b, true$gamma, x) / x) ,
+                  color = "black") +
+    geom_function(fun = function(x) log(SRgamma(true$a_red, true$b, true$gamma, x) / x),
+                  color = "red") +
+    geom_function(fun = function(x) log(SRgamma(estimates$a_1, estimates$b_1, estimates$gamma_1, x) / x),
+                  color = "black",
+                  linetype = 2) +
+    geom_function(fun = function(x) log(SRgamma(estimates$a_2, estimates$b_2, estimates$gamma_2, x) / x),
+                  col = "red",
+                  linetype = 2) +
+    scale_color_manual(name = "Regime", values = c("black", "red")) +
+    scale_linetype_manual(name = "Source",
+                          values = c(1, 2),
+                          labels = c("Simulated", "Estimated")) +
+    scale_x_continuous(limits = c(0, 1.1 * maxS)) +
+    theme_bw()
+  
+  plot2 <- 
+    data %>%
+    mutate(S = map(data_jags, function(x) data.frame(year = 1:40, S = x$S)),
+           cut = map_dbl(mod_gamma, ~.$q50$y_d)) %>%
+    unnest(S) %>%
+    mutate(regime = ifelse(year <= cut, "normal", "reduced")) %>%
+    select(scenario, rep, year, b, gamma, lb_pctMSY, regime, S) %>% 
+    mutate(set = (gamma - 1)/ b) %>% 
+    ggplot(aes(x = year, y = S)) + 
+    geom_line() +
+    geom_point(aes(color = regime)) +
+    geom_hline(data = true, aes(yintercept = set), color = "red") +
+    geom_hline(data = estimates, aes(yintercept = set), linetype = 2, color = "red") +
+    geom_rect(data = true, aes(ymin = lb_pctMSY, ymax = ub_pctMSY, xmin = -Inf, xmax = Inf),
+              inherit.aes = FALSE, 
+              alpha= .25) +
+    scale_color_manual(guide = "none", values = c("black", "red")) +
+    scale_y_continuous(limits = c(0, 1.1 * maxS)) +
+    theme_bw()
+  
+  ggarrange(plot1, plot2, nrow = 2, heights = c(6,4))
+}
+```
+
+### Simulation and analysis examples
+
+Three examples of the simulated dataset when $ln(\alpha) = 1.5$, $\gamma = 1.3$, and $pct_{MSY} @ lb = 0.9$ are presented in this section to give the reader an idea of the variability associated with estimating the SET.
+
+```{r}
+#| echo: FALSE
+#| warning: FALSE
+#| label: fig-median1.3
+#| fig.height: 6
+#| fig.width: 8
+#| fig.cap: "One randomly selected simulated dataset and the estimated SR relationships and implied SET when $ln(\\alpha) = 1.5$, $\\gamma = 1.3$, and $pct_{MSY} @ lb = 0.9$. This example shows one of the 10 datasets that resulted in an SET estimate **between the 40th and 60th percentiles** of the 50 SETs estimated for this parameter combination. The simulated and estimated SET's are shown as vertical lines in the top panel and horizontal lines in the bottom panel."
+rep_scenarios_gp %>%
+  filter(set > set_q40 & set < set_q60) %>%
+  plot_fit(lnalpha == 1.5,
+           sigma == .5,
+           gamma == 1.3,
+           pct_lb == 0.9)
+```
+
+### Lowest 10% of SETs
+
+```{r}
+#| echo: FALSE
+#| warning: FALSE
+#| label: fig-low1.3
+#| fig.height: 6
+#| fig.width: 8
+#| fig.cap: "One randomly selected simulated dataset and the estimated SR relationships and implied SET when $ln(\\alpha) = 1.5$, $\\gamma = 1.3$, and $pct_{MSY} @ lb = 0.9$. This example shows one of the 5 datasets that resulted in the **lowest 10%** of the 50 SETs estimated for this parameter combination. The simulated and estimated SET's are shown as vertical lines in the top panel and horizontal lines in the bottom panel."
+rep_scenarios_gp %>%
+  filter(set < set_q10) %>%
+  plot_fit(lnalpha == 1.5,
+           sigma == .5,
+           gamma == 1.3,
+           pct_lb == 0.9)
+```
+
+### Highest 10% of SETs
+
+```{r}
+#| echo: FALSE
+#| warning: FALSE
+#| label: fig-high1.3
+#| fig.height: 6
+#| fig.width: 8
+#| fig.cap: "One randomly selected simulated dataset and the estimated SR relationships and implied SET when $ln(\\alpha) = 1.5$, $\\gamma = 1.3$, and $pct_{MSY} @ lb = 0.9$. This example shows one of the 5 datasets that resulted in the **highest 10 %** of the 50 SETs estimated for this parameter combination. The simulated and estimated SET's are shown as vertical lines in the top panel and horizontal lines in the bottom panel."
+rep_scenarios_gp %>%
+  filter(set > set_q90) %>%
+  plot_fit(lnalpha == 1.5,
+           sigma == .5,
+           gamma == 1.3,
+           pct_lb == 0.9)
+```
+
+```{r}
+#| echo: FALSE
+#| warning: FALSE
+#| label: fig-set_lb
+#| fig.height: 6
+#| fig.width: 8
+#| fig.cap: "Liberal result"
+test <- 
+  SET_point %>%
+  filter(beta == 0.0001,
+         sigma == 0.5,
+         pct_MSY %in% c( 0.5, 0.9),
+         gamma %in% c(1, 1.3, 1.6)) %>%
+  rename(pct_lb = pct_MSY) %>%
+  mutate(scenario = 1) %>%
+  mutate(set_lbRicker = SET / lb_Ricker,
+         set_lbgamma = SET / lb_gamma) 
+
+rep_scenarios_gp %>%
+  select(scenario, rep, lnalpha, lnalpha_red, beta, sigma, gamma, a, a_red, b, pct_lb, lb_pctMSY, mod_gamma) %>%
+  mutate(set_lb = map_dbl(mod_gamma, function(x) (x$q50$gamma[2] - 1) / x$q50$beta[2]) / lb_pctMSY) %>%
+  ggplot(aes(x = gamma, y = set_lb, group = scenario)) +
+  geom_boxplot() +
+  geom_line(data = test, 
+            aes(y = set_lbRicker, color = as.character(lnalpha)), 
+            size = 1.1, linetype = 3) +
+  geom_line(data = test, 
+            aes(y = set_lbgamma, color = as.character(lnalpha)), 
+            size = 1.1) +
+  coord_cartesian(ylim = c(0, 5)) +
+  scale_x_continuous(breaks = c(1, 1.3, 1.6)) +
+  scale_y_continuous(name = "SET / EG lower bound") +
+  geom_hline(aes(yintercept = 1)) +
+  facet_grid(paste0("%MSY @ lb: ", pct_lb) ~ paste0("\u03B1: ", lnalpha))
+```
+
+## $ln(\alpha) = 1.5$, $\gamma = 1$, $pct_{MSY} @ lb = 0.9$
+
+#### Median SET
+
+```{r}
+#| echo: FALSE 
+#| warning: FALSE 
+#| label: fig-median1 
+#| fig.height: 6 
+#| fig.width: 8 
+#| fig.cap: "Typical result" 
+rep_scenarios_gp %>%   
+  filter(set > set_q40 & set < set_q60) %>%   
+  plot_fit(lnalpha == 1.5,            
+           sigma == .5,            
+           gamma == 1,            
+           pct_lb == 0.9)
+```
+
+### Lowest 10% of SETs
+
+```{r}
+#| echo: FALSE 
+#| warning: FALSE 
+#| label: fig-low1 
+#| fig.height: 6 
+#| fig.width: 8
+#| fig.cap: "Conservative result" 
+rep_scenarios_gp %>%   
+  filter(set < set_q10) %>% 
+  plot_fit(lnalpha == 1.5,            
+           sigma == .5,            
+           gamma == 1,            
+           pct_lb == 0.9)
+```
+
+### Highest 10% of SETs
+
+```{r}
+#| echo: FALSE 
+#| warning: FALSE 
+#| label: fig-high1 
+#| fig.height: 6
+#| fig.width: 8 
+#| fig.cap: "Liberal result" 
+rep_scenarios_gp %>%   
+  filter(set > set_q90) %>%   
+  plot_fit(lnalpha == 1.5,            
+           sigma == .5,            
+           gamma == 1,            
+           pct_lb == 0.9)
+```
+
+### Appendix A: Stock-Recruit Simulation Model {#sec-sim_model}
+
+Abundance of salmon is generated by a S-R relationship that describes the number of fish expected to return (the "recruitment") from a given number of spawning fish (the "escapement"). The total expected recruitment $R_{c}$ produced from fish spawning in brood year $c$ follows the gamma formulation:
+
+$$ R_{c}~=~S_{c}^\gamma\alpha \textrm{exp}(-\beta S_{c}) $$
+
+where $S_{c}$ is the number of spawners, $\alpha$ (number of recruits per spawner in the absence of density dependence) is a measure of productivity, and $\beta$ is a measure of density dependence.
+
+However, productivity varies among brood years, fluctuating around a central tendency. Time-varying productivity often manifests as serially correlated model residuals, so a lognormal error term with a lag of 1 year was included in the linearized form of the S-R relationship to represent realized recruitment.
+
+$$ \textrm{ln}(R_{c})~=~\gamma\textrm{ln}(S_{c})+\textrm{ln}(\alpha)-\beta S_{c} +\phi \nu_{(c-1)}+\epsilon_{W} $$
+
+where $\phi$ is the lag-1 serial correlation coefficient, $\nu_{c}$ are model residuals defined as
+
+$$ \nu_{c}~=~\textrm{ln}(R_{c})-\gamma\textrm{ln}(S_{c})-\textrm{ln}(\alpha)+\beta S_{c} $$
+
+and the $\epsilon_{W}$ are independently and normally distributed process errors with "white noise" variance $\sigma^2_{W}$.
+
+Age at maturity ($p_{ca}$), is needed to distribute recruitment across calendar years and is treated as a constant within each brood year. The abundance $N_{ya}$ of age $a$ salmon in calendar year $y$ is the product of the age at maturity scalar and the total return (recruitment) $R_{c}$ for from brood year $c=y−a$:
+
+$$ N_{ya}~=~p_{(y-a)a}R_{(y-a)} $$
+
+Total run $N_{y}$ during calendar year $y$ is the sum of abundance at age across all ages:
+
+$$ N_{y}~=~\sum_{a} N_{ya} $$
+
+Instantaneous fishing mortality $F_y$ is a function of the annual harvest rate $U_y$ and used to calculate escapement $S_y$:
+
+$$ S_{y}~=~N_ye^{-F_y} $$
+
+Where $$F_{y}=-\textrm{log}(1-U_y)\textrm{exp}(\epsilon_F)$$ with $\epsilon_{F}~\sim~\textrm{Normal}(0, \sigma^2_{F})$.
+
+The harvest process used in these simulations mimics standard ADF&G fisheries management, i.e. managers target a harvest rate that will result in an escapement between the lower and upper bounds of the escapement goal range. The annual harvest rate $U_{y}$, was modeled as a function of the projected total run $N_{y}^{proj.}$, both bounds of the escapement goal $lb$ and $ub$, and the power of the fishery:
+
+$$ U_{y}~=~\textrm{f}(N_y^{proj.},~lb,~ub,~power) $$
+
+Where $N_y^{proj.}=N_y \textrm{exp}(\epsilon_N)$ with $\epsilon_{N}~\sim~\textrm{Normal}(0, \sigma^2_{N})$. To determine annual harvest rates the following algorithm was used:
+
+$$ U_y^{goal} = \textrm{minimum}(\textrm{Uniform}(U_{ub}, U_{lb}),~power) $$
+
+where
+
+$$ U_{lb} = \textrm{if}(N_Y^{proj.} > lb)~\frac{N_y^{proj.} - lb}{N_y^{proj.}}~\textrm{else}~0 $$
+
+$$ U_{ub} = \textrm{if}(N_Y^{proj.} > ub)~\frac{N_y^{proj.} - ub}{N_y^{proj.}}~\textrm{else}~0 $$
+
+and $power$ represent the maximum harvest rate the fishery is capable of producing. The lower bound of the escapement goal was varied across simulations but was set as the escapement that predicted a mean return which produced x% of MSY using historical productivity values while the upper bound was was the escapement that predicted a mean return which produced 70% of MSY using historical productivity values.
+
+### Appendix B: Stock-Recruit Analysis Model {#sec-analysis_mod}
+
+```{r}
+#| echo: FALSE
+lines <- readLines("..\\scripts\\gammaRS_changepoint.txt")
+gluedown::md_text(lines)
+```

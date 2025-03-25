@@ -173,7 +173,7 @@ gamma_plots[[2]] + coord_cartesian(xlim = c(0, 30000), ylim = c(0, 30000))
 
 That said, the ability of the stock to replace itself is severely compromised under the low productivity scenario both because the safety margin provided by the compensatory dynamics assumption is erased and because decompensatory dynamics barely replace themselves at any level of spawning escapement.
 
-```{r include = FALSE}
+```{r, include = FALSE}
 lnRS_plots <- list()
 for(i in 1:length(unique(input$lnalpha))){
   lnRS_plots[[i]] <- 

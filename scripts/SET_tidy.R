@@ -220,7 +220,7 @@ scenarios_g <-
                               correct = TRUE,
                               sigma = sigma,
                               phi = phi)$minimum) %>%
-  mutate(lnalpha_red = lb_pctMSY * 0.5  * beta,
+  mutate(lnalpha_red = lb_pctMSY * beta,
          Rmax_red = Ricker(lnalpha_red, beta, Smax),
          a_red = gamma_par(Smax, Rmax_red, gamma)[[1]]) %>% 
   ungroup()
@@ -242,7 +242,7 @@ scenarios_g %>%
   autofit()
 
 #Simulate data and estimate parameters --------
-rep_scenarios_gp <-
+rep_scenarios_seqlb_scale <-
   scenarios_g %>%
   slice(rep(1:nrow(scenarios_g), each = 50)) %>%
   mutate(rep = rep(1:50, times = nrow(scenarios_g))) %>%
@@ -269,35 +269,24 @@ rep_scenarios_gp <-
                        S = .$S,
                        ar1 = 0)}),
          mod_gamma = map(data_jags, ~ jags(data = .x,
-                                           parameters.to.save = c("lnalpha", "beta", "gamma", "sigma", "y_d", "lambda"),
-                                           model.file = ".\\scripts\\gammRS_changepoint.txt",
+                                           parameters.to.save = c("lnalpha", "beta", "gamma", "sigma", "y_d", "scale"),
+                                           model.file = ".\\scripts\\gamma_RS_change_scale.txt",
                                            n.chains = 3,
                                            n.iter = 5e4,
                                            n.burnin = 1e4,
                                            n.thin = 480, 
-                                           parallel = TRUE))
-         # mod_Ricker = map(data_jags, ~ jags(data = .x,
-         #                                    parameters.to.save = c("lnalpha", "beta", "gamma", "sigma", "y_d", "lambda"),
-         #                                    model.file = ".\\scripts\\Ricker_changepoint.txt",
-         #                                    n.chains = 3,
-         #                                    n.iter = 5e4,
-         #                                    n.burnin = 1e4,
-         #                                    n.thin = 480, 
-         #                                    parallel = TRUE))
-  )
-#Simulate data and estimate parameters --------
-rep_scenarios_gp2 <-
-  rep_scenarios_gp %>%
-  mutate(mod_Ricker = map(data_jags, ~ jags(data = .x,
-                                            parameters.to.save = c("lnalpha", "beta", "sigma", "y_d", "lambda"),
-                                            model.file = ".\\scripts\\Ricker_changepoint.txt",
+                                           parallel = TRUE)),
+         mod_Ricker = map(data_jags, ~ jags(data = .x,
+                                            parameters.to.save = c("lnalpha", "beta", "gamma", "sigma", "y_d"),
+                                            model.file = ".\\scripts\\Ricker_RS_change.txt",
                                             n.chains = 3,
                                             n.iter = 5e4,
                                             n.burnin = 1e4,
                                             n.thin = 480,
-                                            parallel = TRUE)))
-saveRDS(rep_scenarios_gp2, file = ".\\rep_scenarios_gp2.rds")
-rep_scenarios_gp <- readRDS(file = ".\\rep_scenarios_gp2.rds")
+                                            parallel = TRUE))
+  )
+saveRDS(rep_scenarios_seqlb_scale, file = ".\\rep_scenarios_seqlb_scale.rds")
+#rep_scenarios_gp <- readRDS(file = ".\\rep_scenarios_gp2.rds")
 
 # * Rhat boxplot ---------
 # gamma model

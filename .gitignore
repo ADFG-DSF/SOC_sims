@@ -5,5 +5,5 @@
 Thumbs.db
 *.html
 internal_communication/
-rep_scenarios_gp.rds
-rep_scenarios_gp2.rds
+rep_scenarios_Seqhalflb.rds
+rep_scenarios_Seqlb.rds

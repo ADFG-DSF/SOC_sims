@@ -15,12 +15,12 @@ model
 		sigma[r] ~ dgamma(5, 15)
 		tau[r] <- 1/(sigma[r] * sigma[r])
 	}
-    lnalpha[1] ~ dunif(-4, 4)
-    lnalpha[2] ~ dunif(-7, lnalpha[1]) #constrains gamma[2] with -4 as the lower bound!!
+    lnalpha[1] ~ dunif(0, 4) #dunif(-4, 4)
+    lnalpha[2] ~ dnorm(0, 0.25) #dunif(-10, lnalpha[1]) #dunif(-7, lnalpha[1]) #constrains gamma[2] with -4 as the lower bound!!
     beta[1] ~ dnorm(0, 1)T(0, )
     beta[2] <- beta[1] * gamma[2]
     gamma[1] <- 1
-    gamma[2] ~ dnorm(1, 4)
+    gamma[2] ~ dunif(1,2) #dnorm(1, 4)
     y_d ~ dunif(10, 30)
     phi ~ dnorm(0, 4)T(-1, 1)
     e0 ~ dnorm(0, 0.001)  

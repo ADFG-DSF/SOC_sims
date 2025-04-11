@@ -286,7 +286,7 @@ rep_scenarios_seqlb_scale <-
                                             parallel = TRUE))
   )
 saveRDS(rep_scenarios_seqlb_scale, file = ".\\rep_scenarios_seqlb_scale.rds")
-#rep_scenarios_gp <- readRDS(file = ".\\rep_scenarios_gp2.rds")
+#rep_scenarios_gp <- readRDS(file = ".\\rep_scenarios_seqlb_scale.rds")
 
 # * Rhat boxplot ---------
 # gamma model
@@ -680,3 +680,45 @@ data.frame(lnalpha = rep_scenarios_gp$mod_gamma[[36]]$sims.list$lnalpha[,2],
          beta_cut = (cut(beta, quantile(beta, c(0, 0.05, 0.2, 0.8, 0.95, 1))))) %>%
   ggplot(aes(x = lnalpha, y = gamma, color = set_cut)) +
   geom_point()
+
+
+# 95% gamma CI vrs # of Observations below lb.
+# more observations are helpful when goal is 50% of MSY at lb, not helpful when 90%.
+rep_scenarios_gp %>%
+  ungroup() %>%
+  mutate(set = (gamma - 1) / b, 
+         S_below = map_dbl(data, function(x) sum(x$S < x$lb_goal)),
+         gamma_range = map_dbl(mod_gamma, function(x) x$q97.5$gamma[2] - x$q2.5$gamma[2])) %>%
+  select(lnalpha, beta, sigma, pct_lb, gamma, lb_pctMSY, scenario, rep, S_below, gamma_range) %>%
+  ggplot(aes(x = S_below, gamma_range)) + 
+  geom_point() +
+  geom_smooth(method = "lm") +
+  facet_wrap(. ~ scenario)
+
+#gamma mostly spans prior. 
+# don't really beleive some of the prior (1.6-2)
+# If gamma could take those values we should know it.
+rep_scenarios_gp %>%
+  mutate(set = (gamma - 1) / b, 
+         set_sims = map(mod_gamma, function(x) (x$sims.list$gamma[,2] - 1) / x$sims.list$beta[,2]),
+         gamma_sims = map(mod_gamma, function(x) x$sims.list$gamma[,2])) %>%
+  select(lnalpha, lnalpha_red, beta, sigma, pct_lb, a, a_red, b, gamma, lb_pctMSY, scenario, rep, set, set_sims, gamma_sims) %>%
+  unnest(gamma_sims) %>%
+  ggplot(aes(x = gamma_sims)) + 
+  geom_histogram(aes(fill = as.character(rep), group = rep)) +
+  # geom_vline(aes(xintercept = set)) +
+  scale_x_continuous(limits = c(1,2)) +
+  facet_wrap(. ~ scenario)
+
+# point estimates are not terrible
+# I think this was helped greatly by "scale" prior parameterzation
+rep_scenarios_gp %>%
+  mutate(set = (gamma - 1) / b, 
+         set_sims = map(mod_gamma, function(x) (x$sims.list$gamma[,2] - 1) / x$sims.list$beta[,2]),
+         gamma_est = map_dbl(mod_gamma, function(x) x$q50$gamma[2])) %>%
+  select(lnalpha, lnalpha_red, beta, sigma, pct_lb, a, a_red, b, gamma, lb_pctMSY, scenario, rep, set, set_sims, gamma_est) %>%
+  ggplot(aes(x = gamma_est)) + 
+  geom_histogram(aes(fill = as.character(rep), group = rep)) +
+  geom_vline(aes(xintercept = gamma)) +
+  scale_x_continuous(limits = c(1,2)) +
+  facet_wrap(. ~ scenario)

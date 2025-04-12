@@ -1,0 +1,29 @@
+model
+{   
+	for (y in 1:nyrs) {
+		lnRS[y] ~ dnorm(mu[y], tau[lambda[y]])
+		fit[y] <- (gamma[lambda[y]] - 1) * log(S[y]) + lnalpha[lambda[y]] - beta[lambda[y]] * S[y]
+		e[y] <- lnRS[y] - fit[y]
+		lambda[y] <- 1 + step(y - y_d)
+		}
+	mu[1] <- fit[1] + ar1 * phi * e0
+	for (y in 2:nyrs) {
+		mu[y] <- fit[y] + ar1 * phi * e[y - 1]
+	}
+
+	for (r in 1:2){
+		sigma[r] ~ dgamma(3, 9)
+		tau[r] <- 1/(sigma[r] * sigma[r])
+	}
+    lnalpha[1] ~ dunif(-4, 4)
+    lnalpha[2] <- scale - gamma[2] * (log(1 / beta[1]) - 1)
+    scale ~ dunif(1,15)
+    beta[1] ~ dnorm(0, 1)T(0, )
+    beta[2] <- beta[1] * gamma[2]
+    gamma[1] <- 1
+    gamma[2] ~ dnorm(mu_gamma, 400)
+    mu_gamma ~ dunif(1, 2)
+    y_d ~ dunif(10, 30)
+    phi ~ dnorm(0, 4)T(-1, 1)
+    e0 ~ dnorm(0, 0.001)  
+}

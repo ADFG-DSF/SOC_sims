@@ -15,7 +15,9 @@ lapply(function_files, function(x) source(paste0(".\\functions\\", x)))
 # the SET.R script seems like it might work. This script is using a tidy workflow so it is 
 # different parameter combinations.
 # --------------------------------------------------------------------------------------
-# motivation
+
+# Motivation --------------------------------------------------------------
+
 # Simulate a dataset with time varying productivity to demonstrate 
 # connection between S and our inability to estimate certain parameters.
 # Also demonstrate how a depensatory pattern can arise from non-depensatory dynamics
@@ -196,6 +198,7 @@ scenarios_g <-
               phi = 0,
               pct_lb = c(0.5, 0.9),
               gamma = seq(1, 1.6, length.out = 3)) %>%
+  arrange(lnalpha, sigma, gamma, pct_lb) %>%
   mutate(scenario = 1:n(),
          Smsy = get_Smsy(lnalpha, beta, correct = FALSE), #notice no log alpha correction for right now.
          power = lnalpha / 2 - .2,
@@ -242,7 +245,7 @@ scenarios_g %>%
   autofit()
 
 #Simulate data and estimate parameters --------
-rep_scenarios_seqlb_scale <-
+rep_scenarios_seqlb_scale_hier <-
   scenarios_g %>%
   slice(rep(1:nrow(scenarios_g), each = 50)) %>%
   mutate(rep = rep(1:50, times = nrow(scenarios_g))) %>%
@@ -269,8 +272,8 @@ rep_scenarios_seqlb_scale <-
                        S = .$S,
                        ar1 = 0)}),
          mod_gamma = map(data_jags, ~ jags(data = .x,
-                                           parameters.to.save = c("lnalpha", "beta", "gamma", "sigma", "y_d", "scale"),
-                                           model.file = ".\\scripts\\gamma_RS_change_scale.txt",
+                                           parameters.to.save = c("lnalpha", "beta", "gamma", "sigma", "y_d", "scale", "mu_gamma"),
+                                           model.file = ".\\scripts\\gamma_RS_change_scale_hier.txt",
                                            n.chains = 3,
                                            n.iter = 5e4,
                                            n.burnin = 1e4,
@@ -285,8 +288,8 @@ rep_scenarios_seqlb_scale <-
                                             n.thin = 480,
                                             parallel = TRUE))
   )
-saveRDS(rep_scenarios_seqlb_scale, file = ".\\rep_scenarios_seqlb_scale.rds")
-#rep_scenarios_gp <- readRDS(file = ".\\rep_scenarios_seqlb_scale.rds")
+saveRDS(rep_scenarios_seqlb_scale_hier, file = ".\\rep_scenarios_seqlb_scale_hier.rds")
+#rep_scenarios_gp <- readRDS(file = ".\\rep_scenarios_seqlb_scale_hier.rds")
 
 # * Rhat boxplot ---------
 # gamma model
@@ -707,7 +710,7 @@ rep_scenarios_gp %>%
   ggplot(aes(x = gamma_sims)) + 
   geom_histogram(aes(fill = as.character(rep), group = rep)) +
   # geom_vline(aes(xintercept = set)) +
-  scale_x_continuous(limits = c(1,2)) +
+  scale_x_continuous(limits = c(0.9, 1.7)) +
   facet_wrap(. ~ scenario)
 
 # point estimates are not terrible
@@ -720,5 +723,22 @@ rep_scenarios_gp %>%
   ggplot(aes(x = gamma_est)) + 
   geom_histogram(aes(fill = as.character(rep), group = rep)) +
   geom_vline(aes(xintercept = gamma)) +
-  scale_x_continuous(limits = c(1,2)) +
+  scale_x_continuous(limits = c(0.9, 1.7)) +
   facet_wrap(. ~ scenario)
+
+#notice that variation in beta conteracted variation in gamma to stabilize the SET.
+# y axis is (gamma - 1)/gamma of the SET as a percentage of Smax 
+# x axis in Smax
+# sometimes!!!
+par(mfrow = c(3,3))
+for(i in sample(1:1800, 9, replace = FALSE)){
+  x <- 
+    rep_scenarios_gp$mod_gamma[[i]]$sims.list$gamma[,2] / 
+    rep_scenarios_gp$mod_gamma[[i]]$sims.list$beta[,2]
+  y <- 
+    (rep_scenarios_gp$mod_gamma[[i]]$sims.list$gamma[,2] - 1) /
+    rep_scenarios_gp$mod_gamma[[i]]$sims.list$gamma[,2]
+  keep <- which(x < quantile(x, 0.95))
+plot(x[keep], y[keep]) 
+}
+par(mfrow = c(1,1))

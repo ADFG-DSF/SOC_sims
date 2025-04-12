@@ -18,7 +18,7 @@ function_files <- list.files(path="..\\functions")
 lapply(function_files, function(x) source(paste0("..\\functions\\", x)))
 
 rep_scenarios_gp <- 
-  readRDS(file = "..\\rep_scenarios_seqlb_scale.rds") %>%
+  readRDS(file = "..\\rep_scenarios_seqlb_scale_hier.rds") %>%
   arrange(lnalpha, sigma, gamma, pct_lb) %>%
   rename(scenario0 = scenario) %>%
   mutate(scenario = cumsum(c(1, as.numeric(diff(scenario0)) != 0)),

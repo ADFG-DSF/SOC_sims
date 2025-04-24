@@ -173,7 +173,7 @@ sim_SRgamma <- function(alpha, beta, gamma, sigW, phi, age0, Sims0, sigN = 0, si
     epsF[c] <- rnorm(1, 0, sigF)
     N[c] <- sum(N_age[c, ])
     N_hat[c] <- N[c]*rlnorm(1, sdlog = sigN)
-    try(if(length(R0) >1) print(R0))
+    try(if(length(R0) > 1) print(R0))
     temp_U <- Hfun(N_sim = N_hat[c], SOC_sim = SOC[c - 1], ...)
     U[c] <- temp_U[[1]]
     vec_lb_goal[c] <- temp_U[[2]]
@@ -190,7 +190,7 @@ sim_SRgamma <- function(alpha, beta, gamma, sigW, phi, age0, Sims0, sigN = 0, si
     
     E1R[c + 1] <- SRgamma(alpha_vec[c], beta, gamma, S[c])
     E2R[c + 1] <- E1R[c + 1]*exp(phi * redresid[c])
-    R[c + 1] <- if(S[c] <= 1){0} else{E2R[c + 1]*rlnorm(1, 0, sigW)}
+    R[c + 1] <- if(is.na(S[c]) | S[c] <= 1){0} else{E2R[c + 1]*rlnorm(1, 0, sigW)}
     redresid[c + 1] <- log(R[c + 1] / E1R[c + 1])
     
     for (a in 1:A) {
@@ -231,7 +231,7 @@ sim_SRgamma <- function(alpha, beta, gamma, sigW, phi, age0, Sims0, sigN = 0, si
 #   S_sim: Escapement from the simulation
 #   lb_manage: Lower bound of the escapement goal based on historical SR relationship.
 get_cc <- function(S_sim, lb_goal = NA, ...){  
-  cc <- if(is.na(lb_goal)){NA} else(if(S_sim < lb_goal * 0.5){TRUE} else(FALSE))
+  cc <- if(is.na(S_sim) | is.na(lb_goal)){NA} else(if(S_sim < lb_goal * 0.5){TRUE} else(FALSE))
   return(cc)
 }
 
@@ -241,7 +241,7 @@ get_cc <- function(S_sim, lb_goal = NA, ...){
 #   N_sim: Run size from the simulation.
 #   lb_sim: Lower bound of the escapement goal based on historical SR relationship.
 get_mc <- function(N_sim, lb_goal = NA, ...){  
-  mc <- if(is.na(lb_goal)){NA} else(if(N_sim < lb_goal){TRUE} else(FALSE))
+  mc <- if(is.na(N_sim) | is.na(lb_goal)){NA} else(if(N_sim < lb_goal){TRUE} else(FALSE))
   return(mc)
 }
 
@@ -251,7 +251,7 @@ get_mc <- function(N_sim, lb_goal = NA, ...){
 #   S_sim: Escapement from the simulation.
 #   lb_sim: Lower bound of the escapement goal based on historical SR relationship.
 get_yc <- function(S_sim, lb_goal = NA, ...){  
-  yc <- if(is.na(lb_goal)){NA} else(if(S_sim < lb_goal){TRUE} else(FALSE))
+  yc <- if(is.na(S_sim) | is.na(lb_goal)){NA} else(if(S_sim < lb_goal){TRUE} else(FALSE))
   return(yc)
 }
 
@@ -317,8 +317,8 @@ get_SOC <- function(SOC_sim, cc_sim, mc_sim, yc_sim){
 H_goal <- function(N_sim, lb_goal, ub_goal, power = .85, ...){
   U_lb <- U_ub <- U <- NA
 
-  U_lb <- if(N_sim > lb_goal){(N_sim - lb_goal) / N_sim} else{0} # Find U to fish to lb of goal
-  U_ub <- if(N_sim > ub_goal){(N_sim - ub_goal) / N_sim} else{0} # Find U to fish to ub of goal
+  U_lb <- if(is.na(N_sim) == FALSE & N_sim > lb_goal){(N_sim - lb_goal) / N_sim} else{0} # Find U to fish to lb of goal
+  U_ub <- if(is.na(N_sim) == FALSE & N_sim > ub_goal){(N_sim - ub_goal) / N_sim} else{0} # Find U to fish to ub of goal
   U <- min(runif(1, U_ub, U_lb), power)
 
   return(list(U, lb_goal, ub_goal, NA, NA, power = power))

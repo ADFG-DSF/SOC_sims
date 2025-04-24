@@ -4,7 +4,7 @@
 # Version: 2025-02-13
 
 # Packages
-packs <- c("tidyverse", "jagsUI", "mgcv", "ggpubr", "flextable")
+packs <- c("tidyverse", "jagsUI", "mgcv", "ggpubr", "flextable", "ggforce")
 lapply(packs, require, character.only = TRUE)
 
 # source functions
@@ -63,6 +63,10 @@ plot_simtv <-
                 color = colors[1]) +
   theme_bw() +
   annotate("rect", xmin = 3893, xmax = 10529, ymin = -Inf, ymax = Inf, fill = 'gray', alpha = .4)
+
+#  * tv productivity plot -------------------------------------------------
+
+
 plot_simtv
 # Smooth through all of the data
 # Temporal varibility destroy our ability to estimate beta.
@@ -88,12 +92,12 @@ plot_simtv +
               inherit.aes = FALSE, 
               color = "black")
 
-# Base behavior ------------------------------------
+# Gamma SR behavior ------------------------------------
 SET_point <-
   expand.grid(lnalpha = c(1, 1.5, 2),
               beta = c(0.001, 0.0001, 0.00001, 0.000001),
               sigma = c(0.25, 0.5, 0.75),
-              gamma = seq(1, 1.6, 0.1),
+              gamma = seq(1, 2, 0.1),
               pct_MSY = c(0.5, 0.6, 0.7, 0.8, 0.9)) %>%
   mutate(Smsy_Ricker = get_Smsy(lnalpha, beta),
          Smax = 1 / beta,
@@ -146,23 +150,75 @@ SET_point <-
              b = b,
              g = gamma,
              pct_MSY = 0.7,
-             MSY = MSY_gamma)$minimum)
-SET_point %>%
-  mutate(pct_Smsy = Smsy_gamma / Smsy_Ricker) %>%
-  ggplot(aes(x = gamma, y = pct_Smsy, color = as.character(lnalpha))) +
-  geom_line()
+             MSY = MSY_gamma)$minimum,
+         dep_gamma = 
+           optimize(
+             function(a, b, g, x){
+               ((SRgamma(alpha = a, beta = b, gamma = g, S = x) - x)^2)
+             },
+             interval = c(1, SET),
+             a = a,
+             b = b,
+             g = gamma)$minimum)
 
-SET_point %>%
-  mutate(pct_lb = lb_gamma / lb_Ricker) %>%
-  ggplot(aes(x = gamma, y = pct_lb, color = as.character(lnalpha))) +
-  geom_line() +
-  facet_grid(. ~ pct_MSY)
 
-SET_point %>%
-  mutate(pct_ub = ub_gamma / ub_Ricker) %>%
-  ggplot(aes(x = gamma, y = pct_ub, color = as.character(lnalpha))) +
-  geom_line()
+#  * ref points vrs Smax ---------------------------------------------------------
+pal <- scales::hue_pal()(5)
+col_values <- c("0.9" = pal[1], "0.8" = pal[2], "0.7" = pal[3], "0.6" = pal[4], "0.5" = pal[5])
+plot_Smax <- 
+  SET_point %>%
+  mutate(pct_Smsy = Smsy_gamma / Smax,
+         pct_lb = lb_gamma / Smax,
+         pct_set = SET / Smax,
+         pct_dep = dep_gamma / Smax) %>%
+  pivot_longer(c(pct_set, pct_lb, pct_Smsy, pct_dep), #pct_ub, 
+               names_to = c("stat", "metric"), names_sep = "_",
+               values_to = "pct") 
+plot_Smax %>%
+  filter(metric == "lb") %>%
+  ggplot(aes(x = gamma, y = pct, color = as.character(pct_MSY), linetype = "lb")) +
+  geom_line(linewidth = 1) +
+  geom_line(aes(linetype = "set"), data = plot[plot$metric == "set", ], color = "black", linewidth = 1) +
+  geom_line(aes(linetype = "Smsy"), data = plot[plot$metric == "Smsy", ], color = "black", linewidth = 1) +
+  geom_line(aes(linetype = "dep"), data = plot[plot$metric == "dep", ], color = "black", linewidth = 2) +
+  scale_color_manual(name = "Prop. MSY @ EG lb", values = col_values) +
+  scale_linetype_manual(name = "Metric", 
+                        breaks = c("dep", "lb", "set", "Smsy"),
+                        labels = c("dep"," EG lower bound", "SET", bquote(S[msy])),
+                        values = c("dep" = 5, "Smsy" = 3, "set" = 1, "lb" = 2)) +
+  scale_y_continuous(name = bquote("Proportion of S"[max])) +
+  facet_grid(. ~ paste0("ln(", "\u03B1", "): ",lnalpha))
 
+
+#  * ref points vrs lb at 90%MSY ---------------------------------------------
+plot_lb90 <- 
+  SET_point %>%
+  filter(pct_MSY == 0.9) %>%
+  mutate(pct_Smsy = Smsy_gamma / lb_gamma,
+         pct_lb = lb_gamma / lb_gamma,
+         pct_set = SET / lb_gamma,
+         pct_dep = dep_gamma / lb_gamma) %>%
+  pivot_longer(c(pct_set, pct_lb, pct_Smsy, pct_dep), #pct_ub, 
+               names_to = c("stat", "metric"), names_sep = "_",
+               values_to = "pct") 
+plot_lb90 %>%
+  filter(metric == "lb") %>%
+  ggplot(aes(x = gamma, y = pct, color = as.character(pct_MSY), linetype = "lb")) +
+  geom_line(linewidth = 1) +
+  geom_line(aes(linetype = "set"), data = plot[plot$metric == "set", ], color = "black", linewidth = 1) +
+  geom_line(aes(linetype = "Smsy"), data = plot[plot$metric == "Smsy", ], color = "black", linewidth = 1) +
+  geom_line(aes(linetype = "dep"), data = plot[plot$metric == "dep", ], color = "black", linewidth = 2) +
+  scale_color_manual(name = "Prop. MSY @ EG lb", values = col_values) +
+  scale_linetype_manual(name = "Metric", 
+                        breaks = c("dep", "lb", "set", "Smsy"),
+                        labels = c("dep"," EG lower bound", "SET", bquote(S[msy])),
+                        values = c("dep" = 5, "Smsy" = 3, "set" = 1, "lb" = 2)) +
+  scale_y_continuous(name = bquote("Proportion of S"[max])) +
+  facet_grid(. ~ paste0("ln(", "\u03B1", "): ",lnalpha))
+
+
+#  * SET vrs. lb ----------------------------------------------------------
+# SET vrs. lb for Ricker and Gamma goals at various pct_MSY
 SET_point %>%
   mutate(pct_lbRicker = SET / lb_Ricker,
          pct_lbgamma = SET / lb_gamma) %>%
@@ -174,6 +230,7 @@ SET_point %>%
   geom_hline(aes(yintercept = 1)) +
     facet_grid(. ~ pct_MSY) #beta makes no difference
 
+# Example goal ranges and SETs for 3 levels of gamma and 2 levels of pct_MSY
 SET_point %>%
   filter(pct_MSY %in% c(0.5, 0.9),
          gamma %in% c(1, 1.3, 1.6),
@@ -190,118 +247,205 @@ SET_point %>%
   geom_abline(aes(intercept = 0, slope = 1))+
   facet_grid(paste0("\u03B3: ", ifelse(gamma == 1, "1 (Ricker)", gamma)) ~ paste0("%MSR @ lb: ", pct_MSY))
 
-# Define scenarios to simulate -------
-scenarios_g <-
-  expand.grid(lnalpha = c(1, 1.5, 2),
+
+
+
+
+
+
+# Simulations -------
+# * Define scenarios to simulate --------
+scenarios <-
+  expand.grid(lnalpha_1 = c(1, 1.5, 2),
               beta = 0.0001, #c(0.001, 0.0001, 0.000001),
               sigma = c(0.25, 0.5),
               phi = 0,
-              pct_lb = c(0.5, 0.9),
+              pct_MSY = c(0.5, 0.9),
+              pct_lb = c(0.5, 1), 
               gamma = seq(1, 1.6, length.out = 3)) %>%
-  arrange(lnalpha, sigma, gamma, pct_lb) %>%
+  arrange(lnalpha_1, sigma, gamma, pct_MSY) %>%
   mutate(scenario = 1:n(),
-         Smsy = get_Smsy(lnalpha, beta, correct = FALSE), #notice no log alpha correction for right now.
-         power = lnalpha / 2 - .2,
+         power = lnalpha_1 / 2 - .2,
          Smax = 1/ beta,
-         Rmax = Ricker(lnalpha, beta, Smax),
-         a = gamma_par(Smax, Rmax, gamma)[[1]],
+         Rmax = Ricker(lnalpha_1, beta, Smax),
+         a_1 = gamma_par(Smax, Rmax, gamma)[[1]],
          b = gamma_par(Smax, Rmax, gamma)[[2]]) %>% # very crude. 
   rowwise() %>%
-  mutate(lb_pctMSY = optimise(f = get_bounds, #'true' OYP bounds
-                              interval = 1:get_Smsy(lnalpha, beta),
-                              lnalpha = lnalpha,
-                              beta = beta,
-                              pct_MSY = pct_lb,
-                              correct = TRUE, #but used the log alpha correction here!
-                              sigma = sigma,
-                              phi = phi)$minimum,
-         ub_pctMSY = optimise(f = get_bounds, #'true' OYP bounds
-                              interval = get_Smsy(lnalpha, beta):(get_Smsy(lnalpha, beta)*5),
-                              lnalpha = lnalpha,
-                              beta = beta,
-                              pct_MSY = 0.7,
-                              correct = TRUE,
-                              sigma = sigma,
-                              phi = phi)$minimum) %>%
-  mutate(lnalpha_red = lb_pctMSY * beta,
-         Rmax_red = Ricker(lnalpha_red, beta, Smax),
-         a_red = gamma_par(Smax, Rmax_red, gamma)[[1]]) %>% 
+  mutate(lb = optimise(f = get_bounds, #'true' OYP bounds
+                       interval = 1:get_Smsy(lnalpha_1, beta),
+                       lnalpha = lnalpha_1,
+                       beta = beta,
+                       pct_MSY = pct_MSY,
+                       correct = FALSE,
+                       sigma = sigma,
+                       phi = phi)$minimum,
+         ub = optimise(f = get_bounds, #'true' OYP bounds
+                       interval = get_Smsy(lnalpha_1, beta):(get_Smsy(lnalpha_1, beta)*5),
+                       lnalpha = lnalpha_1,
+                       beta = beta,
+                       pct_MSY = 0.7,
+                       correct = FALSE,
+                       sigma = sigma,
+                       phi = phi)$minimum) %>%
+  mutate(lnalpha_2 = lb * pct_lb * beta,
+         Rmax_2 = Ricker(lnalpha_2, beta, Smax),
+         a_2 = gamma_par(Smax, Rmax_2, gamma)[[1]]) %>%
+  select(-Smax, -Rmax, -Rmax_2) %>%
+  select(scenario, lnalpha_1, lnalpha_2, a_1, a_2, beta, b, gamma, sigma, phi, pct_MSY, pct_lb, lb, ub, power) %>%
   ungroup()
 
 #  * Scenarios table ------------------------------------------------------
 # for each scenario we have 50 replicate datasets and SR models
-scenarios_g %>% 
-  select(scenario, gamma, pct_lb, sigma, lnalpha) %>%
+scenarios %>% 
+  select(scenario, lnalpha_1, sigma, gamma, pct_MSY, pct_lb) %>%
+  arrange(lnalpha_1, sigma, gamma, pct_MSY, pct_lb) %>%
   flextable() %>%
   set_header_labels(
     scenario = "Scenario",
-    lnalpha = "ln(\u03b1)",
+    lnalpha_1 = "ln(\u03b1)",
     sigma = "\u03c3",
     gamma = "\u03b3",
-    pct_lb = "MSY % @ EG \n lower bound"
+    pct_MSY = "MSY % @ EG \n lower bound",
+    pct_lb = "regime 2 \n Seq / lb"
   ) %>%
-  merge_v(j = c("lnalpha", "sigma", "gamma", "pct_lb")) %>%
-  valign(j = c("lnalpha", "sigma", "gamma", "pct_lb"), valign = "top") %>%
+  merge_v(j = c("lnalpha_1", "sigma", "gamma", "pct_MSY")) %>%
+  valign(j = c("lnalpha_1", "sigma", "gamma", "pct_MSY", "pct_lb"), valign = "top") %>%
   autofit()
 
+
 #Simulate data and estimate parameters --------
-rep_scenarios_seqlb_scale_hier <-
-  scenarios_g %>%
-  slice(rep(1:nrow(scenarios_g), each = 50)) %>%
-  mutate(rep = rep(1:50, times = nrow(scenarios_g))) %>%
+rep_scenarios <-
+  scenarios %>%
+  slice(rep(1:nrow(scenarios), each = 50)) %>%
+  mutate(rep = rep(1:50, times = nrow(scenarios))) %>%
+  select(scenario, rep, lnalpha_1, lnalpha_2, a_1, a_2, beta, b, gamma, sigma, phi, pct_MSY, pct_lb, lb, ub, power) %>%
   rowwise() %>%
   mutate(data = list(
-    sim_SRgamma(c(rep(a, 40 / 2), rep(a_red, 40 / 2)),
+    sim_SRgamma(c(rep(a_1, 20), rep(a_2, 30)),
                 b,
                 gamma = gamma,
                 sigW = sigma,
                 phi = 0,
                 age0 = c('3' = 0.1, '4' = 0.38, '5' = 0.3, '6' = 0.2, '7' = 0.02),
-                Sims0 = 40,
+                Sims0 = 50,
                 Hfun = H_goal,
-                lb_goal = lb_pctMSY,
-                ub_goal = ub_pctMSY,
+                lb_goal = lb,
+                ub_goal = ub,
                 power = power,
                 sigF = 0.2,
                 sigN = 0.2))) %>%
   ungroup() %>%
+  mutate(yr_SOC = map_dbl(data, function(x) which.min(x$SOC != "Management")))
+
+# ** SOC listings ---------------------------------------------------------
+# First SOC finding
+table(rep_scenarios$yr_SOC)
+plot_SOCyr <- 
+  rep_scenarios %>%
+    ggplot(aes(x = yr_SOC, fill = as.character(lnalpha_1))) +
+    geom_bar()
+plot_SOCyr + 
+  facet_wrap_paginate(~ paste0("%MSY @ lb: ", pct_MSY) +
+                      paste0("%lb @ Seq: ", pct_lb) +
+                      paste0("\u03B3: ", gamma), 
+                      ncol = 3, nrow = 2, page = 1)
+plot_SOCyr + 
+  facet_wrap_paginate(~ paste0("%MSY @ lb: ", pct_MSY) +
+                        paste0("%lb @ Seq: ", pct_lb) +
+                        paste0("\u03B3: ", gamma), 
+                      ncol = 3, nrow = 2, page = 2)  
+
+# ** q50 S vrs. year. ---------  
+plot_S <-
+  rep_scenarios %>%
+  mutate(sim = map(data, function(x) x$sim),
+         S = map(data, function(x) x$S)) %>%
+  unnest(c(sim, S)) %>%
+  group_by(scenario, sim, lnalpha_1, lnalpha_2, a_1, a_2, b, gamma, sigma, pct_MSY, pct_lb, lb) %>%
+  summarize(S = median(S)) %>%
+  mutate(SET = (gamma - 1) / b) %>%
+  ggplot(aes(x = sim, y = S, color = as.character(lnalpha_1))) +
+  geom_line() +
+  geom_hline(aes(yintercept = lb, color = as.character(lnalpha_1))) +
+  geom_hline(aes(yintercept = SET), linetype = 2)  
+plot_S + 
+  facet_wrap_paginate(~ paste0("%MSY @ lb: ", pct_MSY) +
+                        paste0("%lb @ Seq: ", pct_lb) +
+                        paste0("\u03B3: ", gamma), 
+                      ncol = 3, nrow = 2, page = 1)
+plot_S + 
+  facet_wrap_paginate(~ paste0("%MSY @ lb: ", pct_MSY) +
+                        paste0("%lb @ Seq: ", pct_lb) +
+                        paste0("\u03B3: ", gamma), 
+                      ncol = 3, nrow = 2, page = 2)
+
+# Analysis of sim data ----------------------------------------------------
+
+#Model notes
+#gamma_RS_change or Ricker _RS_change: SR regression on the log(R/S) scale with a change point 
+#     to detect regime shifts. The change point is not very sophisticated but sufficient 
+#     for simulate data. For real data the regime detection could be different.
+#gamma_RS_change_set: Set prior on the set instead of log(alpha). Avoiding a prior on log(alpha[2]) 
+#     bc there appears to be a near linear relationship between log(alpha) and gamma 
+#     in the gamma SR relationship.
+#gamma_RS_change_scale: Add a parameter scale (which is ln(Rmax)) so I can set a prior on it 
+#     and not on alpha[2]. Avoiding a prior on log(alpha[2]) bc there is a 
+#     linear relationship between log(alpha) and gamma in the gamma SR relationship.
+#     log(alpha) = log(rmax) - gamma(log(Smax) - 1)
+#gamma_RS_change_scale_hier: Tried a hierarcical prior on gamma[2]. No sure it helped much.
+
+#Posterior notes
+#In general the posterior is named after the model.
+#rep_scenarios_seqlb: An early run based on a version of gamma_RS_change (changes are to the priors)   
+#rep_scenarios_seqlb_scale_SOC: gamma_RS_change_scale but 50 year simulated  datasets that are 
+#     truncated before analysis to the first year when an SOC would have been listed 
+#     (4 out of 5 years with N < lb)
+rep_scenarios_seqlb_scale_SOC <-
+  rep_scenarios %>%
+  filter(yr_SOC != 1, !is.na(yr_SOC)) %>%
   mutate(data_jags =
-           map(data, ~.x %>%
+            map2(data, yr_SOC, ~.x[1:.y,] %>%
                  {list(nyrs = max(.$sim),
                        lnRS = log(.$R / .$S),
                        S = .$S,
                        ar1 = 0)}),
          mod_gamma = map(data_jags, ~ jags(data = .x,
-                                           parameters.to.save = c("lnalpha", "beta", "gamma", "sigma", "y_d", "scale", "mu_gamma"),
-                                           model.file = ".\\scripts\\gamma_RS_change_scale_hier.txt",
+                                           parameters.to.save = c("lnalpha", "beta", "gamma", "sigma", "y_d", "scale"),
+                                           model.file = ".\\scripts\\gamma_RS_change_scale.txt",
                                            n.chains = 3,
                                            n.iter = 5e4,
                                            n.burnin = 1e4,
                                            n.thin = 480, 
-                                           parallel = TRUE)),
-         mod_Ricker = map(data_jags, ~ jags(data = .x,
-                                            parameters.to.save = c("lnalpha", "beta", "gamma", "sigma", "y_d"),
-                                            model.file = ".\\scripts\\Ricker_RS_change.txt",
-                                            n.chains = 3,
-                                            n.iter = 5e4,
-                                            n.burnin = 1e4,
-                                            n.thin = 480,
-                                            parallel = TRUE))
+                                           parallel = TRUE))
   )
-saveRDS(rep_scenarios_seqlb_scale_hier, file = ".\\rep_scenarios_seqlb_scale_hier.rds")
-#rep_scenarios_gp <- readRDS(file = ".\\rep_scenarios_seqlb_scale_hier.rds")
+saveRDS(rep_scenarios_seqlb_scale_SOC, file = ".\\rep_scenarios_seqlb_scale_SOC.rds")
+rep_scenarios_seqlb_scale_SOC <-
+  rep_scenarios_seqlb_scale_SOC %>%
+  mutate(mod_Ricker = map(data_jags, ~ jags(data = .x,
+                                           parameters.to.save = c("lnalpha", "beta", "sigma", "y_d"),
+                                           model.file = ".\\scripts\\Ricker_RS_change.txt",
+                                           n.chains = 3,
+                                           n.iter = 5e4,
+                                           n.burnin = 1e4,
+                                           n.thin = 480, 
+                                           parallel = TRUE))
+  )
+saveRDS(rep_scenarios_seqlb_scale_SOC, file = ".\\rep_scenarios_seqlb_scale_SOC.rds")
+rep_scenarios_seqlb_scale_SOC <- readRDS(file = ".\\rep_scenarios_seqlb_scale_SOC.rds")
 
+
+# Results -----------------------------------------------------------------
 # * Rhat boxplot ---------
 # gamma model
 # for main parameters (lnalpha, beta, gamma, sigma, y_d)
-rep_scenarios_gp %>%
+rep_scenarios_seqlb_scale_SOC %>%
   rowwise() %>%
   mutate(Rhat_gamma = list(mod_gamma$summary[c("lnalpha[1]", "lnalpha[2]",
                                                "beta[1]", "beta[2]",
                                                "gamma[1]", "gamma[2]",
                                                "sigma[1]", "sigma[2]",
                                                "y_d"), "Rhat"])) %>%
-  select(lnalpha, beta, sigma, phi, pct_lb, scenario, Rhat_gamma) %>%
+  select(scenario, lnalpha_1, beta, sigma, phi, pct_MSY, pct_lb, Rhat_gamma) %>%
   unnest(cols = c(Rhat_gamma)) %>%
   filter(!is.na(Rhat_gamma)) %>%         
   pivot_longer(cols = starts_with("Rhat"), 
@@ -314,13 +458,13 @@ rep_scenarios_gp %>%
   coord_cartesian(ylim = c(1, 1.25))
 
 #Ricker model
-rep_scenarios_gp %>%
+rep_scenarios_seqlb_scale_SOC %>%
   rowwise() %>%
   mutate(Rhat_Ricker = list(mod_Ricker$summary[c("lnalpha[1]", "lnalpha[2]",
                                                "beta[1]", "beta[2]",
                                                "sigma[1]", "sigma[2]",
                                                "y_d"), "Rhat"])) %>%
-  select(lnalpha, beta, sigma, phi, pct_lb, scenario, Rhat_Ricker) %>%
+  select(scenario, lnalpha_1, beta, sigma, phi, pct_MSY, pct_lb, Rhat_Ricker) %>%
   unnest(cols = c(Rhat_Ricker)) %>%
   filter(!is.na(Rhat_Ricker)) %>%         
   pivot_longer(cols = starts_with("Rhat"), 
@@ -332,37 +476,69 @@ rep_scenarios_gp %>%
   geom_hline(aes(yintercept = 1.01)) +
   coord_cartesian(ylim = c(1, 1.25))
 
-#  * SET and EG lb --------------------------------------
-# median SET for 50 replicated under each scenario
+#  * SET q50s --------------------------------------
+# median SET for 50 replicates under each scenario
 # black line is the SET from the data generating model
-# red star is the lower bound of the escapement goal (50% or 90% of MSY)
-# Note that SET > lb for many 50% of MSY scenarios but i think that is extreme...
-# The egegik lb is ~ 50% of MSY based on the BBSRI top 20 prior 
-# (which gave a lower Smsy than thier mean prior).
-rep_scenarios_gp %>%
-  select(scenario, rep, lnalpha, lnalpha_red, beta, sigma, gamma, a, a_red, b, pct_lb, lb_pctMSY, mod_gamma) %>%
+# Hard to see the effect of pct_lb
+rep_scenarios_seqlb_scale_SOC %>%
+  select(scenario, rep, lnalpha_1, lnalpha_2, beta, sigma, gamma, a_1, a_2, b, pct_lb, pct_MSY, lb, mod_gamma) %>%
   mutate(set = (gamma - 1) / b) %>%
   mutate(set_est = map_dbl(mod_gamma, function(x) (x$q50$gamma[2] - 1) / x$q50$beta[2])) %>%
-  ggplot(aes(x = scenario, y = set_est, group = scenario)) +
+  ggplot(aes(x = as.character(sigma), y = set_est, color = as.character(lnalpha_1), group = scenario)) +
   geom_boxplot() +
   geom_hline(aes(yintercept = set)) +
-  geom_point(aes(y = lb_pctMSY), shape = 8, color = "red") +
-  facet_grid(. ~ gamma, scales = "free_x")
+  #geom_point(aes(y = lb), shape = 8, color = "red") +
+  facet_grid(paste0("\u03B3: ", gamma) ~ 
+               paste0("% of MSY: ", pct_MSY) +
+               paste0("% of lb: ", pct_lb), scales = "free_x")
 
+
+#  * SET simulated values -------------------------------------------------
 # Simulated values for the SET in each scenario (all replicates)
 # black line is the SET from the data generating model
 # dashed line is the lower bound of the escapement goal (50% or 90% of MSY)
-rep_scenarios_gp %>%
+plot_SETsims <- 
+  rep_scenarios_seqlb_scale_SOC %>%
   mutate(set = (gamma - 1) / b, 
          set_sims = map(mod_gamma, function(x) (x$sims.list$gamma[,2] - 1) / x$sims.list$beta[,2])) %>%
-  select(lnalpha, lnalpha_red, beta, sigma, pct_lb, a, a_red, b, gamma, lb_pctMSY, scenario, rep, set, set_sims) %>%
+  select(scenario, rep, lnalpha_1, lnalpha_2, beta, sigma, gamma, a_1, a_2, b, pct_lb, pct_MSY, lb, set, set_sims) %>%
   unnest(set_sims) %>%
   ggplot(aes(x = set_sims, fill = as.character(rep), group = rep)) + 
   geom_histogram() +
   geom_vline(aes(xintercept = set)) +
-  geom_vline(aes(xintercept = lb_pctMSY), linetype = 2) +
+  geom_vline(aes(xintercept = lb), linetype = 2) +
   scale_x_continuous(limits = c(0, 12000)) +
-  facet_wrap(. ~ scenario)
+  theme(legend.position="none")
+plot_SETsims +
+  facet_grid_paginate(paste0("\u03B3: ", gamma) ~ paste0("ln(\u03B1): ", lnalpha_1) +
+                        paste0("% of MSY: ", pct_MSY) + 
+                        paste0("\u03B4: ", sigma) +
+                        paste0("% of lb: ", pct_lb), nrow = 3, ncol = 4, page = 1)
+plot_SETsims +
+  facet_grid_paginate(paste0("\u03B3: ", gamma) ~ paste0("ln(\u03B1): ", lnalpha_1) +
+                        paste0("% of MSY: ", pct_MSY) + 
+                        paste0("\u03B4: ", sigma) +
+                        paste0("% of lb: ", pct_lb), nrow = 3, ncol = 4, page = 2)
+plot_SETsims +
+  facet_grid_paginate(paste0("\u03B3: ", gamma) ~ paste0("ln(\u03B1): ", lnalpha_1) +
+                        paste0("% of MSY: ", pct_MSY) + 
+                        paste0("\u03B4: ", sigma) +
+                        paste0("% of lb: ", pct_lb), nrow = 3, ncol = 4, page = 3)
+plot_SETsims +
+  facet_grid_paginate(paste0("\u03B3: ", gamma) ~ paste0("ln(\u03B1): ", lnalpha_1) +
+                        paste0("% of MSY: ", pct_MSY) + 
+                        paste0("\u03B4: ", sigma) +
+                        paste0("% of lb: ", pct_lb), nrow = 3, ncol = 4, page = 4)
+plot_SETsims +
+  facet_grid_paginate(paste0("\u03B3: ", gamma) ~ paste0("ln(\u03B1): ", lnalpha_1) +
+                        paste0("% of MSY: ", pct_MSY) + 
+                        paste0("\u03B4: ", sigma) +
+                        paste0("% of lb: ", pct_lb), nrow = 3, ncol = 4, page = 5)
+plot_SETsims +
+  facet_grid_paginate(paste0("\u03B3: ", gamma) ~ paste0("ln(\u03B1): ", lnalpha_1) +
+                        paste0("% of MSY: ", pct_MSY) + 
+                        paste0("\u03B4: ", sigma) +
+                        paste0("% of lb: ", pct_lb), nrow = 3, ncol = 4, page = 6)
 
 #  * Plot data and fit ----------------------------------------------------
 # randomly selects on replicate to display.
@@ -384,7 +560,7 @@ plot_fit <- function(scenario_file, ...){
   
   true <- 
     data %>%
-    select(scenario, rep, a, a_red, b, gamma, lb_pctMSY, ub_pctMSY) %>%
+    select(scenario, rep, a_1, a_2, b, gamma, lb, ub) %>%
     mutate(set = (gamma - 1)/ b)
   
   estimates <- 
@@ -400,21 +576,21 @@ plot_fit <- function(scenario_file, ...){
   
   plot1 <- 
     data %>%
-    mutate(lnRS = map(data_jags, function(x) data.frame(year = 1:40, lnRS = x$lnRS, S = x$S)),
+    mutate(lnRS = map(data_jags, function(x) data.frame(year = 1:x$nyrs, lnRS = x$lnRS, S = x$S)),
            cut = map_dbl(mod_gamma, ~.$q50$y_d)) %>%
-    select(scenario, rep, a, a_red, b, gamma, lb_pctMSY, ub_pctMSY, cut, lnRS) %>%
+    select(scenario, rep, a_1, a_2, b, gamma, lb, ub, cut, lnRS) %>%
     unnest(lnRS) %>%
     mutate(regime = ifelse(year <= cut, "normal", "reduced")) %>%
     ggplot(aes(x = S, y = lnRS)) +
     geom_point(aes(color = regime)) +
     geom_vline(data = true, aes(xintercept = set), color = "red") +
     geom_vline(data = estimates, aes(xintercept = set), linetype = 2, color = "red") +
-    geom_rect(data = true, aes(xmin = lb_pctMSY, xmax = ub_pctMSY, ymin = -Inf, ymax = Inf),
+    geom_rect(data = true, aes(xmin = lb, xmax = ub, ymin = -Inf, ymax = Inf),
               inherit.aes = FALSE, 
               alpha= .25) +
-    geom_function(fun = function(x) log(SRgamma(true$a, true$b, true$gamma, x) / x) ,
+    geom_function(fun = function(x) log(SRgamma(true$a_1, true$b, true$gamma, x) / x) ,
                   color = "black") +
-    geom_function(fun = function(x) log(SRgamma(true$a_red, true$b, true$gamma, x) / x),
+    geom_function(fun = function(x) log(SRgamma(true$a_2, true$b, true$gamma, x) / x),
                   color = "red") +
     geom_function(fun = function(x) log(SRgamma(estimates$a_1, estimates$b_1, estimates$gamma_1, x) / x),
                   color = "black",
@@ -428,39 +604,59 @@ plot_fit <- function(scenario_file, ...){
   
   plot2 <- 
     data %>%
-    mutate(S = map(data_jags, function(x) data.frame(year = 1:40, S = x$S)),
+    mutate(S = map(data_jags, function(x) data.frame(year = 1:x$nyrs, S = x$S)),
            cut = map_dbl(mod_gamma, ~.$q50$y_d)) %>%
     unnest(S) %>%
     mutate(regime = ifelse(year <= cut, "normal", "reduced")) %>%
-    select(scenario, rep, year, b, gamma, lb_pctMSY, regime, S) %>% 
+    select(scenario, rep, year, b, gamma, lb, regime, S) %>% 
     mutate(set = (gamma - 1)/ b) %>% 
     ggplot(aes(x = year, y = S)) + 
     geom_line() +
     geom_point(aes(color = regime)) +
     geom_hline(data = true, aes(yintercept = set), color = "red") +
     geom_hline(data = estimates, aes(yintercept = set), linetype = 2, color = "red") +
-    geom_rect(data = true, aes(ymin = lb_pctMSY, ymax = ub_pctMSY, xmin = -Inf, xmax = Inf),
+    geom_rect(data = true, aes(ymin = lb, ymax = ub, xmin = -Inf, xmax = Inf),
               inherit.aes = FALSE, 
               alpha= .25) +
     scale_color_manual(values = c("black", "red")) +
     scale_y_continuous(limits = c(0, 1.1 * maxS)) +
-    theme_bw()
+    theme_bw() +
+    labs(caption = paste0(data$scenario, ", ", data$rep))
   
   ggarrange(plot1, plot2, nrow = 2, heights = c(6,4))
 }
-plot_fit(rep_scenarios_gp, 
-         lnalpha == 2,
+plot_fit(rep_scenarios_seqlb_scale_SOC, 
+         lnalpha_1 == 1.5,
          sigma == .5,
-         gamma == 1.3,
-         pct_lb == 0.5)
-
+         gamma == 1,
+         pct_MSY == 0.5,
+         pct_lb == 1)
+#Use this code to check SOC designations (I have checked several and they look good).
+rep_scenarios_seqlb_scale_SOC %>% 
+  filter(scenario == 38, rep == 12) %>% 
+  select(data) %>% 
+  unnest(data) %>% 
+  select(sim, S, N, lb_goal, SOC) %>% 
+  tail(n = 20)
 
 # * Horsetail ------------------------------------
-plot_horse <- function(scenario_file, scenario){
+plot_horse <- function(scenario_file, ...){
+  filters <- enquos(...)
+  
+  data0 <- 
+    scenario_file %>%
+    filter(!!!filters)
+  
+  rep_var = sample(unique(data0$rep), 1, replace = FALSE)
+  
+  data <- 
+    data0 %>%
+    filter(rep == rep_var)
+  
   coeflines1 <-
-    data.frame(lnalpha = exp(scenario_file$mod_gamma[[26]]$sims.list$lnalpha[, 1]),
-               beta = scenario_file$mod_gamma[[26]]$sims.list$beta[, 1],
-               gamma = scenario_file$mod_gamma[[26]]$sims.list$gamma[, 1]) %>%
+    data.frame(lnalpha = exp(data$mod_gamma[[1]]$sims.list$lnalpha[, 1]),
+               beta = data$mod_gamma[[1]]$sims.list$beta[, 1],
+               gamma = data$mod_gamma[[1]]$sims.list$gamma[, 1]) %>%
     dplyr::sample_n(50) %>%
     as.matrix() %>%
     plyr::alply(1, function(coef) {
@@ -468,9 +664,9 @@ plot_horse <- function(scenario_file, scenario){
                              colour="grey",
                              alpha = 0.5)})
   coeflines2 <-
-    data.frame(lnalpha = exp(scenario_file$mod_gamma[[26]]$sims.list$lnalpha[, 2]),
-               beta = scenario_file$mod_gamma[[26]]$sims.list$beta[, 2],
-               gamma = scenario_file$mod_gamma[[26]]$sims.list$gamma[, 2]) %>%
+    data.frame(lnalpha = exp(data$mod_gamma[[1]]$sims.list$lnalpha[, 2]),
+               beta = data$mod_gamma[[1]]$sims.list$beta[, 2],
+               gamma = data$mod_gamma[[1]]$sims.list$gamma[, 2]) %>%
     dplyr::sample_n(50) %>%
     as.matrix() %>%
     plyr::alply(1, function(coef) {
@@ -478,267 +674,151 @@ plot_horse <- function(scenario_file, scenario){
                              colour="grey",
                              alpha = 0.5)})
   
-  data.frame(S = scenario_file$data_jags[[17]]$S,
-             lnRS = scenario_file$data_jags[[17]]$lnRS) %>%
+  data.frame(S = data$data_jags[[1]]$S,
+             lnRS = data$data_jags[[1]]$lnRS) %>%
     ggplot(aes(x = S, y = lnRS)) +
     geom_point() +
-    geom_rect(data = scenario_file[scenario_file$scenario == scenario & scenario_file$rep == 1, ],
-              aes(xmin = lb_pctMSY, 
-                  xmax = ub_pctMSY, 
+    geom_rect(data = data,
+              aes(xmin = lb, 
+                  xmax = ub, 
                   ymin = -Inf, 
                   ymax = Inf),
               inherit.aes = FALSE,
               fill = "grey",
               alpha= .25) +
+    scale_x_continuous(limits = c(0, 1.05 * max(data$data_jags[[1]]$S))) +
     theme_bw() +
     coeflines1 + 
     coeflines2
 }
-plot_horse(rep_scenarios_gp, 20)
+plot_horse(rep_scenarios_seqlb_scale_SOC,
+           lnalpha_1 == 1.5,
+           sigma == .5,
+           gamma == 1,
+           pct_MSY == 0.5,
+           pct_lb == 1)
 
-# * Plot curves -----------------------
-# This was an early version... not sure it's helpful
-# Does show assumed (grey) and estimated (orange) goal ranges, SET, and Smsy.
-plot_sim <- function(scenario_file, ..., facet_var, rep_var = NULL){
-  if(is.null(rep_var) == TRUE){rep_var = sample(unique(scenario_file$rep), 1, replace = FALSE)}
-  
-  filters <- enquos(...)
-  
-  scenarios <-
-    scenario_file %>% 
-    filter(!!!filters) %>% 
-    select(scenario) %>% 
-    unlist(use.names = FALSE)
-  
-  SR_data <- 
-    scenario_file %>%
-    filter(rep == rep_var, 
-           scenario %in% scenarios) %>%
-    select(scenario, data) %>%
-    unnest(data) %>%
-    mutate(regime = ifelse(sim <= 20, "1", "2"),
-           source = "ass") %>%
-    select(scenario, regime, source, S, R) %>%
-    mutate(Y = R - S,
-           lnRS = log(R /S)) %>%
-    pivot_longer(cols = c(R, Y, lnRS), names_to = "param", values_to = "value")
-  
-  range <- 
-    SR_data %>% 
-    group_by(scenario) %>% 
-    summarise(max_S = max(S))
-  
-  temp <- 
-    scenario_file %>%
-    filter(rep == rep_var, 
-           scenario %in% scenarios) %>%
-    rename(gamma_1_ass = gamma,
-           Smsy1 = Smsy) %>%
-    mutate(lnalpha_1_ass = log(a), 
-           lnalpha_2_ass = log(a_red),
-           beta_1_ass = gamma_1_ass * beta,
-           beta_2_ass = beta_1_ass,
-           gamma_2_ass = gamma_1_ass,
-           lnalpha_1_est = map_dbl(mod_gamma, ~ .$q50$lnalpha[1]),
-           lnalpha_2_est = map_dbl(mod_gamma, ~ .$q50$lnalpha[2]),
-           beta_1_est = map_dbl(mod_gamma, ~ .$q50$beta[1]),
-           beta_2_est = map_dbl(mod_gamma, ~ .$q50$beta[2]),
-           gamma_1_est = map_dbl(mod_gamma, ~ .$q50$gamma[1]),
-           gamma_2_est = map_dbl(mod_gamma, ~ .$q50$gamma[2])) %>%
-    select(-lnalpha, -lnalpha_red, -beta) %>%
-    select(scenario, Smsy1, pct_lb, lb_pctMSY, ub_pctMSY, starts_with(c("lnalpha", "beta", "gamma"))) %>% 
-    left_join(range, by = c("scenario")) %>%
-    pivot_longer(cols = starts_with(c("lnalpha", "beta", "gamma")), 
-                 names_to = c("param", "regime", "source"),
-                 names_pattern = "(.*)_(.*)_(.*)",
-                 values_to = "values") %>%
-    pivot_wider(names_from = "param",
-                values_from = "values")
-  
-  curves <-
-    temp %>%
-    rowwise() %>%
-    mutate(curves = list(
-      data.frame(S = seq(0, max_S, by = max_S / 99)) %>%
-        mutate(R = SRgamma(alpha = exp(lnalpha), beta = beta, gamma = gamma, S = S),
-               Y = R - S,
-               lnRS = log(R / S))))
-  
-  ref_points <-
-    temp %>%
-    rowwise() %>%
-    mutate(Smsy2 =
-             optimize(
-               function(a, b, g, x){
-                 SRgamma(alpha = exp(a), beta = b, gamma = g, S = x) - x
-               },
-               interval = c(0, 4 * 1 / beta),
-               maximum = TRUE,
-               a = lnalpha,
-               b = beta,
-               g = gamma)$maximum,
-           Smsy = ifelse(regime == 1, ifelse(source == "ass", Smsy1, Smsy2), NA),
-           MSY = SRgamma(exp(lnalpha), beta, gamma, Smsy) - Smsy,
-           set = ifelse(regime == 2 & gamma >= 1, (gamma - 1) / beta, NA))
-  
-  eg_bounds <- function(S, lnalpha, beta, gamma, pct_MSY, MSY){
-    ((SRgamma(exp(lnalpha), beta, gamma, S) - S) - pct_MSY * MSY)^2
-  }
-  
-  bounds <-
-    ref_points %>%
-    filter(regime == 1, source =="est") %>%
-    mutate(lb = optimise(f = eg_bounds, #'true' OYP bounds
-                         interval = 1:Smsy,
-                         lnalpha = lnalpha,
-                         beta = beta,
-                         gamma = gamma,
-                         MSY = MSY,
-                         pct_MSY = pct_lb)$minimum,
-           ub = optimise(f = eg_bounds, #'true' OYP bounds
-                         interval = Smsy:(Smsy*5),
-                         lnalpha = lnalpha,
-                         beta = beta,
-                         gamma = gamma,
-                         MSY = MSY,
-                         pct_MSY = 0.7)$minimum) %>%
-    select(lb, ub, scenario)
-  
-  facet_name <- deparse(substitute(facet_var))
-  labels0 <-
-    scenario_file %>%
-    filter(rep == rep_var,
-           !!!filters) %>%
-    select(scenario, {{facet_var}}) %>%
-    mutate(label = paste0(facet_name, ": ", {{facet_var}}))
-  label_facet <- labels0$label
-  names(label_facet) <- labels0$scenario
-  
-  facet_scales <-
-    SR_data %>%
-    group_by(param) %>%
-    summarise(ymin = min(value),
-              ymax = max(value),
-              y95 = quantile(value, 0.95)) %>%
-    mutate(ymin = ifelse(param == "R", 0, ymin),
-           ymax = ifelse(param == "lnRS", ymax, y95),
-           n = 5) %>%
-    ungroup() %>%
-    rename(Panel = param)
-  facet_scales <- split(facet_scales, facet_scales$Panel)
-  
-  scales <- lapply(facet_scales, function(x) {
-    scale_y_continuous(limits = c(x$ymin, x$ymax), n.breaks = x$n)
-  })
-  
-  curves %>%
-    unnest(curves) %>%
-    pivot_longer(cols = c(R, Y, lnRS), names_to = "param", values_to = "value") %>%
-    ggplot(aes(x = S, y = value, color = source, shape = regime)) +
-    geom_line() +
-    geom_point(data = SR_data) +
-    geom_rect(aes(xmin = lb_pctMSY, xmax = ub_pctMSY, ymin = -Inf, ymax = Inf),
-              inherit.aes = FALSE, alpha= 0.002, fill = "orange") +
-    geom_rect(data = bounds,
-              aes(xmin = lb, xmax = ub, ymin = -Inf, ymax = Inf),
-              inherit.aes = FALSE, alpha= .2) +
-    scale_color_manual(values = c("orange", "black")) +
-    geom_hline(aes(yintercept = value),
-               data.frame(param = c("lnRS", "R", "Y"), value = c(0, 0, 0)), color = "grey60") +
-    geom_abline(aes(intercept = int, slope = slope),
-                data.frame(param = "R", int = 0, slope = 1), color = "grey60") +
-    geom_vline(data = ref_points,
-               aes(xintercept = set, color = source),
-               linetype = 2) +
-    geom_vline(data = ref_points,
-               aes(xintercept = Smsy, color = source),
-               linetype = 3) +
-    facet_grid(param ~ scenario, scales = "free", labeller = labeller(.cols = label_facet)) +
-    ggh4x::facetted_pos_scales(y = scales) +
-    theme_bw()
-}
-plot_sim(rep_scenarios_gp, 
-         sigma == 0.5, beta == 0.0001, lnalpha == 2, gamma == 1.3, 
-         facet_var = pct_lb, 
-         rep_var = NULL)
 
-# How often did the correct model have the lower dic?
-#Ricker model
-rep_scenarios_gp %>%
+#  * DIC compare ----------------------------------------------------------
+# How often did the gamma model have the lower dic?
+rep_scenarios_seqlb_scale_SOC %>%
   rowwise() %>%
-  mutate(dic_Ricker = mod_Ricker$DIC,
-         dic_gamma = mod_gamma$DIC) %>%
-  select(lnalpha, beta, sigma, phi, pct_lb, scenario, starts_with("dic")) %>%
-  mutate(model = ifelse(dic_Ricker < dic_gamma, "Ricker", "gamma")) %>%
-  ggplot(aes(x = scenario, fill = model)) + 
-  geom_bar() +
-  geom_hline(aes(yintercept = 25))
-
-# SET stable across variation in lnalpha and gamma?
-data.frame(lnalpha = rep_scenarios_gp$mod_gamma[[36]]$sims.list$lnalpha[,2], 
-           gamma = rep_scenarios_gp$mod_gamma[[36]]$sims.list$gamma[,2],
-           beta = rep_scenarios_gp$mod_gamma[[36]]$sims.list$beta[,2]) %>%
-  mutate(set = (gamma - 1) / beta,
-         set_cut = (cut(set, quantile(set, c(0, 0.05, 0.2, 0.8, 0.95, 1)))),
-         beta_cut = (cut(beta, quantile(beta, c(0, 0.05, 0.2, 0.8, 0.95, 1))))) %>%
-  ggplot(aes(x = lnalpha, y = gamma, color = set_cut)) +
-  geom_point()
-
-
-# 95% gamma CI vrs # of Observations below lb.
-# more observations are helpful when goal is 50% of MSY at lb, not helpful when 90%.
-rep_scenarios_gp %>%
-  ungroup() %>%
-  mutate(set = (gamma - 1) / b, 
-         S_below = map_dbl(data, function(x) sum(x$S < x$lb_goal)),
-         gamma_range = map_dbl(mod_gamma, function(x) x$q97.5$gamma[2] - x$q2.5$gamma[2])) %>%
-  select(lnalpha, beta, sigma, pct_lb, gamma, lb_pctMSY, scenario, rep, S_below, gamma_range) %>%
-  ggplot(aes(x = S_below, gamma_range)) + 
+  mutate(dic_score = mod_gamma$DIC < mod_Ricker$DIC) %>%
+  select(scenario, lnalpha_1, beta, sigma, phi, gamma, pct_MSY, pct_lb, starts_with("dic")) %>%
+  group_by(scenario, lnalpha_1, sigma, gamma, pct_MSY, pct_lb) %>%
+  summarise(dic_mean = mean(dic_score)) %>%
+  ggplot(aes(x = as.character(pct_lb), 
+             y = dic_mean, 
+             color = as.character(lnalpha_1),
+             shape = as.character(sigma))) + 
   geom_point() +
-  geom_smooth(method = "lm") +
-  facet_wrap(. ~ scenario)
+  geom_hline(yintercept = 0.5) +
+  facet_grid(paste0("\u03B3: ", gamma) ~ paste0("ln(\u03B1): ", lnalpha_1) +
+               paste0("% of MSY: ", pct_MSY)) # +
+               #paste0("% of lb: ", pct_lb))
 
+
+
+#  * gamma simulated values ------------------------------------------------------------
 #gamma mostly spans prior. 
-# don't really beleive some of the prior (1.6-2)
+# don't really believe some of the prior (1.6-2)
 # If gamma could take those values we should know it.
-rep_scenarios_gp %>%
-  mutate(set = (gamma - 1) / b, 
-         set_sims = map(mod_gamma, function(x) (x$sims.list$gamma[,2] - 1) / x$sims.list$beta[,2]),
-         gamma_sims = map(mod_gamma, function(x) x$sims.list$gamma[,2])) %>%
-  select(lnalpha, lnalpha_red, beta, sigma, pct_lb, a, a_red, b, gamma, lb_pctMSY, scenario, rep, set, set_sims, gamma_sims) %>%
+plot_gammasims <- 
+  rep_scenarios_seqlb_scale_SOC %>%
+  mutate(gamma_sims = map(mod_gamma, function(x) x$sims.list$gamma[,2])) %>%
+  select(scenario, rep, lnalpha_1, lnalpha_2, beta, sigma, gamma, a_1, a_2, b, pct_lb, pct_MSY, lb, gamma_sims) %>%
   unnest(gamma_sims) %>%
-  ggplot(aes(x = gamma_sims)) + 
-  geom_histogram(aes(fill = as.character(rep), group = rep)) +
-  # geom_vline(aes(xintercept = set)) +
-  scale_x_continuous(limits = c(0.9, 1.7)) +
-  facet_wrap(. ~ scenario)
+  ggplot(aes(x = gamma_sims, fill = as.character(rep), group = rep)) + 
+  geom_histogram() +
+  geom_vline(aes(xintercept = gamma)) +
+  theme(legend.position="none")
+plot_gammasims +
+  facet_grid_paginate(paste0("\u03B3: ", gamma) ~ paste0("ln(\u03B1): ", lnalpha_1) +
+                        paste0("% of MSY: ", pct_MSY) + 
+                        paste0("\u03B4: ", sigma) +
+                        paste0("% of lb: ", pct_lb), nrow = 3, ncol = 4, page = 1)
+plot_gammasims +
+  facet_grid_paginate(paste0("\u03B3: ", gamma) ~ paste0("ln(\u03B1): ", lnalpha_1) +
+                        paste0("% of MSY: ", pct_MSY) + 
+                        paste0("\u03B4: ", sigma) +
+                        paste0("% of lb: ", pct_lb), nrow = 3, ncol = 4, page = 2)
+plot_gammasims +
+  facet_grid_paginate(paste0("\u03B3: ", gamma) ~ paste0("ln(\u03B1): ", lnalpha_1) +
+                        paste0("% of MSY: ", pct_MSY) + 
+                        paste0("\u03B4: ", sigma) +
+                        paste0("% of lb: ", pct_lb), nrow = 3, ncol = 4, page = 3)
+plot_gammasims +
+  facet_grid_paginate(paste0("\u03B3: ", gamma) ~ paste0("ln(\u03B1): ", lnalpha_1) +
+                        paste0("% of MSY: ", pct_MSY) + 
+                        paste0("\u03B4: ", sigma) +
+                        paste0("% of lb: ", pct_lb), nrow = 3, ncol = 4, page = 4)
+plot_gammasims +
+  facet_grid_paginate(paste0("\u03B3: ", gamma) ~ paste0("ln(\u03B1): ", lnalpha_1) +
+                        paste0("% of MSY: ", pct_MSY) + 
+                        paste0("\u03B4: ", sigma) +
+                        paste0("% of lb: ", pct_lb), nrow = 3, ncol = 4, page = 5)
+plot_gammasims +
+  facet_grid_paginate(paste0("\u03B3: ", gamma) ~ paste0("ln(\u03B1): ", lnalpha_1) +
+                        paste0("% of MSY: ", pct_MSY) + 
+                        paste0("\u03B4: ", sigma) +
+                        paste0("% of lb: ", pct_lb), nrow = 3, ncol = 4, page = 6)
 
+
+#  * gamma q50s -----------------------------------------------------------
 # point estimates are not terrible
 # I think this was helped greatly by "scale" prior parameterzation
-rep_scenarios_gp %>%
-  mutate(set = (gamma - 1) / b, 
-         set_sims = map(mod_gamma, function(x) (x$sims.list$gamma[,2] - 1) / x$sims.list$beta[,2]),
-         gamma_est = map_dbl(mod_gamma, function(x) x$q50$gamma[2])) %>%
-  select(lnalpha, lnalpha_red, beta, sigma, pct_lb, a, a_red, b, gamma, lb_pctMSY, scenario, rep, set, set_sims, gamma_est) %>%
-  ggplot(aes(x = gamma_est)) + 
-  geom_histogram(aes(fill = as.character(rep), group = rep)) +
-  geom_vline(aes(xintercept = gamma)) +
-  scale_x_continuous(limits = c(0.9, 1.7)) +
-  facet_wrap(. ~ scenario)
+rep_scenarios_seqlb_scale_SOC %>%
+  select(scenario, rep, lnalpha_1, lnalpha_2, beta, sigma, gamma, a_1, a_2, b, pct_lb, pct_MSY, lb, mod_gamma) %>%
+  mutate(set = (gamma - 1) / b) %>%
+  mutate(gamma_est = map_dbl(mod_gamma, function(x) x$q50$gamma[2])) %>%
+  ggplot(aes(x = as.character(sigma), y = gamma_est, color = as.character(lnalpha_1), group = scenario)) +
+  geom_boxplot() +
+  geom_hline(aes(yintercept = gamma)) +
+  facet_grid(paste0("\u03B3: ", gamma) ~ 
+               paste0("% of MSY: ", pct_MSY) +
+               paste0("% of lb: ", pct_lb), scales = "free_x")
 
-#notice that variation in beta conteracted variation in gamma to stabilize the SET.
+#notice that variation in beta counteracted variation in gamma to stabilize the SET.
 # y axis is (gamma - 1)/gamma of the SET as a percentage of Smax 
 # x axis in Smax
 # sometimes!!!
-par(mfrow = c(3,3))
-for(i in sample(1:1800, 9, replace = FALSE)){
-  x <- 
-    rep_scenarios_gp$mod_gamma[[i]]$sims.list$gamma[,2] / 
-    rep_scenarios_gp$mod_gamma[[i]]$sims.list$beta[,2]
-  y <- 
-    (rep_scenarios_gp$mod_gamma[[i]]$sims.list$gamma[,2] - 1) /
-    rep_scenarios_gp$mod_gamma[[i]]$sims.list$gamma[,2]
-  keep <- which(x < quantile(x, 0.95))
-plot(x[keep], y[keep]) 
+plot_SETcomponents <- function(scenario_file, ...){
+  filters <- enquos(...)
+  
+  data0 <- 
+    scenario_file %>%
+    filter(!!!filters)
+  
+  rep_var = sample(unique(data0$rep), 9, replace = FALSE)
+  
+  data0 %>%
+    filter(rep %in% rep_var) %>%
+    mutate(gamma_est = map_dbl(mod_gamma, function(x) x$q50$gamma[2]),
+           beta_est = map_dbl(mod_gamma, function(x) x$q50$beta[2]),
+           gamma_sims = map(mod_gamma, function(x) x$sims.list$gamma[, 2]),
+           beta_sims = map(mod_gamma, function(x) x$sims.list$beta[, 2])) %>%
+    unnest(c(gamma_sims, beta_sims)) %>%
+    group_by(rep) %>%
+    mutate(gamma_sims_1 = gamma_sims - 1,
+           set = (gamma - 1) / b,
+           set_est = (gamma_est - 1) / beta_est,
+           set_sims = gamma_sims_1 / beta_sims,
+           set_est_cut = cut(set_sims, 
+                             quantile(set_sims, c(0, 0.5, 1)),
+                             labels = c("lower 50%", "upper 50%"))) %>%
+    ungroup() %>%
+    ggplot(aes(x = beta_sims, y = gamma_sims_1)) +
+    geom_point() +
+    geom_smooth(method = "lm") +
+    geom_point(aes(color = set_est_cut)) +
+    geom_abline(aes(intercept = 0, slope = set), linewidth = 1) +
+    geom_abline(aes(intercept = 0, slope = set_est), color = "red", linewidth = 1) +
+    facet_wrap(.~rep)
 }
-par(mfrow = c(1,1))
+plot_SETcomponents(
+  rep_scenarios_seqlb_scale_SOC, 
+  lnalpha_1 == 1,
+  sigma == .5,
+  gamma == 1.3,
+  pct_MSY == 0.9,
+  pct_lb == 1)

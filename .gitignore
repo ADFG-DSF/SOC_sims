@@ -5,6 +5,7 @@
 Thumbs.db
 *.html
 internal_communication/
-rep_scenarios_Seqhalflb.rds
 rep_scenarios_Seqlb.rds
 rep_scenarios_Seqlb_scale.rds
+rep_scenarios_Seqlb_scale_hier.rds
+rep_scenarios_Seqlb_scale_SOC.rds

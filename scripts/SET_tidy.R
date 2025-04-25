@@ -178,9 +178,9 @@ plot_Smax %>%
   filter(metric == "lb") %>%
   ggplot(aes(x = gamma, y = pct, color = as.character(pct_MSY), linetype = "lb")) +
   geom_line(linewidth = 1) +
-  geom_line(aes(linetype = "set"), data = plot[plot$metric == "set", ], color = "black", linewidth = 1) +
-  geom_line(aes(linetype = "Smsy"), data = plot[plot$metric == "Smsy", ], color = "black", linewidth = 1) +
-  geom_line(aes(linetype = "dep"), data = plot[plot$metric == "dep", ], color = "black", linewidth = 2) +
+  geom_line(aes(linetype = "set"), data = plot_Smax[plot_Smax$metric == "set", ], color = "black", linewidth = 1) +
+  geom_line(aes(linetype = "Smsy"), data = plot_Smax[plot_Smax$metric == "Smsy", ], color = "black", linewidth = 1) +
+  geom_line(aes(linetype = "dep"), data = plot_Smax[plot_Smax$metric == "dep", ], color = "black", linewidth = 2) +
   scale_color_manual(name = "Prop. MSY @ EG lb", values = col_values) +
   scale_linetype_manual(name = "Metric", 
                         breaks = c("dep", "lb", "set", "Smsy"),
@@ -205,9 +205,9 @@ plot_lb90 %>%
   filter(metric == "lb") %>%
   ggplot(aes(x = gamma, y = pct, color = as.character(pct_MSY), linetype = "lb")) +
   geom_line(linewidth = 1) +
-  geom_line(aes(linetype = "set"), data = plot[plot$metric == "set", ], color = "black", linewidth = 1) +
-  geom_line(aes(linetype = "Smsy"), data = plot[plot$metric == "Smsy", ], color = "black", linewidth = 1) +
-  geom_line(aes(linetype = "dep"), data = plot[plot$metric == "dep", ], color = "black", linewidth = 2) +
+  geom_line(aes(linetype = "set"), data = plot_lb90[plot_lb90$metric == "set", ], color = "black", linewidth = 1) +
+  geom_line(aes(linetype = "Smsy"), data = plot_lb90[plot_lb90$metric == "Smsy", ], color = "black", linewidth = 1) +
+  geom_line(aes(linetype = "dep"), data = plot_lb90[plot_lb90$metric == "dep", ], color = "black", linewidth = 2) +
   scale_color_manual(name = "Prop. MSY @ EG lb", values = col_values) +
   scale_linetype_manual(name = "Metric", 
                         breaks = c("dep", "lb", "set", "Smsy"),

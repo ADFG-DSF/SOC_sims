@@ -17,22 +17,33 @@ lapply(packs, require, character.only = TRUE)
 function_files <- list.files(path="..\\functions")
 lapply(function_files, function(x) source(paste0("..\\functions\\", x)))
 
-rep_scenarios_gp <- 
-  readRDS(file = "..\\rep_scenarios_seqlb_scale_SOC.rds") %>%
-  arrange(lnalpha, sigma, gamma, pct_lb) %>%
-  rename(scenario0 = scenario) %>%
-  mutate(scenario = cumsum(c(1, as.numeric(diff(scenario0)) != 0)),
-         set = map_dbl(mod_gamma, function(x) (x$q50$gamma[2] - 1) / x$q50$beta[2])) %>%
+rep_scenarios_gp0 <- 
+  readRDS(file = "..\\rep_scenarios_seqlb_scale_SOC.rds") 
+fill_row <- rep_scenarios_gp0[1,] #add in scenario 2 which was removed bc no SOC listed in sims
+fill_row$scenario <- 2
+fill_row$pct_lb <- 1
+fill_row$data <- fill_row$yr_SOC <- fill_row$data_jags <- fill_row$mod_gamma <- fill_row$mod_Ricker <- fill_row$set_est <- fill_row$set_estq10 <- fill_row$set_estq40 <- fill_row$set_estq60 <- fill_row$set_estq90 <- NA
+rep_scenarios_gp <-
+  rep_scenarios_gp0 %>%
   group_by(scenario) %>%
-  mutate(set_q10 = quantile(set, 0.1),
-         set_q40 = quantile(set, 0.4),
-         set_q60 = quantile(set, 0.6),
-         set_q90 = quantile(set, 0.9))
+  mutate(set_est = map_dbl(mod_gamma, function(x) (x$q50$gamma[2] - 1) / x$q50$beta[2]),
+         set_estq10 = quantile(set_est, 0.1),
+         set_estq40 = quantile(set_est, 0.4),
+         set_estq60 = quantile(set_est, 0.6),
+         set_estq90 = quantile(set_est, 0.9)) %>%
+  ungroup() %>%
+  rbind(fill_row) %>%
+  filter(pct_lb == 1) %>% #drop Seq<lb  in regime 2 sims
+  arrange(lnalpha_1, sigma, gamma, pct_MSY) %>% # renumber scenarios
+  rename(scenario0 = scenario) %>%
+  mutate(scenario = cumsum(c(1, as.numeric(diff(scenario0)) != 0))) %>%
+  select(names(rep_scenarios_gp0), starts_with("set")) %>%
+  arrange(scenario, rep)
 ```
 
 ## Introduction
 
-The stock of concern process requires a sustainable escapement threshold (SET) to be determined before a stock can be identified as a conservation concern although the ADF&G has yet to identify a reliable procedure to estimate a SET. The document will propose such a procedure for the case when we have spawner-recruit data available and lay the foundation for an approximation when spawner-recruit data is lacking.
+The stock of concern process requires a sustainable escapement threshold (SET) to be determined before a stock can be identified as a conservation concern although the ADF&G has yet to identify a reliable procedure to estimate a SET. Herein, I present a analytical procedure for estimating SETs for Alaskan salmon when spawner-recruit data is available and use simulation to explore the robustness and reliability of the proposed technique. This procedure is designed to be implemented when a salmon stock is failing to meet it's escapement goal, designed to be complementary to ADF&G's existing stock assessment techniques, intended to be conservative, and intended to be responsive to the spawner-recruit data available for the stock. Finaly, these results lay the foundation for an approximate SET when spawner-recruit data is lacking.
 
 Let's begin by reviewing the codified definitions within the Sustainable Salmon Policy as they relate to conservation concerns.
 
@@ -64,11 +75,9 @@ Unfortunately, the definition of a SET is less clear. Issues with this definitio
 
 -   Conservation objectives should trump yield objectives when necessary implying a SET could and should exceed the lower bound of an escapement goal in some scenarios.
 
-Herein, I present a analytical procedure for estimating SETs for Alaskan salmon and use simulation to explore the robustness and reliability of the proposed technique. This procedure is designed to be implemented when a salmon stock is failing to meet it's escapement goal, designed to be complementary to ADF&G's existing stock assessment techniques, intended to be conservative, and intended to be responsive to the spawner-recruit data available for the stock.
-
 ## Spawner-Recruit Dynamics
 
-In fisheries we typically assume compensatory population dynamics (red lines in @fig-gamma) which assume per capita production increases as population size decreases[^1]. While this assumption has been empirically observed for many stocks it implies populations will grow more quickly as the stock size is depleted and is therefore not precautionary during periods of low abundance. A complementary assumption is depensatory population dynamics which assume per capita production decreases as population size decreases *at low levels of abundance*. Depensatory population dynamics have not been consistently verified with empirically information but garner consistent interest because they imply stocks will be slower to recover from low levels abundance. Models that allow for depensatory dynamics include an a peak on the $\textrm{log}\left(\frac{R}{S}\right)$ scale where compensatory dynamics end and depensatory dynamics begin as spawning abundance decreases (dots in @fig-gamma) and are thus consistent with empirical observations at large abundances and precautionary when small abundances are yet to be observed. In this document we will use the term non-depensatory for models that included **only** compensatory dynamics (i.e. Ricker) and depensatory for models that include depensatory dynamics at small spawning escapements and compensatory dynamics at medium and large spawning escapements.
+In fisheries we typically assume compensatory population dynamics (red lines in @fig-gamma) which assume per capita production increases as population size decreases[^1]. While this assumption has been empirically observed for many stocks during periods of high spawning abundance it implies populations will grow more quickly as the stock size is depleted and therefore provides no indication that a population can be imperiled. A complementary assumption is depensatory population dynamics which assume per capita production decreases as population size decreases *at low levels of abundance*. Depensatory population dynamics have not been consistently verified with empirically information but garner consistent interest because they imply stocks will be slow to recover from low levels of spawning abundance and may not recover from extremely low levels of spawning abundance. Models that allow for depensatory dynamics include an a peak on the $\textrm{log}\left(\frac{R}{S}\right)$ scale where compensatory dynamics end and depensatory dynamics begin as spawning abundance decreases (dots in @fig-gamma) and are thus consistent with empirical observations at large abundances and precautionary when small abundances have yet to be observed. In this document we will use the term non-depensatory for models that included **only** compensatory dynamics (i.e. Ricker) and depensatory for models that include depensatory dynamics at small spawning escapements and compensatory dynamics at medium and large spawning escapements.
 
 [^1]: i.e. the population *compensates* for a reduction in it's size by producing more recruits
 
@@ -78,7 +87,7 @@ In fisheries we typically assume compensatory population dynamics (red lines in 
 #| label: fig-gamma
 #| fig.height: 6
 #| fig.width: 8
-#| fig.cap: "Spawner-recruit dynamics under non-depensatory (red line) and depensatory assumptions. Dot-dash lines represent the point where stock dynamics shift from compensatory to depensatory as spawning abundance decreases."
+#| fig.cap: "Spawner-recruit dynamics under non-depensatory (red line) and depensatory assumptions. Dot-dash lines represent the point where stock dynamics shift from compensatory to depensatory as spawning abundance decreases. Dash lines represent an unstabe equilibriom below which spawning abundacne trends towards zero."
 
 #example plot
 #parameter set
@@ -136,7 +145,7 @@ data.frame(S = rep(seq(0, 20000, length.out = 100), times = length(temp_par[[3]]
   facet_grid(Parameter ~ ., scales = "free_y")
 ```
 
-The spawner-recruit relationships shown in @fig-gamma include both compensatory and depensatory dynamics and are described mathematically as the gamma spawner-recruit relationship:
+The spawner-recruit curves shown in @fig-gamma include both compensatory and depensatory dynamics and are described mathematically as the gamma spawner-recruit relationship:
 
 $$R~=~\alpha S^\gamma e^{(-\beta S)}$$
 
@@ -170,7 +179,7 @@ SET_point <-
          Rmax = Ricker(lnalpha, beta, Smax),
          a = gamma_par(Smax, Rmax, gamma)[[1]],
          b = gamma_par(Smax, Rmax, gamma)[[2]],
-         SET = (gamma - 1) / b) %>%
+         set = (gamma - 1) / b) %>%
   rowwise() %>%
   mutate(lb_Ricker = optimise(f = get_bounds, #'true' OYP bounds
                               interval = 1:Smsy_Ricker,
@@ -230,7 +239,7 @@ SET_point %>%
   ggplot(aes(x = S, y = R)) +
   geom_line() +
   geom_rect(aes(xmin = lb_gamma, xmax = ub_gamma, ymin = -Inf, ymax = Inf), alpha = 0.005, fill = "green") +
-  geom_vline(aes(xintercept = SET), color = "red", linetype = 2) +
+  geom_vline(aes(xintercept = set), color = "red", linetype = 2) +
   geom_abline(aes(intercept = 0, slope = 1))+
   facet_grid(paste0("\u03B3: ", ifelse(gamma == 1, "1 (Ricker)", gamma)) ~ paste0("%MSY @ lb: ", pct_MSY))
 ```
@@ -249,8 +258,8 @@ To obtain a more comprehensive look at the relationship between the proposed SET
 #| fig.width: 8
 #| fig.cap: "The **theoretical** relationship between the SET (defined as the point where spawner-recruit dynamics switch from compensatory to depensatory as spawning abundance decreases) and the lower bound of the escapement goal as a function of productivity \u03B1, strength of depensatory dynamics \u03B3 and 5 yield objectives at the lower bound of the escapement goal."
 SET_point %>%
-  mutate(pct_lbRicker = SET / lb_Ricker,
-         pct_lbgamma = SET / lb_gamma) %>%
+  mutate(pct_lbRicker = set / lb_Ricker,
+         pct_lbgamma = set / lb_gamma) %>%
   pivot_longer(cols = c("pct_lbRicker", "pct_lbgamma"), 
                names_to = "Reference", 
                values_to = "Percentage") %>%
@@ -268,94 +277,57 @@ SET_point %>%
 
 ## Simulation Framework
 
-The simulation framework for this project was designed to approximate the circumstances staff will face when adapting ADF&G stock assessments to include estimation of an SET. Firstly, we recognize the assumption of non-depensatory spawner-recruit dynamics currently used in salmon management. To ensure our simulation framework is robust to this initial condition we started by identifying a suite Ricker (non-depensatory) spawner-recruit and fishery parameter combinations that span the range of values observed in Alaskan fisheries. We then developed depensatory dynamic equations which are similar, with respect to maximum recruitment and the spawning escapement associated with maximum recruitment, to the non-depensatory scenarios identified. This process allowed us to produce simulated datasets that match both our current assumptions (non-depensatory spawner-recruit dynamics) as well as the depensatory dynamics that are likely given the lack of empirical data which confirm these dynamics.
+The simulation framework for this project was designed to approximate the circumstances staff will face when adapting ADF&G stock assessments to include estimation of an SET. Firstly, we recognize the assumption of non-depensatory spawner-recruit dynamics currently used in salmon management. To ensure our simulation framework is robust to this initial condition we started by identifying a suite of Ricker (non-depensatory) spawner-recruit and fishery parameter combinations that span the range of values observed in Alaskan fisheries. We then developed depensatory dynamic equations which are similar, with respect to maximum recruitment and the spawning escapement associated with maximum recruitment, to the non-depensatory scenarios identified. This process allowed us to produce simulated datasets that match both our current assumptions (non-depensatory spawner-recruit dynamics) as well as the depensatory dynamics that are possible given the lack of empirical data which confirm these dynamics.
 
-Simulations were also conducted under the assumption that the data available was produced by a stock nearing consideration as a stock of concern. In practice, this means the stock had either been failing to meet the escapement goal or had met the escapement goal with negligible harvestable surplus. Thus, we explicitly included a reduced productivity regime in the last 60% of each simulated dataset and only attempted to estimate an SET when the simulated **total run size** had failed to exceed the lower bound of the escapement goal in 4 of the last 5 years..
+Simulations were also conducted under the assumption that the data available was produced by a stock nearing consideration as a stock of concern. In practice, this means the stock had either been failing to meet the escapement goal or had met the escapement goal with negligible harvestable surplus. Thus, we explicitly included a reduced productivity regime in the last 60% of each simulated dataset and only attempted to estimate an SET when the simulated **total run size**[^4] had failed to exceed the lower bound of the escapement goal in 4 of the last 5 years.
+
+[^4]: Note that this SOC listing criteria is consistent with the SOC SSFP review team's recommendation but inconsistent with current policy (which may list sooner if harvest results in escapements below the lower end of the goal range when run size was sufficient to exceed lower end of the goal range.
 
 ### Parameter Space for Salmon Populations
 
-In an effort to represent a wide variety of species and populations, simulations will be performed across a grid of spawner-recruit parameters. Non-depensatory dynamics are described by a Ricker curve where the parameter space includes productivity $\textrm{log}(\alpha)$ of either $1$, $1.5$ and $2$ with process error $\sigma$ of either $0.25$ or $0.5$ (@tbl-scenarios) resulting in 6 different scenarios of non-depensatory spawner-recruit dynamics. All simulations assume compensatory density-dependence of $\beta=0.0001$.
+In an effort to represent a wide variety of species and populations, simulations will be performed across a grid of spawner-recruit parameters. Non-depensatory dynamics are described by Ricker curves where the parameter space includes productivity $\textrm{log}(\alpha)$ of either $1$, $1.5$ and $2$ with process error $\sigma$ of either $0.25$ or $0.5$ (@tbl-scenarios) resulting in 6 different scenarios of non-depensatory spawner-recruit dynamics. All simulations assume compensatory density-dependence of $\beta=0.0001$.
 
 In addition, we derived 2 depensatory scenarios ($\gamma = 1.3$ or $1.6$) from each non-depensatory scenario ($\gamma = 1$) while adjusting the values for $\textrm{log}(\alpha)$ and $\beta$ when $\gamma > 1$ such that $R_{max}$ and $S_{max}$ of the spawner-recruit relationship when $\gamma > 1$ is equal to the values of $R_{max}$ and $S_{max}$ when $\gamma = 1$. Thus we considered 18 total scenarios of spawner-recruit dynamics. For simplicity, we use productivity ($\textrm{log}(\alpha) = 1$, $1.5$, or $2$) from the non-depensatory scenarios to refer to depensatory scenarios which share the same values of $R_{max}$ and $S_{max}$ even though the values of $\textrm{log}(\alpha)$ and $\beta$ used to generate the simulated datasets change for the depensatory cases.
 
-Escapement goals for each stock were derived from the known non-depensatory spawner-recruit relationship associated with each level of productivity ($\textrm{log}(\alpha) = 1$, $1.5$, or $2$). This process mimics actual ADF&G fisheries management in that escapement goals have been set assuming a non-depensatory spawner-recruit relationships and any empirical data we collect will be relative the those goals. In addition 2 values were used for the percentage of MSY staff were targeting at the lower bound of the escapement goal: 50% representing an extremely aggressive fishery and 90% representing a conservative fishery. This resulted in a total of 36 scenarios of spawner-recruit dynamics and fishery characteristics. All simulations used upper escapement goal bounds that were selected to achieve 70% of MSY based on the non-depensatory spawner-recruit relationship.
+Escapement goals for each stock were derived from the known non-depensatory spawner-recruit relationship associated with each level of productivity ($\textrm{log}(\alpha) = 1$, $1.5$, or $2$). This process mimics actual ADF&G fisheries management in that escapement goals have been set assuming a non-depensatory spawner-recruit relationships and any empirical data we collect will be relative the those goals. In addition, 2 values were used for the percentage of MSY staff were targeting at the lower bound of the escapement goal: 50% representing an extremely aggressive fishery and 90% representing a conservative fishery. This resulted in a total of 36 scenarios of spawner-recruit dynamics and fishery characteristics. All simulations used upper escapement goal bounds that were selected to achieve 70% of MSY based on the non-depensatory spawner-recruit relationship.
 
-Finally, all simulated datasets assumed age-at-maturity for each brood year of $10\%~3$ years old, $38\%~4$ years old, $30\%~5$ years old, $20\%~6$ years old, and $2\%~7$ years old and included no process $\sigma_F$ or observation $\sigma_N$ error. Fishing power was a function of the productivity of the population and set to $30\%$, $55\%$ and $80\%$ for stocks with non-depensatory productivity of $1$, $1.5$ and $2$ respectively.
+Finally, all simulated datasets assumed age-at-maturity for each brood year of $10\%~3$ years old, $38\%~4$ years old, $30\%~5$ years old, $20\%~6$ years old, and $2\%~7$ years old and included process $\sigma_F$ and observation $\sigma_N$ error or 0.2. Fishing power was a function of the productivity of the population and set to $30\%$, $55\%$ and $80\%$ for stocks with non-depensatory productivity of $1$, $1.5$ and $2$ respectively.
 
-The simulation model used for this exercise is described in @sec-sim_model. The general strategy was to simulate 50 replicate datasets for each of the 36 combinations of spawner-recruit parameters and fishery characteristics. Each simulated dataset was 50 years long.
-
-```{r}
-#| echo: FALSE
-scenarios_g <-
-  expand.grid(lnalpha = c(1, 1.5, 2),
-              beta = 0.0001, #c(0.001, 0.0001, 0.000001),
-              sigma = c(0.25, 0.5),
-              phi = 0,
-              pct_lb = c(0.5, 0.9),
-              gamma = seq(1, 1.6, length.out = 3)) %>%
-  arrange(lnalpha, sigma, gamma, pct_lb) %>%
-  mutate(scenario = 1:n(),
-         Smsy = get_Smsy(lnalpha, beta, correct = FALSE), #notice no log alpha correction for right now.
-         power = lnalpha / 2 - .2,
-         Smax = 1/ beta,
-         Rmax = Ricker(lnalpha, beta, Smax),
-         a = gamma_par(Smax, Rmax, gamma)[[1]],
-         b = gamma_par(Smax, Rmax, gamma)[[2]]) %>% # very crude. 
-  rowwise() %>%
-  mutate(lb_pctMSY = optimise(f = get_bounds, #'true' OYP bounds
-                              interval = 1:get_Smsy(lnalpha, beta),
-                              lnalpha = lnalpha,
-                              beta = beta,
-                              pct_MSY = pct_lb,
-                              correct = TRUE, #but used the log alpha correction here!
-                              sigma = sigma,
-                              phi = phi)$minimum,
-         ub_pctMSY = optimise(f = get_bounds, #'true' OYP bounds
-                              interval = get_Smsy(lnalpha, beta):(get_Smsy(lnalpha, beta)*5),
-                              lnalpha = lnalpha,
-                              beta = beta,
-                              pct_MSY = 0.7,
-                              correct = TRUE,
-                              sigma = sigma,
-                              phi = phi)$minimum) %>%
-  mutate(lnalpha_red = lb_pctMSY * beta,
-         Rmax_red = Ricker(lnalpha_red, beta, Smax),
-         a_red = gamma_par(Smax, Rmax_red, gamma)[[1]]) %>% 
-  ungroup()
-
-pal2 <- pal[c(1, 4, 7)]
-```
+The simulation model used for this exercise is described in @sec-sim_model. The general strategy was to simulate 50 replicate datasets for each of the 36 combinations of spawner-recruit parameters and fishery characteristics. Each simulated dataset was 60 years long.
 
 ```{r}
 #| echo: FALSE
 #| label: tbl-scenarios 
 #| tbl-cap: "Spawner-recruit and fishery parameter combinations used in this simulation study."
 rep_scenarios_gp %>%
-  filter(rep == 1) %>%
-  select(scenario, lnalpha, sigma, gamma, pct_lb) %>%
-  arrange(lnalpha, sigma, gamma, pct_lb) %>%
+  group_by(scenario) %>%
+  filter(rep == min(rep)) %>%
+  select(scenario, lnalpha_1, sigma, gamma, pct_MSY) %>%
+  arrange(lnalpha_1, sigma, gamma, pct_MSY) %>%
+  mutate(Rmax = round(exp(lnalpha_1)/beta*exp(-1), 0),
+         Smax = 1/ beta) %>%
   flextable() %>%
   set_header_labels(
     scenario = "Scenario",
-    lnalpha = "ln(\u03b1)",
+    lnalpha_1 = "ln(\u03b1)",
     sigma = "\u03c3",
     gamma = "\u03b3",
-    pct_lb = "MSY % @ EG \n lower bound",
+    pct_MSY = "MSY % @ EG \n lower bound",
     Rmax = "Rmax",
     Smax = "Smax"
   ) %>%
-  merge_v(j = c("lnalpha", "sigma", "gamma")) %>%
-  valign(j = c("lnalpha", "sigma", "gamma", "pct_lb"), valign = "top") %>%
+  merge_v(j = c("lnalpha_1", "sigma", "gamma")) %>%
+  valign(j = c("lnalpha_1", "sigma", "gamma", "pct_MSY"), valign = "top") %>%
   autofit()
 ```
 
 ### Productivity Regimes {#sec-productivity-regimes}
 
-When a salmon stock consistently misses the lower bound of it's escapement goal in a well-managed fishery, marine productivity has undergone a large decline. For this exercise we assumed the first 40% (20 years) of each simulated dataset occurred under the productivity assumptions described above while for the second 60% (30 years) the the data was generated assuming sharply reduced productivity. Specifically, during the last 20 years for each simulated dataset the $\beta$ parameter was held constant while productivity was lowered[^4] such that $\textrm{log}(\alpha^*)=\frac{lb}{\beta}$ where $lb$ is the lower bound of the escapement goal range[^5]. The assumed spawner-recruit relationships for each productivity regime are shown in @fig-regime. For labeling and discussion purposes we will continue to describe parameter combinations based on historical productivity and distinguish reduced productivity simulations with the words "reduced productivity". Notice that under reduced productivity conditions there is little harvestable surplus when assuming non-depensatory spawner-recruit dynamics and the stock often fails to replace itself when assuming depensatory spawner-recruit dynamics.
+When a salmon stock consistently misses the lower bound of it's escapement goal in a well-managed fishery, marine productivity has undergone a large decline. For this exercise we assumed the first 40% (20 years) of each simulated dataset occurred under the productivity assumptions described above while for the second 60% (30 years) the the data was generated assuming sharply reduced productivity. Specifically, during the last 20 years for each simulated dataset the $\beta$ parameter was held constant while productivity was lowered[^5] such that $\textrm{log}(\alpha^*)=\frac{lb}{\beta}$ where $lb$ is the lower bound of the escapement goal[^6]. The assumed spawner-recruit relationships for each productivity regime are shown in @fig-regime. For labeling and discussion purposes we will continue to describe parameter combinations based on historical productivity and distinguish reduced productivity simulations with the words "reduced productivity". Notice that under reduced productivity conditions there is little harvestable surplus when assuming non-depensatory spawner-recruit dynamics and the stock often fails to replace itself when assuming depensatory spawner-recruit dynamics.
 
-[^4]: For the non-depensatory model, this adjustment moves the escapement associated with equilibrium abundance $S_{eq}$ to be equal to the lower bound of the escapement goal while leaving the escapement associated the maximum recruitment $S_{max}$ unchanged.
+[^5]: For the non-depensatory model, this adjustment moves the escapement associated with equilibrium abundance $S_{eq}$ to be equal to the lower bound of the escapement goal while leaving the escapement associated the maximum recruitment $S_{max}$ unchanged.
 
-[^5]: Recall that when $\gamma > 1$, $\alpha$ and $\beta$ are adjusted such that $S_{max}$ and $R_{max}$ are the same for the non-depensatory ($\gamma = 1$) and the depensatory ($\gamma > 1$) cases. When calculating stock parameters under reduced productivity the adjustment to $\textrm{log}(\alpha^*)$ in the non-depensatory case was made before calculating $\alpha$ and $\beta$ parameters which equate $S_{max}$ and $R_{max}$ for the depensatory and non-depensatory cases.
+[^6]: Recall that when $\gamma > 1$, $\alpha$ and $\beta$ are adjusted such that $S_{max}$ and $R_{max}$ are the same for the non-depensatory ($\gamma = 1$) and the depensatory ($\gamma > 1$) cases. When calculating stock parameters under reduced productivity the adjustment to $\textrm{log}(\alpha^*)$ in the non-depensatory case was made before calculating $\alpha$ and $\beta$ parameters which equate $S_{max}$ and $R_{max}$ for the depensatory and non-depensatory cases.
 
 ```{r}
 #| echo: FALSE
@@ -364,30 +336,50 @@ When a salmon stock consistently misses the lower bound of it's escapement goal 
 #| fig.width: 8
 #| fig.cap: "The assumed spawner-recruit relationships used in this simulation study. Each panel shows 3 spawner-recruit relationships for both the normal and low productivity regimes. The 18 relationships thus shown represent 1/2 of the total number of scenarios considered because variability in process error manifests during data generation."
 rep_scenarios_gp %>%
-  ungroup %>%
-  filter(rep == 1, sigma == 0.25) %>%
-  select(lnalpha, pct_lb, lb_pctMSY, ub_pctMSY, a, b, gamma, a_red) %>%
+  group_by(scenario) %>%
+  filter(rep == min(rep), sigma == 0.25) %>%
+  ungroup() %>%
+  select(lnalpha_1, pct_MSY, lb, ub, a_1, b, gamma, a_2) %>%
   slice(rep(1:n(), each = 101)) %>% 
   mutate(S = rep(seq(0, 2 * 1 / max(beta), by = 200), times = 18),
-         R = SRgamma(alpha = a, beta = b, gamma = gamma, S = S),
-         R_red = SRgamma(alpha = a_red, beta = b, gamma = gamma, S = S)) %>%
+         R = SRgamma(alpha = a_1, beta = b, gamma = gamma, S = S),
+         R_2 = SRgamma(alpha = a_2, beta = b, gamma = gamma, S = S)) %>%
   ggplot(aes(x = S, y = R, color = as.character(gamma))) +
-    geom_rect(aes(xmin = lb_pctMSY, 
-                  xmax = ub_pctMSY, 
+    geom_rect(aes(xmin = lb, 
+                  xmax = ub, 
                   ymin = -Inf, 
                   ymax = Inf), 
               fill = "grey95",
               inherit.aes = FALSE) +
     geom_line() +
-    geom_line(aes(y = R_red), linetype = 2) +
+    geom_line(aes(y = R_2), linetype = 2) +
     geom_abline() +
     scale_y_continuous(name = "R") +
     scale_color_manual(name = "Gamma (\u03B3)",
                        labels = c("1 (Ricker)", "1.3", "1.6"),
-                       values = pal2) +
+                       values = pal) +
     theme_bw() +
-    facet_grid(paste0("ln(\u03B1): ", lnalpha) ~ paste0("%MSR @ lb: ", pct_lb),
+    facet_grid(paste0("ln(\u03B1): ", lnalpha_1) ~ paste0("%MSR @ lb: ", pct_MSY),
                scales = "free_y")
+```
+
+### Simulated Population Trends
+
+```{r}
+#| echo: FALSE
+#| warning: FALSE
+#| label: fig-SOC
+#| fig.height: 6
+#| fig.width: 8
+#| fig.cap: "The assumed spawner-recruit relationships used in this simulation study. Each panel shows 3 spawner-recruit relationships for both the normal and low productivity regimes. The 18 relationships thus shown represent 1/2 of the total number of scenarios considered because variability in process error manifests during data generation."
+rep_scenarios_gp %>%
+  ggplot(aes(x = yr_SOC, fill = as.character(lnalpha_1))) +
+  geom_bar() +
+  labs(x = "Year of Stock of Concern Designation",
+       y = "Number of Simulations",
+       fill = paste0("log(\u03B1)")) +
+  facet_grid(paste0("\u03B3: ", gamma) ~ paste0("%MSY @ lb: ", pct_MSY))
+
 ```
 
 ## Analysis model
@@ -470,11 +462,12 @@ plot_simtv <-
 plot_simtv
 ```
 
-For most productivity regimes fishery management is effective at distributing escapements throughout the escapement goal range @fig-motivate1. That said, notice that empirical observations outside of the escapement goal range are skewed heavily towards the most extreme productivity regimes in the dataset and respond differently to fishery management practices at the lower and upper bounds of the escapement goal range. Few points exceed the upper boundary when productivity is at a high extreme because we have the management capability (capped at the power of the fishery) to reduce large run sizes. When productivity is at a low extreme we lack fishery management options to increase the run size and data points below the lower boundary fall essentially at random. This observation suggests our ability to observe compensatory and depensatory spawner-recruit dynamics is a function of the productivity regime from which we are observing and that we should not expect reliable estimation of both spawner-recruit dynamic patterns at the same point in time.
+For most productivity regimes fishery management is effective at distributing escapements throughout the escapement goal range @fig-motivate1. That said, notice that empirical observations outside of the escapement goal range are skewed heavily towards the most extreme productivity regimes in the dataset and respond differently to fishery management practices at the lower and upper bounds of the escapement goal range. Few points exceed the upper boundary when productivity is at a high extreme because we have the management capability (capped at the power of the fishery) to reduce large run sizes. When productivity is at the low extreme we lack fishery management options to increase the run size and data points below the lower boundary fall essentially at random. This observation suggests our ability to observe compensatory and depensatory spawner-recruit dynamics is a function of the productivity regime from which we are observing and that we should not expect reliable estimation of both spawner-recruit dynamic patterns from a single production regime.
 
 ```{r}
 #| echo: FALSE 
-#| warning: FALSE 
+#| warning: FALSE
+#| message: FALSE 
 #| label: fig-motivate2 
 #| fig.height: 6
 #| fig.width: 8 
@@ -505,9 +498,9 @@ plot_simtv +
               color = "black")
 ```
 
-To see this note that a locally smoothed line through the entire data set fails to capture compensatory dynamics (i.e. positive slope) but that this failure is partially corrected by assuming a high and low productivity regimes[^6] before producing the smoothed line (@fig-motivate2). The smoothed line for the low productivity regime also captures depensatory dynamics which are emergent in the sense that we did not include depensatory dynamics in the simulation model but still observe them when multiple productivity regimes are included in the dataset. Thus empirically observed depensatory spawner-recruit dynamics can result from 2 mechanisms: 1) a depensatory model with modest time-varying productivity and, 2) a non-depensatory model with significant time-varying productivity. The second situation is likely rife in real datasets and suggests by assuming depensatory spawner-recruit dynamics ADF&G can provide useful management advice when observing low spawning escapements without definitive information about the data generating mechanism. This practice would be **precautionary** because it will prevent us from waiting to collect a high risk data set before mitigating against it and **responsive** because the estimation routine will account for the evidence for depensatory dynamics provided by the data.
+To see this note that a locally smoothed line through the entire data set fails to capture compensatory dynamics (i.e. positive slope) but that this failure is partially corrected by assuming a high and low productivity regimes[^7] before producing the smoothed line (@fig-motivate2). The smoothed line for the low productivity regime also captures depensatory dynamics which are emergent in the sense that we did not include depensatory dynamics in the simulation model but still observe them when multiple productivity regimes are included in the dataset. Thus empirically observed depensatory spawner-recruit dynamics can result from 2 mechanisms: 1) a depensatory model with modest time-varying productivity and, 2) a non-depensatory model with significant time-varying productivity. The second situation is likely rife in real datasets and suggests by assuming depensatory spawner-recruit dynamics ADF&G can provide useful management advice when observing low spawning escapements without definitive information about the data generating mechanism. This practice would be **precautionary** because it will prevent us from waiting to collect a high risk data set before mitigating against it and **responsive** because the estimation routine will account for the evidence for depensatory dynamics provided by the data.
 
-[^6]: With respect to the smooth lines in @fig-motivate2 high productivity means data generated from the spawner-recruit relationships where $\textrm{log}(\alpha)$ was $1.75$, $1.5$ or $1.25$ while low productivity means data generated from the spawner-recruit relationships where $\textrm{log}(\alpha)$ was $1$, $0.75$ or $0.375$.
+[^7]: With respect to the smooth lines in @fig-motivate2 high productivity means data generated from the spawner-recruit relationships where $\textrm{log}(\alpha)$ was $1.75$, $1.5$ or $1.25$ while low productivity means data generated from the spawner-recruit relationships where $\textrm{log}(\alpha)$ was $1$, $0.75$ or $0.375$.
 
 Lastly, the locally smoothed lines in @fig-motivate2 suggest that making deliberate choices about the spawner-recruit dynamics included in the estimation model based on concurrent productivity regimes would represent a **best practice** because it isolates yield-based management decisions, which are responsive to compensatory spawner-recruit dynamics, from conservation-based management decisions, which are responsive to depensatory spawner-recruit dynamics.
 
@@ -557,9 +550,8 @@ plot_fit <- function(scenario_file, ...){
   
   true <- 
     data %>%
-    select(scenario, rep, a, a_red, b, gamma, lb_pctMSY, ub_pctMSY) %>%
-    mutate(set = (gamma - 1)/ b,
-           source = "Simulated")
+    select(scenario, rep, a_1, a_2, b, gamma, lb, ub) %>%
+    mutate(set = (gamma - 1)/ b)
   
   estimates <- 
     data %>%
@@ -570,28 +562,25 @@ plot_fit <- function(scenario_file, ...){
            b_2 = map_dbl(mod_gamma, ~.$q50$beta[2]),
            gamma_1 = map_dbl(mod_gamma, ~.$q50$gamma[1]),
            gamma_2 = map_dbl(mod_gamma, ~.$q50$gamma[2]),
-           set = (gamma_2 - 1) / b_2,
-           source = "Estimated")
+           set = (gamma_2 - 1) / b_2)
   
   plot1 <- 
     data %>%
-    mutate(lnRS = map(data_jags, function(x) data.frame(year = 1:40, lnRS = x$lnRS, S = x$S)),
+    mutate(lnRS = map(data_jags, function(x) data.frame(year = 1:x$nyrs, lnRS = x$lnRS, S = x$S)),
            cut = map_dbl(mod_gamma, ~.$q50$y_d)) %>%
-    select(scenario, rep, a, a_red, b, gamma, lb_pctMSY, ub_pctMSY, cut, lnRS) %>%
+    select(scenario, rep, a_1, a_2, b, gamma, lb, ub, cut, lnRS) %>%
     unnest(lnRS) %>%
     mutate(regime = ifelse(year <= cut, "normal", "reduced")) %>%
     ggplot(aes(x = S, y = lnRS)) +
     geom_point(aes(color = regime)) +
-    geom_vline(data = true, aes(xintercept = set, linetype = source), 
-               color = "red") +
-    geom_vline(data = estimates, aes(xintercept = set, linetype = source), 
-               color = "red") +
-    geom_rect(data = true, aes(xmin = lb_pctMSY, xmax = ub_pctMSY, ymin = -Inf, ymax = Inf),
+    geom_vline(data = true, aes(xintercept = set), color = "red") +
+    geom_vline(data = estimates, aes(xintercept = set), linetype = 2, color = "red") +
+    geom_rect(data = true, aes(xmin = lb, xmax = ub, ymin = -Inf, ymax = Inf),
               inherit.aes = FALSE, 
               alpha= .25) +
-    geom_function(fun = function(x) log(SRgamma(true$a, true$b, true$gamma, x) / x) ,
+    geom_function(fun = function(x) log(SRgamma(true$a_1, true$b, true$gamma, x) / x) ,
                   color = "black") +
-    geom_function(fun = function(x) log(SRgamma(true$a_red, true$b, true$gamma, x) / x),
+    geom_function(fun = function(x) log(SRgamma(true$a_2, true$b, true$gamma, x) / x),
                   color = "red") +
     geom_function(fun = function(x) log(SRgamma(estimates$a_1, estimates$b_1, estimates$gamma_1, x) / x),
                   color = "black",
@@ -599,32 +588,30 @@ plot_fit <- function(scenario_file, ...){
     geom_function(fun = function(x) log(SRgamma(estimates$a_2, estimates$b_2, estimates$gamma_2, x) / x),
                   col = "red",
                   linetype = 2) +
-    scale_color_manual(name = "Regime", values = c("black", "red")) +
-    scale_linetype_manual(name = "Source",
-                          limits = c("Simulated", "Estimated"),
-                          values = c(1, 2)) +
+    scale_color_manual(values = c("black", "red")) +
     scale_x_continuous(limits = c(0, 1.1 * maxS)) +
     theme_bw()
   
   plot2 <- 
     data %>%
-    mutate(S = map(data_jags, function(x) data.frame(year = 1:40, S = x$S)),
+    mutate(S = map(data_jags, function(x) data.frame(year = 1:x$nyrs, S = x$S)),
            cut = map_dbl(mod_gamma, ~.$q50$y_d)) %>%
     unnest(S) %>%
     mutate(regime = ifelse(year <= cut, "normal", "reduced")) %>%
-    select(scenario, rep, year, b, gamma, lb_pctMSY, regime, S) %>% 
+    select(scenario, rep, year, b, gamma, lb, regime, S) %>% 
     mutate(set = (gamma - 1)/ b) %>% 
     ggplot(aes(x = year, y = S)) + 
     geom_line() +
     geom_point(aes(color = regime)) +
     geom_hline(data = true, aes(yintercept = set), color = "red") +
     geom_hline(data = estimates, aes(yintercept = set), linetype = 2, color = "red") +
-    geom_rect(data = true, aes(ymin = lb_pctMSY, ymax = ub_pctMSY, xmin = -Inf, xmax = Inf),
+    geom_rect(data = true, aes(ymin = lb, ymax = ub, xmin = -Inf, xmax = Inf),
               inherit.aes = FALSE, 
               alpha= .25) +
-    scale_color_manual(guide = "none", values = c("black", "red")) +
+    scale_color_manual(values = c("black", "red")) +
     scale_y_continuous(limits = c(0, 1.1 * maxS)) +
-    theme_bw()
+    theme_bw() +
+    labs(caption = paste0(data$scenario, ", ", data$rep))
   
   ggarrange(plot1, plot2, nrow = 2, heights = c(6,4))
 }
@@ -642,11 +629,11 @@ Three examples of simulated datasets and resultant estimates when $ln(\alpha) = 
 #| fig.width: 8
 #| fig.cap: "One randomly selected simulated dataset and the estimated SR relationships and implied SET when $ln(\\alpha) = 1.5$, $\\sigma = 0.5$, $\\gamma = 1.3$, and $pct_{MSY} @ lb = 0.9$. This example shows one of the 10 datasets that resulted in an SET estimate **between the 40th and 60th percentiles** of the 50 SETs estimated for this parameter combination. The simulated and estimated SET's are shown as vertical lines in the top panel and horizontal lines in the bottom panel."
 rep_scenarios_gp %>%
-  filter(set > set_q40 & set < set_q60) %>%
-  plot_fit(lnalpha == 1.5,
+  filter(set_est > set_estq40 & set_est < set_estq60) %>%
+  plot_fit(lnalpha_1 == 1.5,
            sigma == .5,
            gamma == 1.3,
-           pct_lb == 0.9)
+           pct_MSY == 0.9)
 ```
 
 @fig-low1.3 shows a randomly selected dataset with a estimated SET that was in the lowest 10% of all 50 estimates and demonstrates the estimation routine's response to poor evidence for depensatory dynamics (even when they exists).
@@ -659,11 +646,11 @@ rep_scenarios_gp %>%
 #| fig.width: 8
 #| fig.cap: "One randomly selected simulated dataset and the estimated SR relationships and implied SET when $ln(\\alpha) = 1.5$, $\\sigma = 0.5$, $\\gamma = 1.3$, and $pct_{MSY} @ lb = 0.9$. This example shows one of the 5 datasets that resulted in the **lowest 10%** of the 50 SETs estimated for this parameter combination. The simulated and estimated SET's are shown as vertical lines in the top panel and horizontal lines in the bottom panel."
 rep_scenarios_gp %>%
-  filter(set < set_q10) %>%
-  plot_fit(lnalpha == 1.5,
+  filter(set_est < set_estq10) %>%
+  plot_fit(lnalpha_1 == 1.5,
            sigma == .5,
            gamma == 1.3,
-           pct_lb == 0.9)
+           pct_MSY == 0.9)
 ```
 
 @fig-high1.3 shows a randomly selected dataset with a estimated SET that was in the highest 10% of all 50 estimates and demonstrates the estimation routine's response to either large evidence for depensatory dynamics or poor information about density dependence (which drive the SET estimate towards higher escapements artificially).
@@ -676,11 +663,11 @@ rep_scenarios_gp %>%
 #| fig.width: 8
 #| fig.cap: "One randomly selected simulated dataset and the estimated SR relationships and implied SET when $ln(\\alpha) = 1.5$, $\\sigma = 0.5$, $\\gamma = 1.3$, and $pct_{MSY} @ lb = 0.9$. This example shows one of the 5 datasets that resulted in the **highest 10 %** of the 50 SETs estimated for this parameter combination. The simulated and estimated SET's are shown as vertical lines in the top panel and horizontal lines in the bottom panel."
 rep_scenarios_gp %>%
-  filter(set > set_q90) %>%
-  plot_fit(lnalpha == 1.5,
+  filter(set_est > set_estq90) %>%
+  plot_fit(lnalpha_1 == 1.5,
            sigma == .5,
            gamma == 1.3,
-           pct_lb == 0.9)
+           pct_MSY == 0.9)
 ```
 
 ### Synthesis
@@ -695,18 +682,17 @@ One way to view these results is to look at the distribution of median SET estim
 #| fig.width: 8
 #| fig.cap: "The distribution of median SET estimates (defined as the point where spawner-recruit dynamics switch from compensatory to depensatory) for 50 datasets generated for each spawner-recruit scenario. The vertical black line shows the SET estimate based on the simulation model while the numbers above each panel refer to the spawner-recruit and fishery parameter combinations used in this simulation study @tbl-scenarios."
 rep_scenarios_gp %>%
-  mutate(set = (gamma - 1) / b, 
-         set_sims = map(mod_gamma, function(x) (x$q50$gamma[2] - 1) / x$q50$beta[2])) %>%
-  select(lnalpha, lnalpha_red, beta, sigma, pct_lb, a, a_red, b, gamma, lb_pctMSY, scenario, rep, set, set_sims) %>%
-  unnest(set_sims) %>%
-  ggplot(aes(x = set_sims, fill = as.character(rep), group = rep)) + 
-  geom_histogram() +
-  geom_vline(aes(xintercept = set)) +
-  scale_x_continuous(name = "SET",
-                     limits = c(0, 10000),
-                     guide = guide_axis(angle = 20)) +
-  scale_fill_discrete(guide = "none") +
-  facet_wrap(. ~ scenario)
+  select(scenario, rep, lnalpha_1, lnalpha_2, beta, sigma, gamma, a_1, a_2, b, pct_lb, pct_MSY, lb, set_est) %>%
+  mutate(set = (gamma - 1) / b) %>%
+  ggplot(aes(x = as.character(sigma), y = set_est, color = as.character(lnalpha_1), group = scenario)) +
+  geom_boxplot() +
+  geom_hline(aes(yintercept = set)) +
+  #geom_point(aes(y = lb), shape = 8, color = "red") +
+  labs(color = "log(\u03B1)", 
+       x = paste0("Process error (\u03B4)"),
+       y = "Median SET estimate") +
+  facet_grid(paste0("\u03B3: ", gamma) ~ 
+               paste0("% of MSY: ", pct_MSY), scales = "free_x")
 ```
 
 Another way to view these results is to look at the distribution of SET estimates relative to the lower bound of the escapement goal that was assumed while the data was generated (@fig-set_lb). In most cases when depensatory dynamics were included in the data generating model the estimation routine was able to approximate the relationship between the SET and the lower bound of the escapement goal assumed by the simulation model.
@@ -718,34 +704,34 @@ Another way to view these results is to look at the distribution of SET estimate
 #| fig.height: 6
 #| fig.width: 8
 #| fig.cap: "The **empirical and theoretical** relationship between the SET (defined as the point where spawner-recruit dynamics switch from compensatory to depensatory) and the lower bound of the escapement goal for 3 values of \u03b1 and \u03B3 and 2 yield objectives at the lower bound of the escapement goal. The box plots show the empirical distribution of the SET estimates for \u03c3=0.25 and \u03c3=0.5, respectively, while the lines show the theoretical value assumed by the data generating mechanism if the escapement goal was (solid lines) or was not (dotted lines) adjusted after depensatory SR dynamics were indicated." 
-test <- 
-  SET_point %>%
-  filter(beta == 0.0001,
-         sigma == 0.5,
-         pct_MSY %in% c( 0.5, 0.9),
-         gamma %in% c(1, 1.3, 1.6)) %>%
-  rename(pct_lb = pct_MSY) %>%
-  mutate(scenario = 1) %>%
-  mutate(set_lbRicker = SET / lb_Ricker,
-         set_lbgamma = SET / lb_gamma) 
-
-rep_scenarios_gp %>%
-  select(scenario, rep, lnalpha, lnalpha_red, beta, sigma, gamma, a, a_red, b, pct_lb, lb_pctMSY, mod_gamma) %>%
-  mutate(set_lb = map_dbl(mod_gamma, function(x) (x$q50$gamma[2] - 1) / x$q50$beta[2]) / lb_pctMSY) %>%
-  ggplot(aes(x = gamma, y = set_lb, group = scenario)) +
-  geom_boxplot() +
-  geom_line(data = test, 
-            aes(y = set_lbRicker, color = as.character(lnalpha)), 
-            size = 1.1, linetype = 3) +
-  geom_line(data = test, 
-            aes(y = set_lbgamma, color = as.character(lnalpha)), 
-            size = 1.1) +
-  coord_cartesian(ylim = c(0, 4.25)) +
-  scale_x_continuous(name = "Gamma (\u03B3)", breaks = c(1, 1.3, 1.6)) +
-  scale_y_continuous(name = "SET / EG lower bound") +
-  scale_color_discrete(name = "ln(\u03B1)") +
-  geom_hline(aes(yintercept = 1)) +
-  facet_grid(paste0("%MSY @ lb: ", pct_lb) ~ paste0("\u03B1: ", lnalpha))
+# test <- 
+#   SET_point %>%
+#   filter(beta == 0.0001,
+#          sigma == 0.5,
+#          pct_MSY %in% c( 0.5, 0.9),
+#          gamma %in% c(1, 1.3, 1.6)) %>%
+#   rename(pct_lb = pct_MSY) %>%
+#   mutate(scenario = 1) %>%
+#   mutate(set_lbRicker = SET / lb_Ricker,
+#          set_lbgamma = SET / lb_gamma) 
+# 
+# rep_scenarios_gp %>%
+#   select(scenario, rep, lnalpha, lnalpha_red, beta, sigma, gamma, a, a_red, b, pct_lb, lb_pctMSY, mod_gamma) %>%
+#   mutate(set_lb = map_dbl(mod_gamma, function(x) (x$q50$gamma[2] - 1) / x$q50$beta[2]) / lb_pctMSY) %>%
+#   ggplot(aes(x = gamma, y = set_lb, group = scenario)) +
+#   geom_boxplot() +
+#   geom_line(data = test, 
+#             aes(y = set_lbRicker, color = as.character(lnalpha)), 
+#             size = 1.1, linetype = 3) +
+#   geom_line(data = test, 
+#             aes(y = set_lbgamma, color = as.character(lnalpha)), 
+#             size = 1.1) +
+#   coord_cartesian(ylim = c(0, 4.25)) +
+#   scale_x_continuous(name = "Gamma (\u03B3)", breaks = c(1, 1.3, 1.6)) +
+#   scale_y_continuous(name = "SET / EG lower bound") +
+#   scale_color_discrete(name = "ln(\u03B1)") +
+#   geom_hline(aes(yintercept = 1)) +
+#   facet_grid(paste0("%MSY @ lb: ", pct_lb) ~ paste0("\u03B1: ", lnalpha))
 ```
 
 ### Analysis examples (depensatory dynamics absent)
@@ -760,11 +746,11 @@ Three examples of the simulated dataset and resultant estimates when $ln(\alpha)
 #| fig.width: 8 
 #| fig.cap: "One randomly selected simulated dataset and the estimated SR relationships and implied SET when $ln(\\alpha) = 1.5$, $\\sigma = 0.5$, $\\gamma = 1$, and $pct_{MSY} @ lb = 0.9$. This example shows one of the 10 datasets that resulted in an SET estimate **between the 40th and 60th percentiles** of the 50 SETs estimated for this parameter combination. The simulated and estimated SET's are shown as vertical lines in the top panel and horizontal lines in the bottom panel." 
 rep_scenarios_gp %>%   
-  filter(set > set_q40 & set < set_q60) %>%   
-  plot_fit(lnalpha == 1.5,            
+  filter(set_est > set_estq40 & set_est < set_estq60) %>%   
+  plot_fit(lnalpha_1 == 1.5,            
            sigma == .5,            
            gamma == 1,            
-           pct_lb == 0.9)
+           pct_MSY == 0.9)
 ```
 
 @fig-low1 shows a randomly selected dataset with a estimated SET that was one of the lowest 10% of all 50 estimates and demonstrates the estimated SET can be set quite low when there are few poorly performing spawner-recruit pairs associated with the lowest observed abundances.
@@ -777,11 +763,11 @@ rep_scenarios_gp %>%
 #| fig.width: 8
 #| fig.cap: "One randomly selected simulated dataset and the estimated SR relationships and implied SET when $ln(\\alpha) = 1.5$, $\\sigma = 0.5$, $\\gamma = 1$, and $pct_{MSY} @ lb = 0.9$. This example shows one of the 5 datasets that resulted in the **lowest 10%** of the 50 SETs estimated for this parameter combination. The simulated and estimated SET's are shown as vertical lines in the top panel and horizontal lines in the bottom panel." 
 rep_scenarios_gp %>%   
-  filter(set < set_q10) %>% 
-  plot_fit(lnalpha == 1.5,            
+  filter(set_est < set_estq10) %>% 
+  plot_fit(lnalpha_1 == 1.5,            
            sigma == .5,            
            gamma == 1,            
-           pct_lb == 0.9)
+           pct_MSY == 0.9)
 ```
 
 @fig-high1 shows a randomly selected dataset with a estimated SET that was one of the highest 10% of all 50 estimates and demonstrates the estimation routine is sensitive to poor estimates of density dependence which drive the SET towards higher escapements artificially.
@@ -794,11 +780,11 @@ rep_scenarios_gp %>%
 #| fig.width: 8 
 #| fig.cap: "One randomly selected simulated dataset and the estimated SR relationships and implied SET when $ln(\\alpha) = 1.5$, $\\sigma = 0.5$, $\\gamma = 1$, and $pct_{MSY} @ lb = 0.9$. This example shows one of the 5 datasets that resulted in the **highest 10 %** of the 50 SETs estimated for this parameter combination. The simulated and estimated SET's are shown as vertical lines in the top panel and horizontal lines in the bottom panel." 
 rep_scenarios_gp %>%   
-  filter(set > set_q90) %>%   
-  plot_fit(lnalpha == 1.5,            
+  filter(set_est > set_estq90) %>%   
+  plot_fit(lnalpha_1 == 1.5,            
            sigma == .5,            
            gamma == 1,            
-           pct_lb == 0.9)
+           pct_MSY == 0.9)
 ```
 
 ## Appendix A: Simulation Model {#sec-sim_model}
@@ -848,6 +834,8 @@ $$ U_{lb} = \textrm{if}(N_Y^{proj.} > lb)~\frac{N_y^{proj.} - lb}{N_y^{proj.}}~\
 $$ U_{ub} = \textrm{if}(N_Y^{proj.} > ub)~\frac{N_y^{proj.} - ub}{N_y^{proj.}}~\textrm{else}~0 $$
 
 and $power$ represent the maximum harvest rate the fishery is capable of producing. The lower bound of the escapement goal was varied across simulations but was set as the escapement that predicted a mean return which produced x% of MSY using historical productivity values while the upper bound was was the escapement that predicted a mean return which produced 70% of MSY using historical productivity values.
+
+Simulated datasets also tracked stock escapement's relative to the lower bound of the escapement goal. Stocks were designated a stock of concern when the annual run size was less than the lower bound of the escapement goal in at least 4 of the last 5 years. Stock of concern designations were removed the annual run size exceeded the lower bound of the escapement goal in at least 4 of the last 5 years.
 
 ## Appendix B: Spawner-Recruit Analysis Jags Code {#sec-analysis_mod}
 

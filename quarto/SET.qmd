@@ -368,16 +368,52 @@ rep_scenarios_gp %>%
 ```{r}
 #| echo: FALSE
 #| warning: FALSE
+#| label: fig-S
+#| fig.height: 6
+#| fig.width: 8
+#| fig.cap: "Simulated escapments for stocks with ln(\u03B1) = 1.5 and \u03B3 = 0.5. Light grey lines show the simulated escapement for each replicate simulation, the thick black line is the medain, the solid red line is the escapment goal lower bound and the dashed red line is the theoretical SET."
+rep_scenarios_gp %>%
+  filter(lnalpha_1 == 1.5, sigma == 0.5, pct_lb == 1) %>%
+  mutate(sim = map(data, function(x) x$sim),
+         S = map(data, function(x) x$S)) %>%
+  unnest(c(sim, S)) %>%
+  group_by(scenario, sim, lnalpha_1, lnalpha_2, a_1, a_2, b, gamma, sigma, pct_MSY, pct_lb, lb) %>%
+  mutate(SET = (gamma - 1) / b) %>%
+  ggplot(aes(x = sim, y = S,  group = rep)) +
+  geom_line(color = "gray90") +
+  stat_summary(aes(x = sim, y = S), inherit.aes = FALSE, fun = median, geom = "line", linewidth = 1) +
+  geom_hline(aes(yintercept = lb), color = "red") +
+  geom_hline(aes(yintercept = SET), linetype = 2, color = "red") + 
+  geom_vline(aes(xintercept = 20)) +
+  labs(x = "Simulation Year", y = "Escapement") +
+  theme_bw() +
+  facet_grid(paste0("\u03B3: ", gamma) ~ paste0("%MSY @ lb: ", pct_MSY))
+```
+
+```{r}
+#| echo: FALSE
+#| warning: FALSE
 #| label: fig-SOC
 #| fig.height: 6
 #| fig.width: 8
-#| fig.cap: "The assumed spawner-recruit relationships used in this simulation study. Each panel shows 3 spawner-recruit relationships for both the normal and low productivity regimes. The 18 relationships thus shown represent 1/2 of the total number of scenarios considered because variability in process error manifests during data generation."
+#| fig.cap: "Timing of stock of concern findings for each simulated population in this study."
 rep_scenarios_gp %>%
-  ggplot(aes(x = yr_SOC, fill = as.character(lnalpha_1))) +
-  geom_bar() +
+  ggplot(aes(x = yr_SOC,
+             pattern = as.character(sigma),
+             fill = as.character(lnalpha_1))) +
+  geom_bar_pattern(color = "black", 
+                   pattern_fill = "black",
+                   pattern_angle = 45,
+                   pattern_density = 0.1,
+                   pattern_spacing = 0.025,
+                   pattern_key_scale_factor = 0.6) +
+  scale_pattern_manual(values = c('0.25' = "stripe", '0.5' = "none")) +
+  guides(pattern = guide_legend(override.aes = list(fill = "white")),
+         fill = guide_legend(override.aes = list(pattern = "none"))) +
   labs(x = "Year of Stock of Concern Designation",
        y = "Number of Simulations",
-       fill = paste0("log(\u03B1)")) +
+       fill = paste0("log(\u03B1)"),
+       pattern = "\u03B4") +
   facet_grid(paste0("\u03B3: ", gamma) ~ paste0("%MSY @ lb: ", pct_MSY))
 
 ```

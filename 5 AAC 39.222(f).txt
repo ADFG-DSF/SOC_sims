@@ -1,0 +1,99 @@
+(f) In this section, and in implementing this policy,   
+
+ 	(1) "allocation" means the granting of specific harvest privileges, usually by regulation, among or between various user groups; "allocation" includes quotas, time periods, area restrictions, percentage sharing of stocks, and other management measures providing or limiting harvest opportunity;   
+
+ 	(2) "allocation criteria" means the factors set out in AS 16.05.251(e) considered by the board as appropriate to particular allocation decisions under 5 AAC 39.205, 5 AAC 75.017, and 5 AAC 77.007;   
+
+ 	(3) "biological escapement goal" or "(BEG)" means the escapement that provides the greatest potential for maximum sustained yield; BEG will be the primary management objective for the escapement unless an optimal escapement or inriver run goal has been adopted; BEG will be developed from the best available biological information, and should be scientifically defensible on the basis of available biological information; BEG will be determined by the department and will be expressed as a range based on factors such as salmon stock productivity and data uncertainty; the department will seek to maintain evenly distributed salmon escapements within the bounds of a BEG;   
+
+ 	(4) "burden of conservation" means the restrictions imposed by the board or department upon various users in order to achieve escapement, rebuild, or in some other way conserve a specific salmon stock or group of stocks; this burden, in the absence of a salmon fishery management plan, will be generally applied to users in close proportion to the users' respective harvest of the salmon stock;   
+
+ 	(5) "chronic inability" means the continuing or anticipated inability to meet escapement thresholds over a four to five year period, which is approximately the generation time of most salmon species;   
+
+ 	(6) "conservation concern" means concern arising from a chronic inability, despite the use of specific management measures, to maintain escapements for a stock above a sustained escapement threshold (SET); a conservation concern is more severe than a management concern;   
+
+ 	(7) "depleted salmon stock" means a salmon stock for which there is a conservation concern;   
+
+ 	(8) "diversity", in a biological context, means the range of variation exhibited within any level of organization, such as among genotypes within a salmon population, among populations within a salmon stock, among salmon stocks within a species, among salmon species within a community, or among communities within an ecosystem;   
+
+ 	(9) "enhanced salmon stock" means a stock of salmon that is undergoing specific manipulation, such as hatchery augmentation or lake fertilization, to enhance its productivity above the level that would naturally occur; "enhanced salmon stock" includes an introduced stock, where no wild salmon stock had occurred before, or a wild salmon stock undergoing manipulation, but does not include a salmon stock undergoing rehabilitation, which is intended to restore a salmon stock's productivity to a higher natural level;   
+
+ 	(10) "escapement" means the annual estimated size of the spawning salmon stock; quality of the escapement may be determined not only by numbers of spawners, but also by factors such as sex ratio, age composition, temporal entry into the system, and spatial distribution within the salmon spawning habitat;   
+
+ 	(11) "expanding fishery" means a salmon fishery in which effective harvesting effort has recently increased significantly beyond historical levels and where the increase has not resulted from natural fluctuations in salmon abundance;   
+
+ 	(12) "expected yields" mean levels at or near the lower range of recent historic harvests if they are deemed sustainable;   
+
+ 	(13) "genetic" means those characteristics (genotypic) of an individual or group of salmon that are expressed genetically, such as allele frequencies or other genetic markers;   
+
+ 	(14) "habitat concern" means the degradation of salmon habitat that results in, or can be anticipated to result in, impacts leading to yield, management, or conservation concerns;   
+
+ 	(15) "harvestable surplus" means the number of salmon from a stock's annual run that is surplus to escapement needs and can reasonably be made available for harvest;   
+
+ 	(16) "healthy salmon stock" means a stock of salmon that has annual runs typically of a size to meet escapement goals and a potential harvestable surplus to support optimum or maximum sustained yield;   
+
+ 	(17) "incidental harvest" means the harvest of fish, or other species, that is captured in addition to the target species of a fishery;   
+
+ 	(18) "incidental mortality" means the mortality imposed on a salmon stock outside of directed fishing, and mortality caused by incidental harvests, interaction with fishing gear, habitat degradation, and other human-related activities;   
+
+ 	(19) "inriver run goal" means a specific management objective for salmon stocks that are subject to harvest upstream of the point where escapement is estimated; the inriver run goal will be set in regulation by the board and is comprised of the SEG, BEG, or OEG, plus specific allocations to inriver fisheries;   
+
+ 	(20) "introduced stock" means a stock of salmon that has been introduced to an area, or portion of an area, where that stock had not previously occurred; an "introduced salmon stock" includes a salmon stock undergoing continued enhancement, or a salmon stock that is left to sustain itself with no additional manipulation;   
+
+ 	(21) "management concern" means a concern arising from a chronic inability, despite use of specific management measures, to maintain escapements for a salmon stock within the bounds of the SEG, BEG, OEG, or other specified management objectives for the fishery; a management concern is not as severe as a conservation concern;   
+
+ 	(22) "maximum sustained yield" or "(MSY)" means the greatest average annual yield from a salmon stock; in practice, MSY is achieved when a level of escapement is maintained within a specific range on an annual basis, regardless of annual run strength; the achievement of MSY requires a high degree of management precision and scientific information regarding the relationship between salmon escapement and subsequent return; the concept of MSY should be interpreted in a broad ecosystem context to take into account species interactions, environmental changes, an array of ecosystem goods and services, and scientific uncertainty;   
+
+ 	(23) "mixed stock fishery" means a fishery that harvests fish from a mixture of stocks;   
+
+ 	(24) "new fishery" means a fishery that new units of effort or expansion of existing effort toward new species, areas, or time periods, results in harvest patterns substantially different from those in previous years, and the difference is not exclusively the result of natural fluctuations in fish abundance;   
+
+ 	(25) "optimal escapement goal" or "(OEG)" means a specific management objective for salmon escapement that considers biological and allocative factors and may differ from the SEG or BEG; an OEG will be sustainable and may be expressed as a range with the lower bound above the level of SET, and will be adopted as a regulation by the board; the department will seek to maintain evenly distributed escapements within the bounds of the OEG;   
+
+ 	(26) "optimum sustained yield" or "(OSY)" means an average annual yield from a salmon stock considered to be optimal in achieving a specific management objective other than maximum yield, such as achievement of a consistent level of sustained yield, protection of a less abundant or less productive salmon stock or species, enhancement of catch per unit effort in sport fishery, facilitation of a nonconsumptive use, facilitation of a subsistence use, or achievement of a specific allocation;   
+
+ 	(27) "overfishing" means a level of fishing on a salmon stock that results in a conservation or management concern;   
+
+ 	(28) "phenotypic characteristics" means those characteristics of an individual or group of salmon that are expressed physically, such as body size and length at age;   
+
+ 	(29) "rehabilitation" means efforts applied to a salmon stock to restore it to an otherwise natural level of productivity; "rehabilitation" does not include an enhancement, which is intended to augment production above otherwise natural levels;   
+
+ 	(30) "return" means the total number of salmon in a stock from a single brood (spawning) year surviving to adulthood; because the ages of adult salmon (except pink salmon) returning to spawn varies, the total return from a brood year will occur over several calendar years; the total return generally includes those mature salmon from a single brood year that are harvested in fisheries plus those that compose the salmon stock's spawning escapement; "return" does not include a run, which is the number of mature salmon in a stock during a single calendar year;   
+
+ 	(31) "run" means the total number of salmon in a stock surviving to adulthood and returning to the vicinity of the natal stream in any calendar year, composed of both the harvest of adult salmon plus the escapement; the annual run in any calendar year, except for pink salmon, is composed of several age classes of mature fish from the stock, derived from the spawning of a number of previous brood years;   
+
+ 	(32) "salmon" means the five wild anadromous semelparous Pacific salmon species   Oncorhynchus sp., except steelhead and cutthroat trout, native to Alaska as follows:   
+
+ 		(A) Chinook or king salmon (O. tschawytscha);   
+
+ 		(B) sockeye or red salmon (O. nerka);   
+
+ 		(C) coho or silver salmon (O. kisutch);   
+
+ 		(D) pink or humpback salmon (O. gorbuscha); and   
+
+ 		(E) chum or dog salmon (O. keta);   
+
+ 	(33) "salmon population" means a locally interbreeding group of salmon that is distinguished by a distinct combination of genetic, phenotypic, life history, and habitat characteristics, comprised of an entire stock or a component portion of a stock; the smallest uniquely identifiable spawning aggregation of genetically similar salmon used for monitoring purposes;   
+
+ 	(34) "salmon stock" means a locally interbreeding group of salmon that is distinguished by a distinct combination of genetic, phenotypic, life history, and habitat characteristics or an aggregation of two or more interbreeding groups which occur within the same geographic area and is managed as a unit;   
+
+ 	(35) "stock of concern" means a stock of salmon for which there is a yield, management, or conservation concern;   
+
+ 	(36) "sustainable escapement goal" or "(SEG)" means a level of escapement, indicated by an index or an escapement estimate, that is known to provide for sustained yield over a 5 to 10 year period, used in situations where a BEG cannot be estimated or managed for; the SEG is the primary management objective for the escapement, unless an optimal escapement or inriver run goal has been adopted by the board; the SEG will be developed from the best available biological information; and should be scientifically defensible on the basis of that information; the SEG will be determined by the department and will take into account data uncertainty and be stated as either a "SEG range" or "lower bound SEG"; the department will seek to maintain escapements within the bounds of the SEG range or above the level of a lower bound SEG;   
+
+ 	(37) "sustainable salmon fishery" means a salmon fishery that persists and obtains yields on a continuing basis; characterized by fishing activities and habitat alteration, if any, that do not cause or lead to undesirable changes in biological productivity, biological diversity, or ecosystem structure and function, from one human generation to the next;   
+
+ 	(38) "sustained yield" means an average annual yield that results from a level of salmon escapement that can be maintained on a continuing basis; a wide range of average annual yield levels is sustainable; a wide range of annual escapement levels can produce sustained yields;   
+
+ 	(39) "sustained escapement threshold" or "(SET)" means a threshold level of escapement, below which the ability of the salmon stock to sustain itself is jeopardized; in practice, SET can be estimated based on lower ranges of historical escapement levels, for which the salmon stock has consistently demonstrated the ability to sustain itself; the SET is lower than the lower bound of the BEG and lower than the lower bound of the SEG; the SET is established by the department in consultation with the board, as needed, for salmon stocks of management or conservation concern;   
+
+ 	(40) "target species" or "target salmon stocks" means the main, or several major, salmon species of interest toward which a fishery directs its harvest;   
+
+ 	(41) "yield" means the number or weight of salmon harvested in a particular year or season from a stock;   
+
+ 	(42) "yield concern" means a concern arising from a chronic inability, despite the use of specific management measures, to maintain expected yields, or harvestable surpluses, above a stock's escapement needs; a yield concern is less severe than a management concern, which is less severe than a conservation concern;   
+
+ 	(43) "wild salmon stock" means a stock of salmon that originates in a specific location under natural conditions; "wild salmon stock" may include an enhanced or rehabilitated stock if its productivity is augmented by supplemental means, such as lake fertilization or rehabilitative stocking; "wild salmon stock" does not include an introduced stock, except that some introduced salmon stocks may come to be considered "wild" if the stock is self-sustaining for a long period of time;   
+
+ 	(44) "action point" means a threshold value for some quantitative indicator of stock run strength at which an explicit management action will be taken to achieve an optimal escapement goal. (Eff. 9/30/2000, Register 155; am 11/16/2000, Register 156; am 6/22/2001, Register 158; am 6/10/2010, Register 194)

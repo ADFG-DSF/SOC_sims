@@ -1,0 +1,93 @@
+(d) The principles and criteria for sustainable salmon fisheries shall be applied, by the department and the board using the best available information, as follows:   
+
+ 	(1) at annual work sessions of the board, the department will report to the board on the status of salmon stocks and salmon fisheries under consideration for regulatory changes that board cycle, which should include   
+
+ 		(A) an assessment of salmon stocks including a review of escapement goals and escapement goal findings;   
+
+ 		 (B) review and identification of salmon stocks failing to achieve the lower end of existing escapement goals, and stocks that meet the criteria for being removed from SOC status;  
+
+(i) the department may make Stock of Concern designations for salmon stocks exhibiting a chronic inability to achieve the lower end of a BEG or SEG when estimates of run strength, including estimates of harvest of that stock, indicate the BEG or SEG could not have been achieved;
+(ii) The department may remove a Stock of Concern designation for stocks that meet the criteria prescribed in the Recovery Plan [AM1][R(2]for that stock;
+(iii) the department may recommend a Fishery Review for stocks that chronically fail to achieve the lower end of a BEG or SEG when estimates of run strength, including estimates of harvest of that stock, indicate the BEG or SEG could have been achieved, or stocks that chronically fail to achieve a OEG or other board designated management target;
+      (2) at annual work sessions of the board, the board may request  information in preparation for the regular board meeting including:
+      (A) a Fishery Review [M(3][AR4][M(5]for stocks recommended by the department in (1)(B)(iii);
+      (B) a Fishery Review for other stocks that have failed to meet yield or other fishery objectives identified by the board;
+      (C) additional information on other fisheries of interest;[AM6][R(7][S(8]
+      
+      (3) at regular meetings of the board, the department will provide the board with the status of salmon stocks and salmon fisheries under consideration for regulatory changes, which should include fishery history including a summary of management actions and harvest by user group, and recent history of the stock s ability to achieve escapement goals; Additional information may include;
+      
+(A) For all stocks affected by proposals before the board for consideration  written and oral reports, staff comments, RCs and board discussions shall provide and identify:
+(i)     Effect on annual escapements
+(ii)     Potential allocative implications
+(iii)     Potential effects of board decisions
+(iv)     Department position
+
+(B) for stocks identified as Stock of Concern [AM9][R(10]during the annual work session a stock evaluation that additionally provides:
+(i) research recommendations
+(ii) a Sustainable Escapement Threshold (SET) finding
+(iii) classification of stock as a Productivity Risk or Depletion Risk   
+
+(C) for stocks identified as requiring a Fishery Review during the annual work session a stock evaluation that additionally provides:
+(i) management options 
+(ii) allocative implications
+
+
+      (4) at regular meetings of the board, the board in response to the department's salmon stock status reports, reports from other resource agencies, and public input, will 
+      
+(A) review the management plan, or consider developing a management plan, for each affected salmon fishery or stock; management plans will be based on the principles and criteria contained in this policy and will;   
+(i) contain goals and measurable and implementable objectives that are reviewed on a regular basis and utilize the best available scientific information;
+(ii) minimize the adverse effects on salmon habitat caused by fishing;
+(iii) protect, restore, and promote the long-term health and sustainability of the salmon fishery and habitat;
+(iv) prevent overfishing; and 
+(v) provide conservation and management measures that are necessary and appropriate to promote sustained yield of the fishery resource; 
+(B) for stocks designated as a Productivity Risk- create a Recovery Plan to include management options, potentially prohibiting sources of exploitation, coordinating with other agencies, expanding the reach of management actions, and additional research
+(C) for stocks designated as a Depletion Risk- create or modify a Recovery Plan, discuss criteria for Rehabilitation;
+(D) for stocks identified as requiring a Stock Review during the annual work session:
+(i) may address issues by status quo, through proposals submitted for the board s consideration for that meeting to reduce exploitation, creating or modifying an existing management plan based on the principles and criteria in this policy;
+      
+      (5) consistent with AS 16.05.258 Subsistence use and allocation of fish and game should continue to provide harvest opportunity on salmon stocks unless they are designated as a Depletion Risk    <different workgroup but subs language may be appropriate here>
+ 	
+     (6) where actions needed to regulate human activities that affect salmon and salmon's habitat that are outside the authority of the department or the board, the department or board shall correspond with the relevant authority, including the governor, relevant boards and commissions, commissioners, and chairs of appropriate legislative committees, to describe the issue and recommend appropriate action.   
+
+(e) Nothing in the policy under this section is intended to expand, reduce, or be inconsistent with, the statutory regulatory authority of the board, the department, or other state agencies with regulatory authority that impacts the fishery resources of the state.
+
+
+
+Requires reviewing/creating definitions of:
+
+* Salmon Stock: No changes needed.[R(11]
+* Chronic Inability
+* Stock of Concern: A stock of concern is a salmon stock experiencing adverse environmental conditions or other biological issues severe enough to cause a chronic inability to achieve the lower bound of the associated BEG or SEG. Stock of concern designations are made by the department. Stock of concern designations differ from Fishery Review recommendations because the former implicated biological issues while the latter implicates allocative issues which the board may elect to address.
+* Fishery Review: A Fishery review is used to identify salmon stocks which could benefit from fishery management changes. The department may recommend a Fishery Review but they are only completed once requested by the board. Fishery Reviewss differ from stock of concern designations because the former identifies allocative issues the board can address during their regular meeting cycle while the latter identifies biological issues which cannot be corrected with fishery management action.
+* Productivity Risk: A productivity risk indicates a stock of concern with annual run sizes that are below the lower bound of the stock s escapement goal but exceed the stock s SET. Productivity risks indicate adverse environmental conditions, or other biological issues, are preventing the stock from producing consistent yield but do not indicate stock sustainability is compromised.  
+* Depletion Risk: A depletion risk indicates a stock of concern with annual run sizes that are below the lower bound of the stock s escapement goal and that is experiencing a chronic inability[R(12][S(13] to achieve the stock s SET. Depletion risks indicate adverse environmental conditions or other biological issues are so severe that the stock s ability to recover from low levels of abundance may be reduced.
+* Management plan: A management plan is a set of management actions created by the board to guide department actions in prosecuting the fishery. The goal of a management plan is to allocate yield amongst user groups while ensuring the escapement fall within the bounds of the stock s escapement goal. 
+* Recovery Plan: A recovery plan is a temporary replacement to a stock s management plan in regulation which sunsets when the stock is no longer listed as a stock of concern. Recovery plans clearly specify delisting criteria associated with achieving the escapement goal. The goal of a recovery plan is to reduce directed and incidental harvest while the stock is listed as a stock of concern. 
+* Rehabilitation criteria: Rehabilitation criteria may be added to a recovery plan after a stock is classified as a depletion risk. Rehabilitation criteria are direct actions the department may take to rebuild a deleted stock and may include hatchery supplementation, habitat mitigation or other actions. 
+* Salmon productivity: Salmon productivity refers to the number of returning adult salmon (recruits) per spawning salmon (spawner) and is a key measure of a population's ability to sustain itself over time. It encapsulates all environmental factors that influence survival and growth at various life stages, including freshwater conditions (e.g., streamflow, temperature, habitat quality), estuarine and ocean conditions (e.g., food availability, predation, climate variability), and human impacts (e.g., harvest, habitat alteration, hatchery interactions). In the absence of age composition data, returns per spawner cannot be determined, but stocks chronically missing the lower bound of the escapement goal are assumed to be in a low productivity.
+
+[AM1]I notice there is no mention of action plans, which is part of the current policy in this section. If I am interpreting that section properly, action plans (while primarily have been used for SOCs), also applies to new and expanding fisheries covered under this section of the policy. Do recovery plans replace action plans? If not how are they different?
+[R(2R1]In my mind recovery plan replace action plans. 
+[M(3]Current policy states the department identifies new or expanding fisheries.  That looks to have been removed from this language.
+[AR4R3]Not sure on this one. It could be moved to our section. At the time I was thinking new or expanding fisheries represent reallocations which are the boards purview. This may be an example of language that was relevant 25 years ago and is no longer relevant or means something different today than it did 25 years ago.
+[M(5R3]i think i didnt copy it because we dont really do that- mostly about fully allocated fisheries not new or expanding. Examples might be Su PU fishery, but that come sup in relevant discussions regarding allocations, I dont know we need to identify them at the worksession 
+[AM6]Not sure how this applies to a new fishery.  If the board has already set objectives (presumably at a previous meeting), it is not a new fishery.
+[R(7R6]To me the or makes clear they are separate situations.
+[S(8R6]I feel like new and expanding are covered under 2B and 2C. 
+[AM9]Need to clarify new or existing?
+[R(10R9]I'd say no, the identified was deliberately vague to cover both cases
+[R(11]Has an existing definition... why is this here. Ed had suggested "Alaskan" salmon stock.
+[R(12]Is this the same as the chronic inability above?
+[S(13R12]Good question. If you view it that way then its consistent no matter what arena you're in.
+
+
+
+
+
+
+
+
+
+
+
+

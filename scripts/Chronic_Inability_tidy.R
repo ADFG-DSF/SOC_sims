@@ -20,8 +20,8 @@ lapply(function_files, function(x) source(paste0(".\\functions\\", x)))
 scenarios <-
   expand.grid(lnalpha_1 = c(1, 1.5, 2),
               beta = 0.0001, #c(0.001, 0.0001, 0.000001),
-              sigma = c(0.25, 0.5),
-              phi = 0,
+              sigma = c(0.5, 0.8),
+              phi = c(0, 0.4, 0.8),
               pct_MSY = c(0.5, 0.9),
               pct_lb = c(0.5, 1), 
               gamma = seq(1, 1.6, length.out = 3)) %>%
@@ -58,6 +58,7 @@ scenarios <-
 
 #  * Scenarios table ------------------------------------------------------
 # for each scenario we have 50 replicate datasets and SR models
+# NEEDS TO BE UPDATED AFTER SCENARIOS FINALIZED #####
 scenarios %>% 
   select(scenario, lnalpha_1, sigma, gamma, pct_MSY, pct_lb) %>%
   arrange(lnalpha_1, sigma, gamma, pct_MSY, pct_lb) %>%
@@ -83,13 +84,13 @@ rep_scenarios <-
   select(scenario, rep, lnalpha_1, lnalpha_2, a_1, a_2, beta, b, gamma, sigma, phi, pct_MSY, pct_lb, lb, ub, power) %>%
   rowwise() %>%
   mutate(data = list(
-    sim_SRgamma(c(rep(a_1, 1), rep(a_2, 234)),
+    sim_SRgamma(c(rep(a_1, 100), rep(a_2, 130)),
                 b,
                 gamma = gamma,
                 sigW = sigma,
                 phi = 0,
                 age0 = c('3' = 0.1, '4' = 0.38, '5' = 0.3, '6' = 0.2, '7' = 0.02),
-                Sims0 = 235,
+                Sims0 = 230,
                 Hfun = H_goal,
                 lb_goal = lb,
                 ub_goal = ub,
@@ -98,22 +99,27 @@ rep_scenarios <-
                 sigN = 0.2))) %>%
   ungroup()
 
-# ** SOC listings ---------------------------------------------------------
-get_SOC2 <- function(x, years){
+# SOC listings ---------------------------------------------------------
+# function to calculate SOC status
+# window: # of years under consideration when evaluating "chronic inability"
+# misses_in: # of missed in window that result in a SOC listing
+# makes_out: # of makes in window that result in a SOC delisting.
+# originally written to work inside a list-column although it seems to work in groups too.
+get_SOC2 <- function(x, misses_in, makes_out, window = 5){
   SOC <- character()
-  SOC[1:4] <- NA
+  SOC[1:(window - 1)] <- NA
   from_noconcern <- function(x){
-    if(sum(x, na.rm = TRUE) >= years){"SOC"} else("No concern")
+    if(sum(x, na.rm = TRUE) >= misses_in){"SOC"} else("No concern")
   }
   from_SOC <- function(x){
-    if(sum(x, na.rm = TRUE) > 5 - years){"SOC"} else("No concern")
+    if(sum(x, na.rm = TRUE) > (window - makes_out)){"SOC"} else("No concern")
   }
-  if(length(x) >= 5){
-    for(i in 5:length(x)){
+  if(length(x) >= window){
+    for(i in window:length(x)){
       SOC[i] <- switch(as.character(SOC[i-1]),
-                       'NA' = from_noconcern(x[(i-4):i]),
-                       "No concern" = from_noconcern(x[(i-4):i]),
-                       "SOC" = from_SOC(x[(i-4):i]))
+                       'NA' = from_noconcern(x[(i-(window - 1)):i]),
+                       "No concern" = from_noconcern(x[(i-(window - 1)):i]),
+                       "SOC" = from_SOC(x[(i-(window - 1)):i]))
     }
   }
   out <- ifelse(SOC == "SOC", TRUE, ifelse(SOC == "No concern", FALSE, NA))
@@ -121,66 +127,121 @@ get_SOC2 <- function(x, years){
   return(out)
 }
 
+# SOC status for different definitions of chronic inability
+# N### naming convention is {misses_in}{makes_out}{window}
 dat_SOC <- 
   rep_scenarios %>%
-  filter(lnalpha_1 == 1.5, sigma == 0.5, pct_lb == 1) %>%
+  filter(pct_lb == 1) %>%
+  mutate(data_trunc = map(data, function(x) x[x$sim > 30, c("sim", "N", "lb_goal")])) %>%
+  unnest(data_trunc) %>%
+  select(scenario:pct_lb, power, sim:lb_goal) %>%
+  filter(sim < 100 | sim >= 130) %>%
+  mutate(regime = ifelse(sim < 100, "Historic", ifelse(sim >= 130, "Low", NA))) %>%
+  group_by(scenario, regime, rep) %>%
   mutate(
-    data_trunc = map(data, function(x) x[x$sim > 30, c("sim", "N", "lb_goal")]),
-    roll5 = map(data_trunc, function(x) rollmean(x$N, k = 5, align = "right", fill = NA)),
-    SOC_roll5 = map2(roll5, data_trunc, function(x, y) x < y$lb_goal),
-    mean_roll5 = map_dbl(SOC_roll5, function(x) mean(x, na.rm = TRUE)),
-    lb_N = map(data_trunc, function(x) x$N < x$lb_goal),
-    SOC_N45 = map(lb_N, function(x) get_SOC2(x, 4)),
-    mean_45 = map_dbl(SOC_N45, function(x) mean(x, na.rm = TRUE)),
-    SOC_N55 = map(lb_N, function(x) get_SOC2(x, 5)),
-    mean_55 = map_dbl(SOC_N55, function(x) mean(x, na.rm = TRUE))) %>%
+    roll5 = rollmean(N, k = 5, align = "right", fill = NA),
+    SOC_roll5 = roll5 < lb_goal, #rolling mean to account for the size of the miss/make
+    mean_roll5 = mean(SOC_roll5, na.rm = TRUE),
+    lb_N = N < lb_goal,
+    SOC_N155 = get_SOC2(lb_N, 1, 5, 5), #most sensitive
+    mean_155 = mean(SOC_N155, na.rm = TRUE),
+    SOC_N445 = get_SOC2(lb_N, 4, 4, 5), #ADF&G most common?
+    mean_445 = mean(SOC_N445, na.rm = TRUE),
+    SOC_N515 = get_SOC2(lb_N, 5, 1, 5), #lease sensitive
+    mean_515 = mean(SOC_N515, na.rm = TRUE)) %>%
   group_by(scenario, rep) 
 
-# Look for differences
-# Have to manually enter the sim numbers in the last line
-# 1) Run lines 1-5 to find sim numbers were criteria differ 
-# 2) comment out line 5 to see why the criteria differ
-
-# when N45 more sensitive....
-# rolling mean provides the protection DCF was looking for. SOC designations do not occur when 
-# several small misses are surrounded by 1 large make
-
-# when roll5 more sensitive....
-# it is pulled down by large misses surrounded by several close makes
+# demonstrate regime and SOC entry/exit criteria differences for one group of scenarios
+# Hypothesis test for 445
+# NULL: High productivity
+# false positives: non-existent
+# false negatives: 
+#     gamma=1: Low power, Null rejected often erroneously 
+#     gamma>: medium to high power, Null rejected often erroneously in "safest" situation
+# Entry/Exit criteria: would need a very sensitive test to get high power w Ricker 
 dat_SOC %>%
-  filter(lnalpha_1 == 1.5, sigma == 0.5, pct_MSY == 0.9, gamma == 1, rep == 1) %>%
-  select(scenario, rep, lnalpha_1, sigma, gamma, pct_MSY, data_trunc, SOC_N45, roll5, SOC_roll5) %>%
-  unnest(c(data_trunc, SOC_N45, roll5, SOC_roll5)) %>%
-  #filter(SOC_N45 != SOC_roll5) #%>%
-  #filter(sim >= (71-6) & sim <= 76) #%>% #N45 more sensitive
-  filter(sim >= (43-6) & sim <= 49) #roll5 more sensitive 
-dat_SOC %>%
-  filter(lnalpha_1 == 1.5, sigma == 0.5, pct_MSY == 0.9, gamma == 1, rep == 5) %>%
-  select(scenario, rep, lnalpha_1, sigma, gamma, pct_MSY, data_trunc, SOC_N45, roll5, SOC_roll5) %>%
-  unnest(c(data_trunc, SOC_N45, roll5, SOC_roll5)) %>%
-  #filter(SOC_N45 != SOC_roll5) #%>%
-  #filter(sim >= (115-6) & sim <= 125) #%>% #N45 more sensitive
-  filter(sim >= (222-6) & sim <= 227) #roll5 more sensitive
-
-# that said differences are minor
-plot_SOC <-
-  dat_SOC %>%
+  filter(lnalpha_1 == 1.5, sigma == 0.5, phi == 0) %>%
   pivot_longer(dplyr::starts_with("mean_"), names_to = "Chronic_I", values_to = "pct_SOC") %>%
-  ggplot(aes(x = Chronic_I, y  = pct_SOC)) + 
+  ggplot(aes(x = Chronic_I, y  = pct_SOC, color = regime)) + 
   geom_boxplot() +
-  guides(x =  guide_axis(angle = -20))
+  guides(x =  guide_axis(angle = -20)) +
+  facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma))
 
-plot_SOC + 
-  facet_wrap_paginate(~ paste0("%MSY @ lb: ", pct_MSY) +
-                        #paste0("%lb @ Seq: ", pct_lb) +
-                        paste0("\u03B3: ", gamma), 
-                      ncol = 3, nrow = 2, page = 1)
+####
+# Look for sensitivity wrt 445 and roll5 across SR parameter combinations
+# pct_MSY, phi and gamma
+# phi has little effect
+dat_SOC %>%
+  filter(regime == "Low", sigma == 0.5, lnalpha_1 == 1.5) %>%
+  pivot_longer(dplyr::starts_with("mean_"), names_to = "Chronic_I", values_to = "pct_SOC") %>%
+  filter(Chronic_I %in% c("mean_445", "mean_roll5")) %>%
+  ggplot(aes(x = Chronic_I, y  = pct_SOC, color = as.character(phi))) + 
+  geom_boxplot() +
+  labs(title = paste0("ln(\u03B1): ", 1.5, ", \u03C3: ", 0.5)) +
+  facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma))
+
+# Look for sensitivity wrt 445 and roll5
+# pct_MSY, lnalpha and gamma
+# increasing lnalpha decreases sensitivity w depensatory dynamics
+dat_SOC %>%
+  filter(regime == "Low", phi == 0, sigma == 0.5) %>%
+  pivot_longer(dplyr::starts_with("mean_"), names_to = "Chronic_I", values_to = "pct_SOC") %>%
+  filter(Chronic_I %in% c("mean_445", "mean_roll5")) %>%
+  ggplot(aes(x = Chronic_I, y  = pct_SOC, color = as.character(lnalpha_1))) + 
+  geom_boxplot() +
+  labs(title = paste0("%MSY: ", 0.9, ", \u03C3: ", 0.5)) +
+  facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma))
+
+# Look for sensitivity wrt 445 and roll5
+# pct_MSY, sigma and gamma
+# increased sigma decreases sensitivity
+dat_SOC %>%
+  filter(regime == "Low", phi == 0, lnalpha_1 == 1.5) %>%
+  pivot_longer(dplyr::starts_with("mean_"), names_to = "Chronic_I", values_to = "pct_SOC") %>%
+  filter(Chronic_I %in% c("mean_445", "mean_roll5")) %>%
+  ggplot(aes(x = Chronic_I, y  = pct_SOC, color = as.character(sigma))) + 
+  geom_boxplot() +
+  labs(title = paste0("phi: ", 0, ", ln(\u03B1): ", 1.5)) +
+  facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma))
 
 
-rep_scenarios %>%
-  select(-beta, -gamma, -phi) %>%
-  unnest(data) %>%
-  filter(lnalpha_1 == 1.5, sigma == 0.5, pct_lb == 1) %>%
-  group_by(scenario, pct_MSY, gamma) %>%
-  mutate(SOC_l = ifelse(SOC %in% c("Management", "Conservation"), TRUE, FALSE)) %>%
-  summarize(SOC_pct = mean(SOC_l))
+
+
+
+
+
+
+
+# print medians
+dat_SOC %>%
+  pivot_longer(starts_with("mean"), names_to = "SOC_type", values_to = "pct") %>% 
+  group_by(scenario, regime, SOC_type) %>% 
+  summarise(q50 = median(pct)) %>% 
+  print(n = 30)
+
+
+# # Look for differences between SOC 445 and SOC_roll5
+# # Have to manually enter the sim numbers in the last line
+# # 1) Run lines 1-5 to find sim numbers were criteria differ 
+# # 2) comment out line 5 to see why the criteria differ
+# 
+# # when N45 more sensitive....
+# # rolling mean provides the protection DCF was looking for. SOC designations do not occur when 
+# # several small misses are surrounded by 1 large make
+# 
+# # when roll5 more sensitive....
+# # it is pulled down by large misses surrounded by several close makes
+# dat_SOC %>%
+#   filter(lnalpha_1 == 1.5, sigma == 0.5, pct_MSY == 0.9, gamma == 1, rep == 1) %>%
+#   select(scenario, rep, lnalpha_1, sigma, gamma, pct_MSY, data_trunc, SOC_N45, roll5, SOC_roll5) %>%
+#   unnest(c(data_trunc, SOC_N45, roll5, SOC_roll5)) %>%
+#   #filter(SOC_N45 != SOC_roll5) #%>%
+#   #filter(sim >= (71-6) & sim <= 76) #%>% #N45 more sensitive
+#   filter(sim >= (43-6) & sim <= 49) #roll5 more sensitive 
+# dat_SOC %>%
+#   filter(lnalpha_1 == 1.5, sigma == 0.5, pct_MSY == 0.9, gamma == 1, rep == 5) %>%
+#   select(scenario, rep, lnalpha_1, sigma, gamma, pct_MSY, data_trunc, SOC_N45, roll5, SOC_roll5) %>%
+#   unnest(c(data_trunc, SOC_N45, roll5, SOC_roll5)) %>%
+#   #filter(SOC_N45 != SOC_roll5) #%>%
+#   #filter(sim >= (115-6) & sim <= 125) #%>% #N45 more sensitive
+#   filter(sim >= (222-6) & sim <= 227) #roll5 more sensitive

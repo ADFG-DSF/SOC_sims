@@ -98,6 +98,8 @@ rep_scenarios <-
                 sigF = 0.2,
                 sigN = 0.2))) %>%
   ungroup()
+#saveRDS(rep_scenarios, ".//rep_scenarios_ChronicInability.rds")
+rep_scenarios <- readRDS(".//rep_scenarios_ChronicInability.rds")
 
 # SOC listings ---------------------------------------------------------
 # function to calculate SOC status
@@ -117,9 +119,9 @@ get_SOC2 <- function(x, misses_in, makes_out, window = 5){
   if(length(x) >= window){
     for(i in window:length(x)){
       SOC[i] <- switch(as.character(SOC[i-1]),
-                       'NA' = from_noconcern(x[(i-(window - 1)):i]),
-                       "No concern" = from_noconcern(x[(i-(window - 1)):i]),
-                       "SOC" = from_SOC(x[(i-(window - 1)):i]))
+                       'NA' = from_noconcern(x[((i-1)-(window - 1)):(i-1)]),
+                       "No concern" = from_noconcern(x[((i-1)-(window - 1)):(i-1)]),
+                       "SOC" = from_SOC(x[((i-1)-(window - 1)):(i-1)]))
     }
   }
   out <- ifelse(SOC == "SOC", TRUE, ifelse(SOC == "No concern", FALSE, NA))
@@ -131,6 +133,7 @@ get_SOC2 <- function(x, misses_in, makes_out, window = 5){
 # N### naming convention is {misses_in}{makes_out}{window}
 dat_SOC <- 
   rep_scenarios %>%
+  filter(scenario != 64, rep != 17) %>%
   filter(pct_lb == 1) %>%
   mutate(data_trunc = map(data, function(x) x[x$sim > 30, c("sim", "N", "lb_goal")])) %>%
   unnest(data_trunc) %>%
@@ -154,10 +157,10 @@ dat_SOC <-
 # demonstrate regime and SOC entry/exit criteria differences for one group of scenarios
 # Hypothesis test for 445
 # NULL: High productivity
-# false positives: non-existent
-# false negatives: 
-#     gamma=1: Low power, Null rejected often erroneously 
-#     gamma>: medium to high power, Null rejected often erroneously in "safest" situation
+# false positives (Look at Historic regime): non-existent, i.e. alpha = 0
+# false negatives  (Look at Low regime): 
+#     gamma=1: Fail to reject Null often, beta ~ .35,  
+#     gamma>1: Reject null occasionally in "safest" situation, beta > .75
 # Entry/Exit criteria: would need a very sensitive test to get high power w Ricker 
 dat_SOC %>%
   filter(lnalpha_1 == 1.5, sigma == 0.5, phi == 0) %>%
@@ -165,6 +168,10 @@ dat_SOC %>%
   ggplot(aes(x = Chronic_I, y  = pct_SOC, color = regime)) + 
   geom_boxplot() +
   guides(x =  guide_axis(angle = -20)) +
+  scale_color_discrete(name = "Regime (statistic)", 
+                     labels = c("Historic" = "Historic (\u03B1)", "Low" = "Low (\u03B2)")) +
+  labs(x = "Chronic Inability Criteria",
+       y = "Probability") +
   facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma))
 
 ####
@@ -211,37 +218,73 @@ dat_SOC %>%
 
 
 
+# Look for differences between SOC 445 and SOC_roll5
+# Have to manually enter the sim numbers in the last line
+# 1) Run lines 1-4 to find sim numbers were criteria differ
+# 2) comment out line 4 and either 5 or 6 to see why the criteria differ
 
-# print medians
+# when N45 more sensitive....
+# rolling mean provides the protection DCF was looking for. SOC designations do not occur when
+# several small misses are surrounded by 1 large make
+
+# when roll5 more sensitive....
+# it is pulled down by large misses surrounded by several close makes
 dat_SOC %>%
-  pivot_longer(starts_with("mean"), names_to = "SOC_type", values_to = "pct") %>% 
-  group_by(scenario, regime, SOC_type) %>% 
-  summarise(q50 = median(pct)) %>% 
-  print(n = 30)
+  filter(lnalpha_1 == 1.5, sigma == 0.5, phi == 0, pct_MSY == 0.9, gamma == 1, rep == 1) %>%
+  select(scenario, rep, lnalpha_1, sigma, gamma, pct_MSY, sim, N, lb_goal, SOC_N445, roll5, SOC_roll5) %>%
+  filter(SOC_N445 != SOC_roll5) %>% print(n = 100)
+ 
+col <- c("#00CC00", "red")
+#N45 more sensitive
+dat_SOC %>%
+  filter(lnalpha_1 == 1.5, sigma == 0.5, phi == 0, pct_MSY == 0.9, gamma == 1, rep == 1) %>%
+  select(scenario, rep, lnalpha_1, sigma, gamma, pct_MSY, sim, N, lb_goal, SOC_N445, roll5, SOC_roll5) %>%
+  filter(sim >= (178-5) & sim <= 190) %>%
+  ggplot(aes(x = as.character(sim), y = N, fill = SOC_N445)) +
+  geom_bar(stat = "identity", alpha = 0.5) +
+  geom_hline(aes(yintercept = lb_goal)) +
+  geom_line(aes(y = roll5, group = 1, color = as.numeric(SOC_roll5)), 
+            linewidth = 3, 
+            show.legend = FALSE) +
+  scale_color_gradient(low = col[1], high = col[2]) +
+  scale_fill_manual(values = col) +
+  labs(x = "Simulation Year", 
+       y = "Total Run", 
+       fill = "Stock of Concern?", 
+       title = paste0("ln(\u03B1)= ", 1.5, ", \u03C3= ", 0.5, ", \u03B3= ", 1, ", \u03A6= ", 0, ", %MSY= ", 90))
 
+#roll5 more sensitive 
+dat_SOC %>%
+  filter(lnalpha_1 == 1.5, sigma == 0.5, phi == 0, pct_MSY == 0.9, gamma == 1, rep == 1) %>%
+  select(scenario, rep, lnalpha_1, sigma, gamma, pct_MSY, sim, N, lb_goal, SOC_N445, roll5, SOC_roll5) %>%
+  filter(sim >= (154-5) & sim <= 159) %>%
+  ggplot(aes(x = as.character(sim), y = N, fill = SOC_N445)) +
+  geom_bar(stat = "identity", alpha = 0.5) +
+  geom_hline(aes(yintercept = lb_goal)) +
+  geom_line(aes(y = roll5, group = 1, color = as.numeric(SOC_roll5)), 
+            linewidth = 3, 
+            show.legend = FALSE) +
+  scale_color_gradient(low = col[1], high = col[2]) +
+  scale_fill_manual(values = col) +
+  labs(x = "Simulation Year", 
+       y = "Total Run", 
+       fill = "Stock of Concern?", 
+       title = paste0("ln(\u03B1)= ", 1.5, ", \u03C3= ", 0.5, ", \u03B3= ", 1, ", \u03A6= ", 0, ", %MSY= ", 90))
 
-# # Look for differences between SOC 445 and SOC_roll5
-# # Have to manually enter the sim numbers in the last line
-# # 1) Run lines 1-5 to find sim numbers were criteria differ 
-# # 2) comment out line 5 to see why the criteria differ
-# 
-# # when N45 more sensitive....
-# # rolling mean provides the protection DCF was looking for. SOC designations do not occur when 
-# # several small misses are surrounded by 1 large make
-# 
-# # when roll5 more sensitive....
-# # it is pulled down by large misses surrounded by several close makes
-# dat_SOC %>%
-#   filter(lnalpha_1 == 1.5, sigma == 0.5, pct_MSY == 0.9, gamma == 1, rep == 1) %>%
-#   select(scenario, rep, lnalpha_1, sigma, gamma, pct_MSY, data_trunc, SOC_N45, roll5, SOC_roll5) %>%
-#   unnest(c(data_trunc, SOC_N45, roll5, SOC_roll5)) %>%
-#   #filter(SOC_N45 != SOC_roll5) #%>%
-#   #filter(sim >= (71-6) & sim <= 76) #%>% #N45 more sensitive
-#   filter(sim >= (43-6) & sim <= 49) #roll5 more sensitive 
-# dat_SOC %>%
-#   filter(lnalpha_1 == 1.5, sigma == 0.5, pct_MSY == 0.9, gamma == 1, rep == 5) %>%
-#   select(scenario, rep, lnalpha_1, sigma, gamma, pct_MSY, data_trunc, SOC_N45, roll5, SOC_roll5) %>%
-#   unnest(c(data_trunc, SOC_N45, roll5, SOC_roll5)) %>%
-#   #filter(SOC_N45 != SOC_roll5) #%>%
-#   #filter(sim >= (115-6) & sim <= 125) #%>% #N45 more sensitive
-#   filter(sim >= (222-6) & sim <= 227) #roll5 more sensitive
+#roll5 more sensitive
+dat_SOC %>%
+  filter(lnalpha_1 == 1.5, sigma == 0.8, phi == 0, pct_MSY == 0.9, gamma == 1.3, rep == 2) %>%
+  select(scenario, rep, lnalpha_1, sigma, gamma, pct_MSY, sim, N, lb_goal, SOC_N445, roll5, SOC_roll5) %>%
+  filter(sim >= (134-5) & sim <= 150) %>%
+  ggplot(aes(x = as.character(sim), y = N, fill = SOC_N445)) +
+  geom_bar(stat = "identity", alpha = 0.5) +
+  geom_hline(aes(yintercept = lb_goal)) +
+  geom_line(aes(y = roll5, group = 1, color = as.numeric(SOC_roll5)), 
+            linewidth = 3, 
+            show.legend = FALSE) +
+  scale_color_gradient(low = col[1], high = col[2]) +
+  scale_fill_manual(values = col) +
+  labs(x = "Simulation Year", 
+       y = "Total Run", 
+       fill = "Stock of Concern?", 
+       title = paste0("ln(\u03B1)= ", 1.5, ", \u03C3= ", 0.8, ", \u03B3= ", 1.3, ", \u03A6= ", 0, ", %MSY= ", 90))

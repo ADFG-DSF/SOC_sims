@@ -11,8 +11,10 @@ lapply(packs, require, character.only = TRUE)
 function_files <- list.files(path=".\\functions")
 lapply(function_files, function(x) source(paste0(".\\functions\\", x)))
 
+col <- c("#00CC00", "red")
+
 #Created under the assumption SOC recommendations in SOC.qmd are adopted.
-# Work began after the MAY in person EGPIT meeting as we had a staff consensus and some concern 
+# Work began after the May in person EGPIT meeting as we had a staff consensus and some concern 
 # over limited progress on the chronic inability definition. 
 # --------------------------------------------------------------------------------------
 # Simulations -------
@@ -23,9 +25,11 @@ scenarios <-
               sigma = c(0.5, 0.8),
               phi = c(0, 0.4, 0.8),
               pct_MSY = c(0.5, 0.9),
-              pct_lb = c(0.5, 1), 
-              gamma = seq(1, 1.6, length.out = 3)) %>%
-  arrange(lnalpha_1, sigma, gamma, pct_MSY) %>%
+              gamma = seq(1, 1.6, length.out = 3),
+              age_mat = list(c('2' = 1), 
+                             c('3' = 0.05, '4' = 0.9, '5' = 0.05), 
+                             c('3' = 0.1, '4' = 0.38, '5' = 0.3, '6' = 0.2, '7' = 0.02))) %>%
+  arrange(lnalpha_1, sigma, phi, gamma, pct_MSY, age_mat) %>%
   mutate(scenario = 1:n(),
          power = lnalpha_1 / 2 - .2,
          Smax = 1/ beta,
@@ -49,39 +53,44 @@ scenarios <-
                        correct = FALSE,
                        sigma = sigma,
                        phi = phi)$minimum) %>%
-  mutate(lnalpha_2 = lb * pct_lb * beta,
+  mutate(lnalpha_2 = lb * beta,
          Rmax_2 = Ricker(lnalpha_2, beta, Smax),
          a_2 = gamma_par(Smax, Rmax_2, gamma)[[1]]) %>%
   select(-Smax, -Rmax, -Rmax_2) %>%
-  select(scenario, lnalpha_1, lnalpha_2, a_1, a_2, beta, b, gamma, sigma, phi, pct_MSY, pct_lb, lb, ub, power) %>%
+  select(scenario, lnalpha_1, lnalpha_2, a_1, a_2, beta, b, gamma, sigma, phi, pct_MSY, age_mat, lb, ub, power) %>%
   ungroup()
 
 #  * Scenarios table ------------------------------------------------------
-# for each scenario we have 50 replicate datasets and SR models
-# NEEDS TO BE UPDATED AFTER SCENARIOS FINALIZED #####
-scenarios %>% 
-  select(scenario, lnalpha_1, sigma, gamma, pct_MSY, pct_lb) %>%
-  arrange(lnalpha_1, sigma, gamma, pct_MSY, pct_lb) %>%
+# 324 scenarios
+scenarios %>%
+  mutate(age_mat_char = as.character(age_mat)) %>%
+  select(scenario, lnalpha_1, sigma, phi, gamma, pct_MSY, age_mat_char) %>%
+  arrange(lnalpha_1, sigma, phi, gamma, pct_MSY, age_mat_char) %>%
   flextable() %>%
   set_header_labels(
     scenario = "Scenario",
     lnalpha_1 = "ln(\u03b1)",
     sigma = "\u03c3",
+    phi = "\u03A6",
     gamma = "\u03b3",
     pct_MSY = "MSY % @ EG \n lower bound",
-    pct_lb = "regime 2 \n Seq / lb"
+    age_mat_char = "age-at-maturity"
   ) %>%
-  merge_v(j = c("lnalpha_1", "sigma", "gamma", "pct_MSY")) %>%
-  valign(j = c("lnalpha_1", "sigma", "gamma", "pct_MSY", "pct_lb"), valign = "top") %>%
+  merge_v(j = c("lnalpha_1", "sigma", "phi", "gamma", "pct_MSY")) %>%
+  valign(j = c("lnalpha_1", "sigma", "phi", "gamma", "pct_MSY", "age_mat_char"), valign = "top") %>%
+  align(j = "age_mat_char", align = "right") %>%
   autofit()
 
 
 #Simulate data and estimate parameters --------
+# 324 scenarios 
+# 100 reps
+# 230 years per scenario: 100 historic regime, 130 low regime (first x reps of low regime discarded)
 rep_scenarios <-
-  scenarios %>%
+  scenarios %>% 
   slice(rep(1:nrow(scenarios), each = 100)) %>%
   mutate(rep = rep(1:100, times = nrow(scenarios))) %>%
-  select(scenario, rep, lnalpha_1, lnalpha_2, a_1, a_2, beta, b, gamma, sigma, phi, pct_MSY, pct_lb, lb, ub, power) %>%
+  select(scenario, rep, lnalpha_1, lnalpha_2, a_1, a_2, beta, b, gamma, sigma, phi, pct_MSY, age_mat, lb, ub, power) %>%
   rowwise() %>%
   mutate(data = list(
     sim_SRgamma(c(rep(a_1, 100), rep(a_2, 130)),
@@ -89,7 +98,7 @@ rep_scenarios <-
                 gamma = gamma,
                 sigW = sigma,
                 phi = 0,
-                age0 = c('3' = 0.1, '4' = 0.38, '5' = 0.3, '6' = 0.2, '7' = 0.02),
+                age0 = age_mat,
                 Sims0 = 230,
                 Hfun = H_goal,
                 lb_goal = lb,
@@ -98,8 +107,131 @@ rep_scenarios <-
                 sigF = 0.2,
                 sigN = 0.2))) %>%
   ungroup()
-#saveRDS(rep_scenarios, ".//rep_scenarios_ChronicInability.rds")
-rep_scenarios <- readRDS(".//rep_scenarios_ChronicInability.rds")
+
+#saveRDS(rep_scenarios, ".//rep_scenarios_ChronicInability_age.rds")
+#rep_scenarios <- readRDS(".//rep_scenarios_ChronicInability_age.rds")
+
+# Because of the assumptions he have made some of our decompensatory scenarios go to extinction.
+# This shows how many fail to make it at least 40 reps into the low productivity regime
+# recall we discard the first x reps of the low productivity regime for burn in
+# All gamma = 1.6, more common when the lower bound is targeting 50% of Smsy.
+# Censor these. 
+bad_reps <- 
+  rep_scenarios %>% 
+  mutate(sim_y0 = map_dbl(data, function(x) max(x$sim)),
+         sim_y = ifelse(sim_y0 == -Inf, 0, sim_y0),
+         age_length = map_dbl(age_mat, function(x) length(x))) %>% #easiest way to tell which age at maturity was simulated.
+  select(scenario, rep, lnalpha_1, sigma, phi, gamma, pct_MSY, age_mat, sim_y, age_length) 
+
+# reps that didn't even survive the simulation break-in period
+# Note that each cell has a max value of 1800 in this table
+bad_reps %>% 
+  filter(sim_y == 0) %>% 
+  select(-scenario, -rep, -lnalpha_1, -phi, -age_mat) %>% 
+  table()
+
+# reps that didn't even survive into the low productivity regime
+bad_reps %>%
+  filter(sim_y <= 104) %>%
+  group_by(lnalpha_1, sigma, phi, gamma, pct_MSY, age_mat) %>%
+  summarise(n = length(lnalpha_1)) %>% 
+  print(n = 100)
+
+# Distribution of years simulated vrs # of age classes and gamma
+bad_reps %>%
+  ggplot(aes(x = sim_y)) +
+  geom_histogram() +
+  facet_grid(gamma ~ age_length)
+# Closer look at situations that did not make it 20 years into low productivity
+bad_reps %>%
+  filter(sim_y < 120) %>%
+  ggplot(aes(x = sim_y)) +
+  geom_histogram() +
+  facet_grid(gamma ~ age_length)
+# Closer look at the most appropriate cut-off vrs. # of age classes
+bad_reps %>%
+  filter(sim_y > 100, sim_y < 130) %>%
+  ggplot(aes(x = sim_y)) +
+  geom_histogram() +
+  facet_grid(gamma ~ age_length)
+bad_reps %>%
+  filter(sim_y > 100, sim_y < 130) %>% select(age_length, sim_y) %>%
+  table()
+
+# example time series of run sizes
+plot_ts <- 
+  rep_scenarios %>%
+  mutate(age_length = map_dbl(age_mat, function(x) length(x))) %>%
+  mutate(data_trunc = map(data, function(x) x[x$sim > 0, c("sim", "N", "lb_goal", "ub_goal")])) %>%
+  unnest(data_trunc) %>%
+  select(scenario:age_mat, power, age_length:ub_goal) %>%
+  filter(lnalpha_1 == 1.5, sigma == 0.5, phi == 0)
+plot_ts_mean <- 
+  plot_ts %>%
+  group_by(scenario, gamma, pct_MSY, age_length, sim) %>%
+  summarise(mean_N = mean(N))
+plot_ts_goal <- 
+  plot_ts %>% 
+  group_by(gamma, pct_MSY, age_length) %>% 
+  summarise(lb_goal = unique(lb_goal), 
+            ub_goal = unique(ub_goal))
+#Pinks
+plot_ts %>%
+  filter(age_length == 1) %>%
+  ggplot(aes(x = sim, y = N)) +
+  geom_line(aes(group = rep), color = "grey") +
+  geom_rect(data = plot_ts_goal[plot_ts_goal$age_length == 1, ], 
+            aes(xmin = 0, xmax = Inf, ymin = lb_goal, ymax = ub_goal), 
+            inherit.aes = FALSE, 
+            alpha = .2,) +
+  geom_line(data = plot_ts_mean[plot_ts_mean$age_length == 1, ], aes(y = mean_N)) +
+  coord_cartesian(ylim = c(0, 35000)) +
+  facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma)) +
+  theme_bw() +
+  labs(x = "Simulation Year", 
+       y = "Total Run", 
+       title = paste0("ln(\u03B1)= ", 1.5, 
+                      ", \u03C3= ", 0.5, 
+                      ", \u03A6= ", 0,
+                      ", p = ('2' = 1)"))
+#Concentrated age-at-maturity
+plot_ts %>%
+  filter(age_length == 3) %>%
+  ggplot(aes(x = sim, y = N)) +
+  geom_line(aes(group = rep), color = "grey") +
+  geom_rect(data = plot_ts_goal[plot_ts_goal$age_length == 3, ], 
+            aes(xmin = 0, xmax = Inf, ymin = lb_goal, ymax = ub_goal), 
+            inherit.aes = FALSE, 
+            alpha = .2,) +
+  geom_line(data = plot_ts_mean[plot_ts_mean$age_length == 3, ], aes(y = mean_N)) +
+  coord_cartesian(ylim = c(0, 35000)) +
+  facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma)) +
+  theme_bw() +
+  labs(x = "Simulation Year", 
+       y = "Total Run", 
+       title = paste0("ln(\u03B1)= ", 1.5, 
+                      ", \u03C3= ", 0.5, 
+                      ", \u03A6= ", 0,
+                      ", p = ('3' = 0.05, '4' = 0.9, '5' = 0.05)"))
+# "Healty age-at-maturity"
+plot_ts %>%
+  filter(age_length == 5) %>%
+  ggplot(aes(x = sim, y = N)) +
+  geom_line(aes(group = rep), color = "grey") +
+  geom_rect(data = plot_ts_goal[plot_ts_goal$age_length == 5, ], 
+            aes(xmin = 0, xmax = Inf, ymin = lb_goal, ymax = ub_goal), 
+            inherit.aes = FALSE, 
+            alpha = .2,) +
+  geom_line(data = plot_ts_mean[plot_ts_mean$age_length == 5, ], aes(y = mean_N)) +
+  coord_cartesian(ylim = c(0, 35000)) +
+  facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma)) +
+  theme_bw() +
+  labs(x = "Simulation Year", 
+       y = "Total Run", 
+       title = paste0("ln(\u03B1)= ", 1.5, 
+                      ", \u03C3= ", 0.5, 
+                      ", \u03A6= ", 0,
+                      ", p = ('3' = 0.1, '4' = 0.38, '5' = 0.3, '6' = 0.2, '7' = 0.02)"))
 
 # SOC listings ---------------------------------------------------------
 # function to calculate SOC status
@@ -109,7 +241,7 @@ rep_scenarios <- readRDS(".//rep_scenarios_ChronicInability.rds")
 # originally written to work inside a list-column although it seems to work in groups too.
 get_SOC2 <- function(x, misses_in, makes_out, window = 5){
   SOC <- character()
-  SOC[1:(window - 1)] <- NA
+  SOC[1:min(length(x), (window - 1))] <- NA
   from_noconcern <- function(x){
     if(sum(x, na.rm = TRUE) >= misses_in){"SOC"} else("No concern")
   }
@@ -124,6 +256,11 @@ get_SOC2 <- function(x, misses_in, makes_out, window = 5){
                        "SOC" = from_SOC(x[((i-1)-(window - 1)):(i-1)]))
     }
   }
+  if(length(x) < window){
+    for(i in length(x)){
+      SOC[i] <- NA
+    }
+  }
   out <- ifelse(SOC == "SOC", TRUE, ifelse(SOC == "No concern", FALSE, NA))
   
   return(out)
@@ -133,27 +270,66 @@ get_SOC2 <- function(x, misses_in, makes_out, window = 5){
 # N### naming convention is {misses_in}{makes_out}{window}
 dat_SOC <- 
   rep_scenarios %>%
-  filter(scenario != 64, rep != 17) %>%
-  filter(pct_lb == 1) %>%
-  mutate(data_trunc = map(data, function(x) x[x$sim > 30, c("sim", "N", "lb_goal")])) %>%
+  mutate(data_trunc = map(data, function(x) x[x$sim > 0, c("sim", "N", "lb_goal", "ub_goal")]),
+         age_length = map_dbl(age_mat, function(x) length(x))) %>%
   unnest(data_trunc) %>%
-  select(scenario:pct_lb, power, sim:lb_goal) %>%
-  filter(sim < 100 | sim >= 130) %>%
-  mutate(regime = ifelse(sim < 100, "Historic", ifelse(sim >= 130, "Low", NA))) %>%
-  group_by(scenario, regime, rep) %>%
+  select(scenario:age_mat, power, age_length, sim:ub_goal) %>%
+  mutate(regime = ifelse(sim <= 100, "Historic", ifelse(sim >= 101, "Low", NA))) %>%
+  rowwise() %>%
+  filter(!(sim %in% 101:(100 + age_length * 6))) %>%
+  group_by(scenario, rep) %>%
   mutate(
     roll5 = rollmean(N, k = 5, align = "right", fill = NA),
     SOC_roll5 = roll5 < lb_goal, #rolling mean to account for the size of the miss/make
-    mean_roll5 = mean(SOC_roll5, na.rm = TRUE),
     lb_N = N < lb_goal,
     SOC_N155 = get_SOC2(lb_N, 1, 5, 5), #most sensitive
-    mean_155 = mean(SOC_N155, na.rm = TRUE),
-    SOC_N445 = get_SOC2(lb_N, 4, 4, 5), #ADF&G most common?
-    mean_445 = mean(SOC_N445, na.rm = TRUE),
-    SOC_N515 = get_SOC2(lb_N, 5, 1, 5), #lease sensitive
-    mean_515 = mean(SOC_N515, na.rm = TRUE)) %>%
-  group_by(scenario, rep) 
+    SOC_N445 = get_SOC2(lb_N, 4, 4, 5), #ADF&G most common
+    SOC_N515 = get_SOC2(lb_N, 5, 1, 5)) %>% #least sensitive
+  group_by(scenario, regime, rep) %>%
+  mutate(
+    mean_roll5 = mean(SOC_roll5, na.rm = TRUE),
+    mean_N155 = mean(SOC_N155, na.rm = TRUE),
+    mean_N445 = mean(SOC_N445, na.rm = TRUE),
+    mean_N515 = mean(SOC_N515, na.rm = TRUE)) %>%
+  group_by(scenario, rep)
 
+
+# Time series of concern criteria ------------------------------------------------
+# Demonstrate how each criteria works
+# Change rep to view random variation 
+dat_SOC %>%
+  filter(lnalpha_1 == 1.5, sigma == 0.5, phi == 0, pct_MSY == 0.9, gamma == 1, age_length == 5, 
+         regime == "Low", 
+         rep == 25) %>%
+  select(scenario, rep, lnalpha_1, sigma, gamma, pct_MSY, sim, N, lb_goal, ub_goal, starts_with("SOC"), roll5) %>%
+  pivot_longer(starts_with("SOC"), 
+               names_to = "criteria", 
+               names_pattern =  "SOC_(.*)", 
+               values_to = "SOC") %>%
+  mutate(roll5 = ifelse(criteria == "roll5", roll5, NA)) %>%
+  filter(sim >= (161) & sim <= 213) %>%
+  arrange(criteria) %>% # WARNING: needed for the coloration of the roll 5 line to lean the bars 
+  ggplot(aes(x = as.character(sim), y = N, fill = SOC)) +
+  geom_bar(stat = "identity", alpha = 0.5) +
+  geom_hline(aes(yintercept = lb_goal)) + #geom_hline(aes(yintercept = ub_goal)) +
+  geom_line(aes(y = roll5, group = 1, color = as.numeric(lead(SOC))),
+            linewidth = 2,
+            show.legend = FALSE) +
+  scale_color_gradient(low = col[1], high = col[2]) +
+  scale_fill_manual(values = col) +
+  facet_grid(criteria ~ .) +
+  labs(x = "Simulation Year", 
+       y = "Total Run", 
+       fill = "Stock of Concern?", 
+       title = paste0("ln(\u03B1)= ", 1.5, 
+                      ", \u03C3= ", 0.5, 
+                      ", \u03B3= ", 1, 
+                      ", \u03A6= ", 0, 
+                      ", %MSY= ", 90,
+                      ", p = ('3' = 0.1, '4' = 0.38, '5' = 0.3, '6' = 0.2, '7' = 0.02)"))
+
+
+# SOC criteria power ------------------------------------------------------
 # demonstrate regime and SOC entry/exit criteria differences for one group of scenarios
 # Hypothesis test for 445
 # NULL: High productivity
@@ -163,52 +339,96 @@ dat_SOC <-
 #     gamma>1: Reject null occasionally in "safest" situation, beta > .75
 # Entry/Exit criteria: would need a very sensitive test to get high power w Ricker 
 dat_SOC %>%
-  filter(lnalpha_1 == 1.5, sigma == 0.5, phi == 0) %>%
-  pivot_longer(dplyr::starts_with("mean_"), names_to = "Chronic_I", values_to = "pct_SOC") %>%
+  filter(lnalpha_1 == 1.5, sigma == 0.5, age_length == 5) %>%
+  pivot_longer(dplyr::starts_with("mean_"), 
+               names_to = "Chronic_I",
+               names_pattern = "mean_(.*)",
+               values_to = "pct_SOC") %>%
   ggplot(aes(x = Chronic_I, y  = pct_SOC, color = regime)) + 
   geom_boxplot() +
-  guides(x =  guide_axis(angle = -20)) +
-  scale_color_discrete(name = "Regime (statistic)", 
-                     labels = c("Historic" = "Historic (\u03B1)", "Low" = "Low (\u03B2)")) +
-  labs(x = "Chronic Inability Criteria",
+  scale_color_discrete(name = "Regime", 
+                     labels = c("Historic" = "Historic", "Low" = "Low")) +
+  labs(title = paste0("ln(\u03B1): ", 1.5, 
+                      ", \u03C3: ", 0.5,
+                      ", p = ('3' = 0.1, '4' = 0.38, '5' = 0.3, '6' = 0.2, '7' = 0.02)"),
+       x = "Chronic Inability Criteria",
        y = "Probability") +
   facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma))
 
-####
-# Look for sensitivity wrt 445 and roll5 across SR parameter combinations
-# pct_MSY, phi and gamma
-# phi has little effect
-dat_SOC %>%
-  filter(regime == "Low", sigma == 0.5, lnalpha_1 == 1.5) %>%
-  pivot_longer(dplyr::starts_with("mean_"), names_to = "Chronic_I", values_to = "pct_SOC") %>%
-  filter(Chronic_I %in% c("mean_445", "mean_roll5")) %>%
-  ggplot(aes(x = Chronic_I, y  = pct_SOC, color = as.character(phi))) + 
-  geom_boxplot() +
-  labs(title = paste0("ln(\u03B1): ", 1.5, ", \u03C3: ", 0.5)) +
-  facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma))
 
-# Look for sensitivity wrt 445 and roll5
-# pct_MSY, lnalpha and gamma
+
+# Sensitivity -------------------------------------------------------------
+# Look for sensitivity wrt 445 and roll5 across SR parameter combinations
 # increasing lnalpha decreases sensitivity w depensatory dynamics
 dat_SOC %>%
-  filter(regime == "Low", phi == 0, sigma == 0.5) %>%
-  pivot_longer(dplyr::starts_with("mean_"), names_to = "Chronic_I", values_to = "pct_SOC") %>%
-  filter(Chronic_I %in% c("mean_445", "mean_roll5")) %>%
+  filter(regime == "Low", phi == 0, sigma == 0.5, age_length == 5) %>%
+  pivot_longer(dplyr::starts_with("mean_"), 
+               names_to = "Chronic_I", 
+               names_pattern = "mean_(.*)",
+               values_to = "pct_SOC") %>%
+  filter(Chronic_I %in% c("N445", "roll5")) %>%
   ggplot(aes(x = Chronic_I, y  = pct_SOC, color = as.character(lnalpha_1))) + 
   geom_boxplot() +
-  labs(title = paste0("%MSY: ", 0.9, ", \u03C3: ", 0.5)) +
+  labs(title = paste0("\u03C3: ", 0.5,
+                      ", phi: ", 0,
+                      ", p = ('3' = 0.1, '4' = 0.38, '5' = 0.3, '6' = 0.2, '7' = 0.02)"),
+       color = "Productivity: ln(\u03B1)",
+       x = "Chronic Inability Criteria",
+       y = "Probability") +
   facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma))
 
-# Look for sensitivity wrt 445 and roll5
-# pct_MSY, sigma and gamma
 # increased sigma decreases sensitivity
 dat_SOC %>%
-  filter(regime == "Low", phi == 0, lnalpha_1 == 1.5) %>%
-  pivot_longer(dplyr::starts_with("mean_"), names_to = "Chronic_I", values_to = "pct_SOC") %>%
-  filter(Chronic_I %in% c("mean_445", "mean_roll5")) %>%
+  filter(regime == "Low", phi == 0, lnalpha_1 == 1.5, age_length == 5) %>%
+  pivot_longer(dplyr::starts_with("mean_"), 
+               names_to = "Chronic_I", 
+               names_pattern = "mean_(.*)",
+               values_to = "pct_SOC") %>%
+  filter(Chronic_I %in% c("N445", "roll5")) %>%
   ggplot(aes(x = Chronic_I, y  = pct_SOC, color = as.character(sigma))) + 
   geom_boxplot() +
-  labs(title = paste0("phi: ", 0, ", ln(\u03B1): ", 1.5)) +
+  labs(title = paste0("ln(\u03B1): ", 1.5,
+                      ", phi: ", 0,
+                      ", p = ('3' = 0.1, '4' = 0.38, '5' = 0.3, '6' = 0.2, '7' = 0.02)"), 
+       color = "process error: \u03C3",
+       x = "Chronic Inability Criteria",
+       y = "Probability") +
+  facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma))
+
+# phi has little effect
+dat_SOC %>%
+  filter(regime == "Low", sigma == 0.5, lnalpha_1 == 1.5, age_length == 5) %>%
+  pivot_longer(dplyr::starts_with("mean_"), 
+               names_to = "Chronic_I", 
+               names_pattern = "mean_(.*)",
+               values_to = "pct_SOC") %>%
+  filter(Chronic_I %in% c("N445", "roll5")) %>%
+  ggplot(aes(x = Chronic_I, y  = pct_SOC, color = as.character(phi))) + 
+  geom_boxplot() +
+  labs(title = paste0("ln(\u03B1): ", 1.5, 
+                      ", \u03C3: ", 0.5,
+                      ", p = ('3' = 0.1, '4' = 0.38, '5' = 0.3, '6' = 0.2, '7' = 0.02)"),
+       color = "Autocorrelation: \u03A6",
+       x = "Chronic Inability Criteria",
+       y = "Probability") +
+  facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma))
+
+# age-at-maturity: less robust vectors more sensitive
+dat_SOC %>%
+  filter(regime == "Low", sigma == 0.5, phi == 0, lnalpha_1 == 1.5) %>%
+  pivot_longer(dplyr::starts_with("mean_"), 
+               names_to = "Chronic_I", 
+               names_pattern = "mean_(.*)",
+               values_to = "pct_SOC") %>%
+  filter(Chronic_I %in% c("N445", "roll5")) %>%
+  ggplot(aes(x = Chronic_I, y  = pct_SOC, color = as.character(age_mat))) + 
+  geom_boxplot() +
+  labs(title = paste0("ln(\u03B1): ", 1.5,
+                      ", \u03C3: ", 0.5,
+                      ", phi: ", 0), 
+       color = "age-at-maturity: p",
+       x = "Chronic Inability Criteria",
+       y = "Probability") +
   facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma))
 
 
@@ -216,75 +436,142 @@ dat_SOC %>%
 
 
 
+# Demonstrate differences between SOC 445 and SOC_roll5
+# My conclusion is that they are comparable
+# roll 5 may be better at targeting actual periods of low abundance...
+# but it is hard to manage to with SEG
 
-
-# Look for differences between SOC 445 and SOC_roll5
-# Have to manually enter the sim numbers in the last line
-# 1) Run lines 1-4 to find sim numbers were criteria differ
-# 2) comment out line 4 and either 5 or 6 to see why the criteria differ
-
-# when N45 more sensitive....
-# rolling mean provides the protection DCF was looking for. SOC designations do not occur when
-# several small misses are surrounded by 1 large make
-
-# when roll5 more sensitive....
-# it is pulled down by large misses surrounded by several close makes
+# when N445 more sensitive....
 dat_SOC %>%
-  filter(lnalpha_1 == 1.5, sigma == 0.5, phi == 0, pct_MSY == 0.9, gamma == 1, rep == 1) %>%
-  select(scenario, rep, lnalpha_1, sigma, gamma, pct_MSY, sim, N, lb_goal, SOC_N445, roll5, SOC_roll5) %>%
-  filter(SOC_N445 != SOC_roll5) %>% print(n = 100)
+  filter(lnalpha_1 == 1.5, sigma == 0.5, phi == 0, pct_MSY == 0.9, gamma == 1, rep == 3) %>%
+  select(scenario, rep, lnalpha_1, sigma, gamma, age_mat, pct_MSY, sim, N, lb_goal, SOC_N445, roll5, SOC_roll5) %>%
+  filter(SOC_N445 > SOC_roll5) %>% 
+  arrange(sim) %>%
+  print(n = 100)
  
-col <- c("#00CC00", "red")
-#N45 more sensitive
 dat_SOC %>%
-  filter(lnalpha_1 == 1.5, sigma == 0.5, phi == 0, pct_MSY == 0.9, gamma == 1, rep == 1) %>%
-  select(scenario, rep, lnalpha_1, sigma, gamma, pct_MSY, sim, N, lb_goal, SOC_N445, roll5, SOC_roll5) %>%
-  filter(sim >= (178-5) & sim <= 190) %>%
-  ggplot(aes(x = as.character(sim), y = N, fill = SOC_N445)) +
+  filter(lnalpha_1 == 1.5, sigma == 0.5, phi == 0, pct_MSY == 0.9, gamma == 1, rep == 3) %>%
+  select(scenario, rep, lnalpha_1, sigma, gamma, age_mat, pct_MSY, sim, N, 
+         lb_goal, ub_goal, starts_with("SOC"), roll5) %>%
+  pivot_longer(starts_with("SOC"), 
+               names_to = "criteria", 
+               names_pattern =  "SOC_(.*)", 
+               values_to = "SOC") %>%
+  mutate(roll5 = ifelse(criteria == "roll5", roll5, NA)) %>%
+  filter(sim >= 180 & sim <= 200, criteria %in% c("N445", "roll5")) %>%
+  arrange(criteria) %>% 
+  ggplot(aes(x = as.character(sim), y = N, fill = SOC)) +
   geom_bar(stat = "identity", alpha = 0.5) +
-  geom_hline(aes(yintercept = lb_goal)) +
-  geom_line(aes(y = roll5, group = 1, color = as.numeric(SOC_roll5)), 
+ annotate("rect", xmin = 0, xmax = Inf, ymin = 4000, ymax = 10000, alpha = .2) +
+  #geom_rect(aes(ymin = lb_goal, ymax = ub_goal, xmin = 0, xmax = Inf), fill = "lightgrey", alpha = 0.1) +
+  geom_line(aes(y = roll5, group = 1, color = as.numeric(lead(SOC))), 
             linewidth = 3, 
             show.legend = FALSE) +
   scale_color_gradient(low = col[1], high = col[2]) +
   scale_fill_manual(values = col) +
+  facet_grid(criteria ~ as.character(age_mat)) +
+  theme_bw() +
   labs(x = "Simulation Year", 
        y = "Total Run", 
        fill = "Stock of Concern?", 
        title = paste0("ln(\u03B1)= ", 1.5, ", \u03C3= ", 0.5, ", \u03B3= ", 1, ", \u03A6= ", 0, ", %MSY= ", 90))
 
-#roll5 more sensitive 
-dat_SOC %>%
-  filter(lnalpha_1 == 1.5, sigma == 0.5, phi == 0, pct_MSY == 0.9, gamma == 1, rep == 1) %>%
-  select(scenario, rep, lnalpha_1, sigma, gamma, pct_MSY, sim, N, lb_goal, SOC_N445, roll5, SOC_roll5) %>%
-  filter(sim >= (154-5) & sim <= 159) %>%
-  ggplot(aes(x = as.character(sim), y = N, fill = SOC_N445)) +
-  geom_bar(stat = "identity", alpha = 0.5) +
-  geom_hline(aes(yintercept = lb_goal)) +
-  geom_line(aes(y = roll5, group = 1, color = as.numeric(SOC_roll5)), 
-            linewidth = 3, 
-            show.legend = FALSE) +
-  scale_color_gradient(low = col[1], high = col[2]) +
-  scale_fill_manual(values = col) +
-  labs(x = "Simulation Year", 
-       y = "Total Run", 
-       fill = "Stock of Concern?", 
-       title = paste0("ln(\u03B1)= ", 1.5, ", \u03C3= ", 0.5, ", \u03B3= ", 1, ", \u03A6= ", 0, ", %MSY= ", 90))
-
-#roll5 more sensitive
-dat_SOC %>%
-  filter(lnalpha_1 == 1.5, sigma == 0.8, phi == 0, pct_MSY == 0.9, gamma == 1.3, rep == 2) %>%
-  select(scenario, rep, lnalpha_1, sigma, gamma, pct_MSY, sim, N, lb_goal, SOC_N445, roll5, SOC_roll5) %>%
-  filter(sim >= (134-5) & sim <= 150) %>%
-  ggplot(aes(x = as.character(sim), y = N, fill = SOC_N445)) +
-  geom_bar(stat = "identity", alpha = 0.5) +
-  geom_hline(aes(yintercept = lb_goal)) +
-  geom_line(aes(y = roll5, group = 1, color = as.numeric(SOC_roll5)), 
-            linewidth = 3, 
-            show.legend = FALSE) +
-  scale_color_gradient(low = col[1], high = col[2]) +
-  scale_fill_manual(values = col) +
-  labs(x = "Simulation Year", 
-       y = "Total Run", 
-       fill = "Stock of Concern?", 
-       title = paste0("ln(\u03B1)= ", 1.5, ", \u03C3= ", 0.8, ", \u03B3= ", 1.3, ", \u03A6= ", 0, ", %MSY= ", 90))
+# # when roll5 more sensitive....
+# dat_SOC %>%
+#   filter(lnalpha_1 == 1.5, sigma == 0.5, phi == 0.8, pct_MSY == 0.9, gamma == 1, rep == 1) %>%
+#   select(scenario, rep, lnalpha_1, sigma, gamma, pct_MSY, sim, N, lb_goal, SOC_N445, roll5, SOC_roll5) %>%
+#   filter(SOC_N445 < SOC_roll5) %>% print(n = 100)
+# 
+# #N45 more sensitive
+# dat_SOC %>%
+#   filter(lnalpha_1 == 1.5, sigma == 0.5, phi == .8, pct_MSY == 0.9, gamma == 1, rep == 1) %>%
+#   select(scenario, rep, lnalpha_1, sigma, gamma, pct_MSY, sim, N, 
+#          lb_goal, ub_goal, starts_with("SOC"), roll5) %>%
+#   pivot_longer(starts_with("SOC"), 
+#                names_to = "criteria", 
+#                names_pattern =  "SOC_(.*)", 
+#                values_to = "SOC") %>%
+#   mutate(roll5 = ifelse(criteria == "roll5", roll5, NA)) %>%
+#   filter(sim >= (224-5) & sim <= 230, criteria %in% c("N445", "roll5")) %>%
+#   arrange(criteria) %>% 
+#   ggplot(aes(x = as.character(sim), y = N, fill = SOC)) +
+#   geom_bar(stat = "identity", alpha = 0.5) +
+#   annotate("rect", xmin = 0, xmax = Inf, ymin = 3840, ymax = 10347, alpha = .2) +
+#   #geom_rect(aes(ymin = lb_goal, ymax = ub_goal, xmin = 0, xmax = Inf), fill = "lightgrey", alpha = 0.1) +
+#   geom_line(aes(y = roll5, group = 1, color = as.numeric(lead(SOC))), 
+#             linewidth = 3, 
+#             show.legend = FALSE) +
+#   scale_color_gradient(low = col[1], high = col[2]) +
+#   scale_fill_manual(values = col) +
+#   facet_grid(criteria ~ .) +
+#   theme_bw() +
+#   labs(x = "Simulation Year", 
+#        y = "Total Run", 
+#        fill = "Stock of Concern?", 
+#        title = paste0("ln(\u03B1)= ", 1.5, ", \u03C3= ", 0.5, ", \u03B3= ", 1, ", \u03A6= ", 0.8, ", %MSY= ", 90))
+# 
+# # confused result....
+# dat_SOC %>%
+#   filter(lnalpha_1 == 1.5, sigma == 0.8, phi == 0, pct_MSY == 0.9, gamma == 1.3, rep == 20) %>%
+#   select(scenario, rep, lnalpha_1, sigma, gamma, pct_MSY, age_mat, sim, N, lb_goal, SOC_N445, roll5, SOC_roll5) %>%
+#   filter(SOC_N445 < SOC_roll5) %>% print(n = 100)
+# 
+# dat_SOC %>%
+#   filter(lnalpha_1 == 1.5, sigma == 0.8, phi == 0, pct_MSY == 0.9, gamma == 1.3, rep == 20) %>%
+#   select(scenario, rep, lnalpha_1, sigma, gamma, pct_MSY, age_mat, sim, N, 
+#          lb_goal, ub_goal, starts_with("SOC"), roll5) %>%
+#   pivot_longer(starts_with("SOC"), 
+#                names_to = "criteria", 
+#                names_pattern =  "SOC_(.*)", 
+#                values_to = "SOC") %>%
+#   mutate(roll5 = ifelse(criteria == "roll5", roll5, NA)) %>%
+#   filter(sim >= (165-5) & sim <= 182, criteria %in% c("N445", "roll5")) %>%
+#   arrange(criteria) %>% 
+#   ggplot(aes(x = as.character(sim), y = N, fill = SOC)) +
+#   geom_bar(stat = "identity", alpha = 0.5) +
+#   annotate("rect", xmin = 0, xmax = Inf, ymin = 4000, ymax = 10000, alpha = .2) +
+#   #geom_rect(aes(ymin = lb_goal, ymax = ub_goal, xmin = 0, xmax = Inf), fill = "lightgrey", alpha = 0.1) +
+#   geom_line(aes(y = roll5, group = 1, color = as.numeric(lead(SOC))), 
+#             linewidth = 3, 
+#             show.legend = FALSE) +
+#   scale_color_gradient(low = col[1], high = col[2]) +
+#   scale_fill_manual(values = col) +
+#   facet_grid(criteria ~ as.character(age_mat)) +
+#   theme_bw() +
+#   labs(x = "Simulation Year", 
+#        y = "Total Run", 
+#        fill = "Stock of Concern?", 
+#        title = paste0("ln(\u03B1)= ", 1.5, ", \u03C3= ", 0.8, ", \u03B3= ", 1.3, ", \u03A6= ", 0, ", %MSY= ", 90))
+# 
+# 
+# # confused result....
+# dat_SOC %>%
+#   filter(lnalpha_1 == 1.5, sigma == 0.8, phi == 0, pct_MSY == 0.9, gamma == 1.6, rep == 3) %>%
+#   select(scenario, rep, lnalpha_1, sigma, gamma, pct_MSY, sim, N, lb_goal, SOC_N445, roll5, SOC_roll5) %>%
+#   filter(SOC_N445 != SOC_roll5) %>% print(n = 100)
+# dat_SOC %>%
+#   filter(lnalpha_1 == 1.5, sigma == 0.8, phi == 0, pct_MSY == 0.9, gamma == 1.6, rep == 3) %>%
+#   select(scenario, rep, lnalpha_1, sigma, gamma, pct_MSY, sim, N, 
+#          lb_goal, ub_goal, starts_with("SOC"), roll5) %>%
+#   pivot_longer(starts_with("SOC"), 
+#                names_to = "criteria", 
+#                names_pattern =  "SOC_(.*)", 
+#                values_to = "SOC") %>%
+#   mutate(roll5 = ifelse(criteria == "roll5", roll5, NA)) %>%
+#   filter(sim >= (135-5) & sim <= 156, criteria %in% c("N445", "roll5")) %>%
+#   arrange(criteria) %>% 
+#   ggplot(aes(x = as.character(sim), y = N, fill = SOC)) +
+#   geom_bar(stat = "identity", alpha = 0.5) +
+#   annotate("rect", xmin = 0, xmax = Inf, ymin = 4000, ymax = 10000, alpha = .2) +
+#   #geom_rect(aes(ymin = lb_goal, ymax = ub_goal, xmin = 0, xmax = Inf), fill = "lightgrey", alpha = 0.1) +
+#   geom_line(aes(y = roll5, group = 1, color = as.numeric(lead(SOC))), 
+#             linewidth = 3, 
+#             show.legend = FALSE) +
+#   scale_color_gradient(low = col[1], high = col[2]) +
+#   scale_fill_manual(values = col) +
+#   facet_grid(criteria ~ .) +
+#   theme_bw() +
+#   labs(x = "Simulation Year", 
+#        y = "Total Run", 
+#        fill = "Stock of Concern?", 
+#        title = paste0("ln(\u03B1)= ", 1.5, ", \u03C3= ", 0.8, ", \u03B3= ", 1.6, ", \u03A6= ", 0, ", %MSY= ", 90))

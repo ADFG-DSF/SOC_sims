@@ -5,6 +5,8 @@ format:
   html:
     embed-resources: true
 editor: visual
+toc: TRUE
+number-sections: true
 ---
 
 ```{r include = FALSE}
@@ -16,7 +18,9 @@ lapply(packs, require, character.only = TRUE)
 function_files <- list.files(path="..\\functions")
 lapply(function_files, function(x) source(paste0("..\\functions\\", x)))
 
-rep_scenarios <- readRDS("..//rep_scenarios_ChronicInability.rds")
+col <- c("#00CC00", "red")
+
+rep_scenarios <- readRDS("..//rep_scenarios_ChronicInability_age.rds")
 
 # SOC listings ---------------------------------------------------------
 # function to calculate SOC status
@@ -26,7 +30,7 @@ rep_scenarios <- readRDS("..//rep_scenarios_ChronicInability.rds")
 # originally written to work inside a list-column although it seems to work in groups too.
 get_SOC2 <- function(x, misses_in, makes_out, window = 5){
   SOC <- character()
-  SOC[1:(window - 1)] <- NA
+  SOC[1:min(length(x), (window - 1))] <- NA
   from_noconcern <- function(x){
     if(sum(x, na.rm = TRUE) >= misses_in){"SOC"} else("No concern")
   }
@@ -41,6 +45,11 @@ get_SOC2 <- function(x, misses_in, makes_out, window = 5){
                        "SOC" = from_SOC(x[((i-1)-(window - 1)):(i-1)]))
     }
   }
+  if(length(x) < window){
+    for(i in length(x)){
+      SOC[i] <- NA
+    }
+  }
   out <- ifelse(SOC == "SOC", TRUE, ifelse(SOC == "No concern", FALSE, NA))
   
   return(out)
@@ -50,39 +59,285 @@ get_SOC2 <- function(x, misses_in, makes_out, window = 5){
 # N### naming convention is {misses_in}{makes_out}{window}
 dat_SOC <- 
   rep_scenarios %>%
-  filter(scenario != 64, rep != 17) %>%
-  filter(pct_lb == 1) %>%
-  mutate(data_trunc = map(data, function(x) x[x$sim > 30, c("sim", "N", "lb_goal")])) %>%
+  mutate(data_trunc = map(data, function(x) x[x$sim > 0, c("sim", "N", "lb_goal", "ub_goal")]),
+         age_length = map_dbl(age_mat, function(x) length(x))) %>%
   unnest(data_trunc) %>%
-  select(scenario:pct_lb, power, sim:lb_goal) %>%
-  filter(sim < 100 | sim >= 130) %>%
-  mutate(regime = ifelse(sim < 100, "Historic", ifelse(sim >= 130, "Low", NA))) %>%
-  group_by(scenario, regime, rep) %>%
+  select(scenario:age_mat, power, age_length, sim:ub_goal) %>%
+  mutate(regime = ifelse(sim <= 100, "Historic", ifelse(sim >= 101, "Low", NA))) %>%
+  rowwise() %>%
+  filter(!(sim %in% 101:(100 + age_length * 6))) %>%
+  group_by(scenario, rep) %>%
   mutate(
     roll5 = rollmean(N, k = 5, align = "right", fill = NA),
     SOC_roll5 = roll5 < lb_goal, #rolling mean to account for the size of the miss/make
-    mean_roll5 = mean(SOC_roll5, na.rm = TRUE),
     lb_N = N < lb_goal,
     SOC_N155 = get_SOC2(lb_N, 1, 5, 5), #most sensitive
-    mean_155 = mean(SOC_N155, na.rm = TRUE),
-    SOC_N445 = get_SOC2(lb_N, 4, 4, 5), #ADF&G most common?
-    mean_445 = mean(SOC_N445, na.rm = TRUE),
-    SOC_N515 = get_SOC2(lb_N, 5, 1, 5), #lease sensitive
-    mean_515 = mean(SOC_N515, na.rm = TRUE)) %>%
+    SOC_N445 = get_SOC2(lb_N, 4, 4, 5), #ADF&G most common
+    SOC_N515 = get_SOC2(lb_N, 5, 1, 5)) %>% #least sensitive
+  group_by(scenario, regime, rep) %>%
+  mutate(
+    mean_roll5 = mean(SOC_roll5, na.rm = TRUE),
+    mean_N155 = mean(SOC_N155, na.rm = TRUE),
+    mean_N445 = mean(SOC_N445, na.rm = TRUE),
+    mean_N515 = mean(SOC_N515, na.rm = TRUE)) %>%
   group_by(scenario, rep)
 ```
 
-### Chronic Inability Hypothesis Test {#sec-soc-designations}
+# Introduction
 
-Having seen a time series of run sizes and escapements under each productivity regime lets take a look at the frequency of SOC designations under each regime (@fig-baseSeq). The results are generally similar to what one might predict... SOC designations are rare under historical productivity regimes and become the expectation under low productivity regimes. One way to interpret these results might be to consider them in light of a hypothesis test where $H_0= \textrm{stock productivity is at it's historic average}$. In that light the risk of a false negative (declaring a stock as a stock of concern when productivity is near it's historic average) is negligible while the power of the test (ability to detect low productivity when it occurs is \~$50$% or less. If this interpretation is deemed valid it suggests that recommending a SOC definition when the criteria has been satisfied in 4 of the last 5 years and recommending desisting when the criteria has not been met in 4 of the last 5 years is a weak indicator of an extreme reduction in stock productivity.
+Stock of concern (SOC) listing and de-listing criteria were identified by staff and leadership as an issue that should be considered during EGPIT's review of the Sustainable Salmon Fisheries Policy (SSFP). The SSFP provides guidance on SOC listing and de-listing criteria relative the the definition of *Chronic Inability*.
 
-My observation would be that ADF&G staff are in general reluctant to make SOC recommendations and these results suggest we might consider being less so. While this technique suggests a mechanism to test other interpretations of *chronic inability* (x of y years, y consecutive years, rolling mean escapement) as perhaps more powerful indicators of low contemporary productivity I though it was best to postpone that work until staff have an opportunity to weigh in.
+::: {.callout-note appearance="simple" icon="false"}
+### Chronic Inability
+
+Chronic Inability means the continuing or anticipated inability to meet escapement thresholds over a four to five year period, which is approximately the generation time of most salmon species.
+:::
+
+One issue identified with this guidance has been that it has resulted in the use of different criteria being used in different regions and/or divisions within the department. I general, ADF&G staff have use missing an escapement goal for 3, 4, or 5 of the last 5 years sufficiently chronic to recommend listing a stock as a stock of concern. De-listing criteria have also been standardized but I'll suggest the inverse of the listing criteria (making the escapement goal 3, 4, or 5 of the last 5 years while listed as a SOC) seems to be the default. In what follows I'll assume the most common criteria for Department staff is recommending a stock is listed as a SOC listing when it has missed it's escapement goal for 4 of the last 5 years and recommending a stock is de-listed as a SOC when it has made it's escapement goal for 4 of the past 5 years.
+
+Because the issue seemed to primarily revolve around implementation I have been approaching this issue as one that should be clarified in the staff guidance report as opposed to requiring a change in the policy itself. That said, it's important to note that the analysis presented herein assumes the EGPIT SOC recommendations are adopted. Most critical for this analysis is the recommendation that SOC listings be triggered by annual **run** sizes that miss the lower bound of a stock's escapement goal (rather than escapements). This change isolates biological issues from fishery management issues by focusing SOC listings on instances where there were insufficient fish available to make the lower bound of the stock's escapement goal. Reasonable people could disagree on whether run size should be explicitly called out in the definition of chronic inability but herein we leave that debate un-addressed.
+
+This analysis will attempt to provide ADF&G staff guidance on the most appropriate criteria to use to list and de-list a SOC. Because the analysis is predicated a simulation procedure which makes several assumptions about contemporary stock-recruit dynamics assumptions and environmental regimes an outline of the analysis will be presented before providing detail regarding each step below.
+
+-   Identify parameter ranges staff believe encompass most Alaska salmon stocks while assuming historic productivity and Ricker (non-depensatory) spawner-recruit dynamics.
+
+-   Calculate parameter ranges while assuming reasonable levels of depensatory spawner-recruit dynamics that results in similar population dynamic behavior over the range of spawning abundances we have historically observed.
+
+-   Identify fishery characteristics staff believe encompass most Alaska salmon fisheries.
+
+-   Assume a reduction in productivity is the "concern" SOC listings are attempting to identify and calculate low-productivity values for both non-depensatory and depensatory populations. Critically, this step makes non-depensatory populations sustainable while in low productivity and depensatory populations non-sustainable while in low productivity with the rate of decline related to the strength of depensation.
+
+-   Simulate a time series of run sizes for all combinations of stock and fishery parameters under both the historic and low productivity regimes.
+
+-   Identity criteria to assess *Chronic Inability*, apply those to run size time series during both historic and low productivity regimes and compare the performance of each criteria.
+
+# Methods
+
+## Simulation Framework
+
+The simulation framework for this project was designed to approximate the circumstances staff will face when evaluating SOC status. Firstly, we recognize the assumption of non-depensatory spawner-recruit dynamics currently used in salmon management. To ensure our simulation framework is robust to this initial condition we start by identifying a suite of Ricker (non-depensatory) spawner-recruit and fishery parameter combinations that span the range of values observed in Alaskan fisheries. We then developed depensatory dynamic equations which are similar, with respect to maximum recruitment and the spawning escapement associated with maximum recruitment, to the non-depensatory scenarios identified. This process allowed us to produce simulated datasets that match both our current assumptions (non-depensatory spawner-recruit dynamics) as well as the depensatory dynamics that are possible given the lack of empirical data which confirm these dynamics. Considering depensatory dynamics concurrently with non-depensatory dynamics is preferable because it is precautionary (see @sec-productivity-regimes below).
+
+The simulation model used for this exercise is described in @sec-sim_model.
+
+### Parameter Space for Salmon Populations
+
+In an effort to represent a wide variety of species and populations, simulations will be performed across a grid of spawner-recruit parameters. Non-depensatory dynamics are described by Ricker curves where the parameter space includes productivity $\textrm{log}(\alpha)$ of either $1$, $1.5$ and $2$, process error $\sigma$ of either $0.5$ or $0.8$ and autocorrelation $\phi$ of either $0$, $0.4$ or $0.8$ resulting in 18 different scenarios of non-depensatory spawner-recruit dynamics.
+
+In addition, we derived 2 depensatory scenarios ($\gamma = 1.3$ or $1.6$) from each non-depensatory scenario ($\gamma = 1$) while adjusting the values for $\textrm{log}(\alpha)$ and $\beta$ when $\gamma > 1$ such that $R_{max}$ and $S_{max}$ of the spawner-recruit relationship when $\gamma > 1$ is equal to the values of $R_{max}$ and $S_{max}$ when $\gamma = 1$. Thus, we considered 54 scenarios of depensatory and non-depensatory spawner-recruit dynamics. For simplicity, we use productivity ($\textrm{log}(\alpha) = 1$, $1.5$, or $2$) from the non-depensatory scenarios to refer to depensatory scenarios which share the same values of $R_{max}$ and $S_{max}$ even though the values of $\textrm{log}(\alpha)$ and $\beta$ used to generate the simulated datasets change for the depensatory cases.
+
+The last biological parameter we manipulated was the age-at-maturity of the fish stock. Three scenarios were considered: all fish maturing after 2 years; $5\%$ of the fish maturing after 3 years, $90\%$ maturing after 4 years and $5\%$ maturing after 5 years; and $10\%$ of the fish maturing after $3$ years, $38\%$ maturing after 4 years, $30\%$ maturing after 5 years , $20\%$ maturing after 6 years , and $2\%$ maturing after 7 years. Thus, we considered 162 total scenarios of spawner-recruit dynamics.
+
+Escapement goals for each stock were derived from the known non-depensatory spawner-recruit relationship associated with each level of productivity ($\textrm{log}(\alpha) = 1$, $1.5$, or $2$). This process mimics actual ADF&G fisheries management in that escapement goals have been set assuming non-depensatory spawner-recruit relationships and any empirical data we have collected have been relative to those goals. Two values were used for the percentage of MSY staff were targeting at the lower bound of the escapement goal: 50% representing an extremely aggressive fishery and 90% representing a conservative fishery. This resulted in a total of 324 scenarios of spawner-recruit dynamics and fishery characteristics. The general strategy was to simulate 100 replicate datasets for each of the 324 combinations of spawner-recruit parameters and fishery characteristics.
+
+Finally, all simulated datasets in this analysis shared the following parameters: compensatory density-dependence of $\beta=0.0001$, process $\sigma_F$ of 0.2, observation $\sigma_N$ error of 0.2, and assumed upper escapement goal bounds were selected to achieve 70% of MSY based on the non-depensatory spawner-recruit relationship. Fishing power was a function of the productivity of the population and set to $30\%$, $55\%$ and $80\%$ for stocks with non-depensatory productivity of $1$, $1.5$ and $2$ respectively.
+
+### Productivity Regimes {#sec-productivity-regimes}
+
+When a salmon stock consistently misses the lower bound of it's escapement goal in a well-managed fishery it is likely productivity has undergone a large decline. For this exercise we assumed the first 100 years of each simulated dataset occurred under the productivity assumptions described above while simulated data produced after year 100 was generated assuming sharply reduced productivity. For labeling and discussion purposes we will continue to describe parameter combinations based on historical productivity ($\textrm{log}(\alpha) = 1$, $1.5$, or $2$) and distinguish reduced productivity simulations with the words "low productivity".
+
+As above, we first describe the characteristics of low productivity regimes under the assumption of non-depensatory spawner recruit dynamics. Specifically, for non-depensatory simulations low productivity spawner-recruit pairs were simulated by holding the $\beta$ parameter constant and lowering productivity[^1] such that $\textrm{log}(\alpha^*)=\frac{lb}{\beta}$ where $lb$ is the lower bound of the escapement goal[^2]. The assumed spawner-recruit relationships for each productivity regime are shown in @fig-regime. Notice that under reduced productivity conditions there is little harvestable surplus when assuming non-depensatory spawner-recruit dynamics and the stock often fails to replace itself when assuming depensatory spawner-recruit dynamics. Thus stocks with depensatory dynamics are not self-sustaining under the low productivity assumptions presented here.
+
+[^1]: For the non-depensatory model, this adjustment moves the escapement associated with equilibrium abundance $S_{eq}$ to be equal to the lower bound of the escapement goal while leaving the escapement associated the maximum recruitment $S_{max}$ unchanged.
+
+[^2]: Recall that when $\gamma > 1$, $\alpha$ and $\beta$ are adjusted such that $S_{max}$ and $R_{max}$ are the same for the non-depensatory ($\gamma = 1$) and the depensatory ($\gamma > 1$) cases. When calculating stock parameters under low productivity the adjustment to $\textrm{log}(\alpha^*)$ in the non-depensatory case was made before calculating $\alpha$ and $\beta$ parameters which equate $S_{max}$ and $R_{max}$ for the depensatory and non-depensatory cases.
+
+```{r}
+#| echo: FALSE
+#| label: fig-regime
+#| fig.height: 6
+#| fig.width: 8
+#| fig.cap: "The assumed spawner-recruit relationships used in this simulation study. Each panel shows 3 spawner-recruit relationships for both the normal and low productivity regimes. The 18 relationships thus shown represent 1/18 of the total number of scenarios considered because variability associated with process error, autocorrelation and age-at-maturity manifest during data generation."
+pal <- scales::hue_pal()(7)
+rep_scenarios %>%
+  group_by(scenario) %>%
+  mutate(age_length = map_dbl(age_mat, function(x) length(x))) %>%
+  filter(rep == min(rep), sigma == 0.5, phi == 0, age_length == 5) %>%
+  ungroup() %>%
+  select(lnalpha_1, beta, pct_MSY, lb, ub, a_1, b, gamma, a_2) %>%
+  slice(rep(1:n(), each = 101)) %>% 
+  mutate(S = rep(seq(0, 2 * 1 / max(beta), length.out = 101), times = 18),
+         R = SRgamma(alpha = a_1, beta = b, gamma = gamma, S = S),
+         R_2 = SRgamma(alpha = a_2, beta = b, gamma = gamma, S = S)) %>%
+  ggplot(aes(x = S, y = R, color = as.character(gamma))) +
+    geom_rect(aes(xmin = lb, 
+                  xmax = ub, 
+                  ymin = -Inf, 
+                  ymax = Inf), 
+              fill = "grey95",
+              inherit.aes = FALSE) +
+    geom_line() +
+    geom_line(aes(y = R_2), linetype = 2) +
+    geom_abline() +
+    scale_y_continuous(name = "R") +
+    scale_color_manual(name = "Gamma (\u03B3)",
+                       labels = c("1 (Ricker)", "1.3", "1.6"),
+                       values = pal) +
+    theme_bw() +
+    facet_grid(paste0("ln(\u03B1): ", lnalpha_1) ~ paste0("%MSR @ lb: ", pct_MSY),
+               scales = "free_y")
+```
+
+For each simulated population a total of 230 years[^3] of spawner-recruit pairs were generated; 100 years during the historic productivity regime and up to 130 years under the low productivity regime. The first several[^4] spawner-recruit pairs from the low productivity regime in each simulated dataset were later discarded to allow the population to stabilize on a new equilibrium before evaluating the performance of chronic inability criteria during the low productivity regime. This procedure resulted in two time series of spawner-recruit pairs per scenario and replicate, one from each productivity regime.
+
+[^3]: Or until depensatory populations reached extinction.
+
+[^4]: 6 for age-at-maturity (2 = 100%), 18 for age-at-maturity: (3 = 5%, 4 = 90%, 5 = 5%) and 30 for age-at-maturity: (3 = 10%, 4 = 38%, 5 = 30%, 6 = 20%, 7 = 2%).
+
+## Chronic Inability Criteria {#sec-soc-designations}
+
+The time series of run sizes as described above allows us to test different criteria to evaluate *chronic inability* by looking at the frequency of SOC designations under different criteria. There were 2 broad categories of *chronic inability* criteria considered. The first set was consistent with traditional ADF&G usage where annual run sizes above and below the lower bound of the escapement goal were counted within a specified window to evaluate whether to list or de-list a stock as a stock of concern. In what follows the naming convention N### was used for this category of criteria where the first number is the number of times the annual run size needed to be below the lower bound of the escapement goal to list the stock as a stock of concern, the second number is the number of times the annual run size needed to be above the lower bound of the escapement goal to de-list the stock as a stock of concern, and the third number is the total number of years considered when making a SOC designation. The second category of chronic inability criteria was the use of a rolling average over the last x annual run sizes where the rolling average was compared to the lower bound of the escapement goal to decide whether to list or de-list a stock as a stock of concern. For this category the naming convention rollx was used. Rollx criteria are included to address a concerns that the binary nature of the N### criteria do not weight deviations above and below the lower bound of the escapement goal against each other and may resulting in inacurate SOC listings when small and large deviations between annula run sizes and the lower bound of the escapement goal are mixed.
+
+# Results
+
+Example run size time series are shown for 18 simulation scenarios in @fig-N. It is important to note that assumed stock-recruit and fishery parameters imply different population dynamics across values of $\gamma$ (depensatory dynamic strength) and the percent of MSY attainable at the lower bound of the escapement goal. While non-depensatory populations $\gamma = 1$ reach a stable equilibrium during the assumed level of low productivity, depensatory populations may lead to extinction during the assumed level of low productivity. This situation was intentional as it allows us to examine the sensitivity of chronic inability criteria across our current spawner-recruit dynamic assumptions (non-depensatory ) and alternative dynamics with harmful ramifications. Stocks appear to be most venerable when compensatory dynamics are strong, the fishery is operated aggressively and or when the stock matures in fewer age classes.
+
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+# example time series of run sizes
+plot_ts <- 
+  rep_scenarios %>%
+  mutate(age_length = map_dbl(age_mat, function(x) length(x))) %>%
+  mutate(data_trunc = map(data, function(x) x[x$sim > 0, c("sim", "N", "lb_goal", "ub_goal")])) %>%
+  unnest(data_trunc) %>%
+  select(scenario:age_mat, power, age_length:ub_goal) %>%
+  filter(lnalpha_1 == 1.5, sigma == 0.5, phi == 0)
+plot_ts_mean <- 
+  plot_ts %>%
+  group_by(scenario, gamma, pct_MSY, age_length, sim) %>%
+  summarise(mean_N = mean(N))
+plot_ts_goal <- 
+  plot_ts %>% 
+  group_by(gamma, pct_MSY, age_length) %>% 
+  summarise(lb_goal = unique(lb_goal), 
+            ub_goal = unique(ub_goal))
+#Pinks
+plot_ts1 <- plot_ts %>%
+  filter(age_length == 1) %>%
+  ggplot(aes(x = sim, y = N)) +
+  geom_line(aes(group = rep), color = "grey") +
+  geom_rect(data = plot_ts_goal[plot_ts_goal$age_length == 1, ], 
+            aes(xmin = 0, xmax = Inf, ymin = lb_goal, ymax = ub_goal), 
+            inherit.aes = FALSE, 
+            alpha = .2,) +
+  geom_line(data = plot_ts_mean[plot_ts_mean$age_length == 1, ], aes(y = mean_N)) +
+  coord_cartesian(ylim = c(0, 35000)) +
+  facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma)) +
+  theme_bw() +
+  labs(x = "Simulation Year", 
+       y = "Total Run", 
+       title = paste0("ln(\u03B1)= ", 1.5, 
+                      ", \u03C3= ", 0.5, 
+                      ", \u03A6= ", 0,
+                      ", p = ('2' = 1)"))
+#Concentrated age-at-maturity
+plot_ts3 <- plot_ts %>%
+  filter(age_length == 3) %>%
+  ggplot(aes(x = sim, y = N)) +
+  geom_line(aes(group = rep), color = "grey") +
+  geom_rect(data = plot_ts_goal[plot_ts_goal$age_length == 3, ], 
+            aes(xmin = 0, xmax = Inf, ymin = lb_goal, ymax = ub_goal), 
+            inherit.aes = FALSE, 
+            alpha = .2,) +
+  geom_line(data = plot_ts_mean[plot_ts_mean$age_length == 3, ], aes(y = mean_N)) +
+  coord_cartesian(ylim = c(0, 35000)) +
+  facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma)) +
+  theme_bw() +
+  labs(x = "Simulation Year", 
+       y = "Total Run", 
+       title = paste0("ln(\u03B1)= ", 1.5, 
+                      ", \u03C3= ", 0.5, 
+                      ", \u03A6= ", 0,
+                      ", p = ('3' = 0.05, '4' = 0.9, '5' = 0.05)"))
+# "Healty age-at-maturity"
+plot_ts5 <- plot_ts %>%
+  filter(age_length == 5) %>%
+  ggplot(aes(x = sim, y = N)) +
+  geom_line(aes(group = rep), color = "grey") +
+  geom_rect(data = plot_ts_goal[plot_ts_goal$age_length == 5, ], 
+            aes(xmin = 0, xmax = Inf, ymin = lb_goal, ymax = ub_goal), 
+            inherit.aes = FALSE, 
+            alpha = .2,) +
+  geom_line(data = plot_ts_mean[plot_ts_mean$age_length == 5, ], aes(y = mean_N)) +
+  coord_cartesian(ylim = c(0, 35000)) +
+  facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma)) +
+  theme_bw() +
+  labs(x = "Simulation Year", 
+       y = "Total Run", 
+       title = paste0("ln(\u03B1)= ", 1.5, 
+                      ", \u03C3= ", 0.5, 
+                      ", \u03A6= ", 0,
+                      ", p = ('3' = 0.1, '4' = 0.38, '5' = 0.3, '6' = 0.2, '7' = 0.02)"))
+```
+
+```{r, echo = FALSE, warning = FALSE}
+#| label: fig-N
+#| fig.height: 6
+#| fig.width: 10
+#| fig.cap: "Time series of annual run sizes for 3 levels of depensation, two fishery (MSY) objectives at the lower bound of the escapement goal and 3 age-at-maturity vectors. Grey jagged lines are annual run sizes for each replicate simulated dataset while the black line is the mean run size during each simulate year. The horizontal grey box represents the escapement goal for each fishery."
+#| layout-nrow: 3
+#| fig-subcap: 
+#|   - "age-at-maturity: (2 = 100%)"
+#|   - "age-at-maturity: (3 = 5%, 4 = 90%, 5 = 5%)"
+#|   - "age-at-maturity: (3 = 10%, 4 = 38%, 5 = 30%, 6 = 20%, 7 = 2%)"
+plot_ts1
+plot_ts3
+plot_ts5
+```
+
+Four chronic inability criteria are applied to a time series of simulated data in @fig-criteria to give an idea of how each criteria functions. Criteria N445 is intended to closely approximate current department usage[^5] while criteria N155 and N515 are included to demonstrate the behavior of the most and least sensitive, respectively, criteria within the same category. The roll5 criteria is included to demonstrate the behavior of the alternative category of chronic inability criteria. The roll5 criteria seems to perform similarly to the N445 criteria although it is more response (quicker to indicate both listing and delisting a stock). The roll5 criteria can also lead to rapid osculations between listing and delisting indications in some situations.
+
+[^5]: Understanding the change to using annual run sizes rather than annual escapements.
+
+```{r echo = FALSE, warning = FALSE}
+#| label: fig-criteria
+#| fig.height: 6
+#| fig.width: 10
+#| fig.cap: "Time series of annual run sizes and SOC status relative to 4 criteria for evaluating chronic inability. Each panel shows a different criteria for evaluating chronic inability. The naming convention Nxyz represents how many times the annual run size has to be below the lower bound of the escapement goal to be listed as a SOC (x), how many times annual run size has to be above the lower bound of the escapement goal to be de-listed as a SOC (y), and the number of years considered while making the determination (z). The naming convention roll5 represents a 5-year rolling average of total run size (green and red line). Annual run sizes are shown as the height of the bars and the SOC status during that year is indicated with the fill color of each bar. Bar heights can be compared to the horizontal black line which represents the lower bound of the escapement goal. Note that the upper bound of the escapement goal for this scenario was 10,000 fish"
+
+#demonstrate how each criteria works
+dat_SOC %>%
+  filter(lnalpha_1 == 1.5, sigma == 0.5, phi == 0, pct_MSY == 0.9, gamma == 1, age_length == 5, 
+         regime == "Low", 
+         rep == 25) %>%
+  select(scenario, rep, lnalpha_1, sigma, gamma, pct_MSY, sim, N, lb_goal, ub_goal, starts_with("SOC"), roll5) %>%
+  pivot_longer(starts_with("SOC"), 
+               names_to = "criteria", 
+               names_pattern =  "SOC_(.*)", 
+               values_to = "SOC") %>%
+  mutate(roll5 = ifelse(criteria == "roll5", roll5, NA)) %>%
+  filter(sim >= (161) & sim <= 213) %>%
+  arrange(criteria) %>% # WARNING: needed for the coloration of the roll 5 line to lean the bars 
+  ggplot(aes(x = as.character(sim), y = N, fill = SOC)) +
+  geom_bar(stat = "identity", alpha = 0.5) +
+  geom_hline(aes(yintercept = lb_goal)) + #geom_hline(aes(yintercept = ub_goal)) +
+  geom_line(aes(y = roll5, group = 1, color = as.numeric(lead(SOC))),
+            linewidth = 2,
+            show.legend = FALSE) +
+  scale_color_gradient(low = col[1], high = col[2]) +
+  scale_fill_manual(values = col) +
+  facet_grid(criteria ~ .) +
+  scale_x_discrete(breaks = seq(165, 210, 5)) +
+  labs(x = "Simulation Year", 
+       y = "Total Run", 
+       fill = "Stock of Concern?", 
+       title = paste0("ln(\u03B1)= ", 1.5, 
+                      ", \u03C3= ", 0.5, 
+                      ", \u03B3= ", 1, 
+                      ", \u03A6= ", 0, 
+                      ", %MSY= ", 90,
+                      ", p = ('3' = 0.1, '4' = 0.38, '5' = 0.3, '6' = 0.2, '7' = 0.02)"))
+```
+
+The ideal criteria to use while evaluating chronic inability would never be triggered if the stock-recruit data was generated during a high productivity regime and would always be triggered if the stock-recruit data was generated from a low productivity regime. @fig-Ha shows that while all of the chronic inability criteria considered were negligibly triggered by data from the high productivity regime most also were also triggered less than half of the time by data from the low productivity regime when non-depensatory spawner-recruit dynamics are assumed. This includes the N445 criteria which triggers on stock-recruit data from the low productivity regime only \~37% of the time is non-depensatory spawner-recruit dynamics are assumed. While that seems poor, note that data generated by depensatory spawner-recruit relationships trigger much more often. Because depensatory dynamics are associated with harmful outcomes this behavior is desirable.
+
+Interpretation of this result should be considered by multiple ADF&G staff but at a minimum I'd suggest it implies that all of these criteria are not a particularly powerful indicator of reduced productivity regimes and when the any criteria indicates a stock should be listed as a SOC the department would be wise to do so with little hesitation.
+
+The N445 criteria and the roll5 criteria are very similar overall. Careful examination of the performance of the two criteria indicates that when they differ roll5 may be slightly better at triggering during low abundance periods (@fig-criteria) within low-productivity regimes. That said the rolling average criteria require run size estimates and will be problematic with stocks where run size cannot be estimated. The same stocks present similar difficulties for the N445 criteria but since the counting criteria only require ordinal data the information will be easier for ADF&G staff to approximate.
 
 ```{r echo = FALSE, warning = FALSE}
 #| label: fig-Ha
 #| fig.height: 6
 #| fig.width: 10
-#| fig.cap: "Percent of simulated years classified as a stock of concern relative to the productivity regime assumed for several chronic inability criteria. One can imagine these results as a scientific hypotheses test where the null hypotheses is that the stock recruit data was generated during the historic productivity regime. Then the median values for the historic and low productivity regimes represent the probability of Type I and Type II errors, respectively."
+#| fig.cap: "Percent of simulated years classified as a stock of concern relative to the productivity regime assumed for several chronic inability criteria. One can imagine these results as a scientific hypotheses test where the null hypotheses is that the stock-recruit data was generated during the historic productivity regime. Then the median values for the historic productivity regime represents the Type I error rate (false positive) while the median values for the low productivity regime represents the power of the test."
 
 
 # demonstrate regime and SOC entry/exit criteria differences for one group of scenarios
@@ -90,34 +345,174 @@ My observation would be that ADF&G staff are in general reluctant to make SOC re
 # NULL: High productivity
 # false positives (Look at Historic regime): non-existent, i.e. alpha = 0
 # false negatives  (Look at Low regime): 
-#     gamma=1: Fail to reject Null often, beta ~ .35,  
-#     gamma>1: Reject null occasionally in "safest" situation, beta > .75
+#     gamma=1: Fail to reject Null often, beta ~ .65,  
+#     gamma>1: Reject null occasionally in "safest" situation, beta < .25
 # Entry/Exit criteria: would need a very sensitive test to get high power w Ricker 
 dat_SOC %>%
-  filter(lnalpha_1 == 1.5, sigma == 0.5, phi == 0) %>%
-  pivot_longer(dplyr::starts_with("mean_"), names_to = "Chronic_I", values_to = "pct_SOC") %>%
+  filter(lnalpha_1 == 1.5, sigma == 0.5, age_length == 5) %>%
+  pivot_longer(dplyr::starts_with("mean_"), 
+               names_to = "Chronic_I",
+               names_pattern = "mean_(.*)",
+               values_to = "pct_SOC") %>%
   ggplot(aes(x = Chronic_I, y  = pct_SOC, color = regime)) + 
   geom_boxplot() +
-  guides(x =  guide_axis(angle = -20)) +
-  scale_color_discrete(name = "Regime (statistic)", 
-                     labels = c("Historic" = "Historic (\u03B1)", "Low" = "Low (\u03B2)")) +
-  labs(x = "Chronic Inability Criteria",
+  scale_color_discrete(name = "Regime", 
+                     labels = c("Historic" = "Historic", "Low" = "Low")) +
+  labs(title = paste0("ln(\u03B1): ", 1.5, 
+                      ", \u03C3: ", 0.5,
+                      ", p = ('3' = 0.1, '4' = 0.38, '5' = 0.3, '6' = 0.2, '7' = 0.02)"),
+       x = "Chronic Inability Criteria",
        y = "Probability") +
   facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma))
 ```
 
-### Rebuilding
+Note that @fig-Ha shows probabilities for a subset of the spawner-recruit parameters considered. @fig-sensitivity shows the sensitivity of our results to variations in productivity $ln(\alpha)$, process error $\sigma$, auto-correlation $\phi$ and age-at-maturity. I haven't given myself time to thoroughly consider all of the information but in general @fig-sensitivity appears to confirm the patterns seen in @fig-Ha. The top right hand corner of both figures should be taken with a grain of salt as simulations quickly when to extinction in that scenario which meant there was no stable time series to use to demonstrate the behavior of SOC criteria.
 
-```{r include = FALSE}
+```{r  echo = FALSE, warning = FALSE}
+# Look for sensitivity wrt 445 and roll5
+# pct_MSY, lnalpha and gamma
+# increasing lnalpha decreases sensitivity w depensatory dynamics
+lnalpha <-
+  dat_SOC %>%
+  filter(regime == "Low", phi == 0, sigma == 0.5, age_length == 5) %>%
+  pivot_longer(dplyr::starts_with("mean_"), 
+               names_to = "Chronic_I", 
+               names_pattern = "mean_(.*)",
+               values_to = "pct_SOC") %>%
+  filter(Chronic_I %in% c("N445", "roll5")) %>%
+  ggplot(aes(x = Chronic_I, y  = pct_SOC, color = as.character(lnalpha_1))) + 
+  geom_boxplot() +
+  labs(title = paste0("\u03C3: ", 0.5,
+                      ", phi: ", 0,
+                      ", p = ('3' = 0.1, '4' = 0.38, '5' = 0.3, '6' = 0.2, '7' = 0.02)"),
+       color = "Productivity: ln(\u03B1)",
+       x = "Chronic Inability Criteria",
+       y = "Probability") +
+  facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma))
+
+# Look for sensitivity wrt 445 and roll5
+# pct_MSY, sigma and gamma
+# increased sigma decreases sensitivity
+sigma <- 
+  dat_SOC %>%
+  filter(regime == "Low", phi == 0, lnalpha_1 == 1.5, age_length == 5) %>%
+  pivot_longer(dplyr::starts_with("mean_"), 
+               names_to = "Chronic_I", 
+               names_pattern = "mean_(.*)",
+               values_to = "pct_SOC") %>%
+  filter(Chronic_I %in% c("N445", "roll5")) %>%
+  ggplot(aes(x = Chronic_I, y  = pct_SOC, color = as.character(sigma))) + 
+  geom_boxplot() +
+  labs(title = paste0("ln(\u03B1): ", 1.5,
+                      ", phi: ", 0,
+                      ", p = ('3' = 0.1, '4' = 0.38, '5' = 0.3, '6' = 0.2, '7' = 0.02)"), 
+       color = "process error: \u03C3",
+       x = "Chronic Inability Criteria",
+       y = "Probability") +
+  facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma))
+
 # Look for sensitivity wrt 445 and roll5 across SR parameter combinations
 # pct_MSY, phi and gamma
 # phi has little effect
-dat_SOC %>%
-  filter(regime == "Low", sigma == 0.5, lnalpha_1 == 1.5) %>%
-  pivot_longer(dplyr::starts_with("mean_"), names_to = "Chronic_I", values_to = "pct_SOC") %>%
-  filter(Chronic_I %in% c("mean_445", "mean_roll5")) %>%
+phi <- 
+  dat_SOC %>%
+  filter(regime == "Low", sigma == 0.5, lnalpha_1 == 1.5, age_length == 5) %>%
+  pivot_longer(dplyr::starts_with("mean_"), 
+               names_to = "Chronic_I", 
+               names_pattern = "mean_(.*)",
+               values_to = "pct_SOC") %>%
+  filter(Chronic_I %in% c("N445", "roll5")) %>%
   ggplot(aes(x = Chronic_I, y  = pct_SOC, color = as.character(phi))) + 
   geom_boxplot() +
-  labs(title = paste0("ln(\u03B1): ", 1.5, ", \u03C3: ", 0.5)) +
+  labs(title = paste0("ln(\u03B1): ", 1.5, 
+                      ", \u03C3: ", 0.5,
+                      ", p = ('3' = 0.1, '4' = 0.38, '5' = 0.3, '6' = 0.2, '7' = 0.02)"),
+       color = "Autocorrelation: \u03A6",
+       x = "Chronic Inability Criteria",
+       y = "Probability") +
+  facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma))
+
+# age-at-maturity: less robust vectors more sensitive
+age <- 
+  dat_SOC %>%
+  filter(regime == "Low", sigma == 0.5, phi == 0, lnalpha_1 == 1.5) %>%
+  pivot_longer(dplyr::starts_with("mean_"), 
+               names_to = "Chronic_I", 
+               names_pattern = "mean_(.*)",
+               values_to = "pct_SOC") %>%
+  filter(Chronic_I %in% c("N445", "roll5")) %>%
+  ggplot(aes(x = Chronic_I, y  = pct_SOC, color = as.character(age_mat))) + 
+  geom_boxplot() +
+  labs(title = paste0("ln(\u03B1): ", 1.5,
+                      ", \u03C3: ", 0.5,
+                      ", phi: ", 0), 
+       color = "age-at-maturity: p",
+       x = "Chronic Inability Criteria",
+       y = "Probability") +
   facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma))
 ```
+
+```{r, echo = FALSE, warning = FALSE}
+#| label: fig-sensitivity
+#| fig.height: 6
+#| fig.width: 10
+#| fig.cap: "Sensitivity of the N445 and roll5 chronic inability criteria to variation in assumed productivity (ln(\u03B1)), process error (\u03C3), autocorrelation (\u03A6), and age-at-maturity (p). The probabilities shown represent only simulated data generated under low productivity assumptions."
+#| layout-nrow: 4
+#| fig-subcap: 
+#|   - "Productivity (ln(\u03B1))"
+#|   - "Process error (\u03C3)"
+#|   - "Autocorrelation (\u03A6)"
+#|   - "Age-at-maturity (p)"
+lnalpha
+sigma
+phi
+age
+```
+
+# Appendix A: Simulation Model {#sec-sim_model}
+
+Abundance of salmon is generated by a S-R relationship that describes the number of fish expected to return (the "recruitment") from a given number of spawning fish (the "escapement"). The total expected recruitment $R_{c}$ produced from fish spawning in brood year $c$ follows the gamma formulation:
+
+$$ R_{c}~=~\alpha_c S_{c}^\gamma e^{-\beta S_{c}} $$
+
+where $S_{c}$ is the number of spawners, $\alpha_c$ is a measure of productivity, $\beta$ is a measure of compensatory density dependence, $\gamma$ is a measure of depensatory density dependence.
+
+However, productivity varies among brood years, fluctuating around a central tendency. Time-varying productivity often manifests as serially correlated model residuals, so a lognormal error term with a lag of 1 year was included in the linearized form of the S-R relationship to represent realized recruitment.
+
+$$ \textrm{ln}(R_{c})~=~\textrm{ln}(\alpha)+\gamma\textrm{ln}(S_{c})-\beta S_{c} +\phi \nu_{(c-1)}+\epsilon_{W} $$
+
+where $\phi$ is the lag-1 serial correlation coefficient, $\nu_{c}$ are model residuals defined as
+
+$$ \nu_{c}~=~\textrm{ln}(R_{c})-\textrm{ln}(\alpha)-\gamma\textrm{ln}(S_{c})+\beta S_{c} $$
+
+and the $\epsilon_{W}$ are independently and normally distributed process errors with "white noise" variance $\sigma^2_{W}$.
+
+Age at maturity ($p_{ca}$), is needed to distribute recruitment across calendar years and is treated as a constant within each brood year. The abundance $N_{ya}$ of age $a$ salmon in calendar year $y$ is the product of the age at maturity scalar and the total return (recruitment) $R_{c}$ for from brood year $c=y−a$:
+
+$$ N_{ya}~=~p_{(y-a)a}R_{(y-a)} $$
+
+Total run $N_{y}$ during calendar year $y$ is the sum of abundance at age across all ages:
+
+$$ N_{y}~=~\sum_{a} N_{ya} $$
+
+Instantaneous fishing mortality $F_y$ is a function of the annual harvest rate $U_y$ and used to calculate escapement $S_y$:
+
+$$ S_{y}~=~N_ye^{-F_y} $$
+
+Where $$F_{y}=-\textrm{log}(1-U_y)\textrm{exp}(\epsilon_F)$$ with $\epsilon_{F}~\sim~\textrm{Normal}(0, \sigma^2_{F})$.
+
+The harvest process used in these simulations mimics standard ADF&G fisheries management, i.e. managers target a harvest rate that will result in an escapement between the lower and upper bounds of the escapement goal range. The annual harvest rate $U_{y}$, was modeled as a function of the projected total run $N_{y}^{proj.}$, both bounds of the escapement goal $lb$ and $ub$, and the power of the fishery:
+
+$$ U_{y}~=~\textrm{f}(N_y^{proj.},~lb,~ub,~power) $$
+
+Where $N_y^{proj.}=N_y \textrm{exp}(\epsilon_N)$ with $\epsilon_{N}~\sim~\textrm{Normal}(0, \sigma^2_{N})$. To determine annual harvest rates the following algorithm was used:
+
+$$ U_y^{goal} = \textrm{minimum}(\textrm{Uniform}(U_{ub}, U_{lb}),~power) $$
+
+where
+
+$$ U_{lb} = \textrm{if}(N_Y^{proj.} > lb)~\frac{N_y^{proj.} - lb}{N_y^{proj.}}~\textrm{else}~0 $$
+
+$$ U_{ub} = \textrm{if}(N_Y^{proj.} > ub)~\frac{N_y^{proj.} - ub}{N_y^{proj.}}~\textrm{else}~0 $$
+
+and $power$ represent the maximum harvest rate the fishery is capable of producing. The lower bound of the escapement goal was varied across simulations but was set as the escapement that predicted a mean return which produced x% of MSY while the upper bound was was the escapement that predicted a mean return which produced 70% of MSY using historical productivity values and assuming non-depensatory dynamics.

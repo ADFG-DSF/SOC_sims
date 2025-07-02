@@ -43,98 +43,6 @@ get_bounds <- function(S, lnalpha, beta, pct_MSY, correct = FALSE, ...){
 
 #Simulate salmon population dynamics with age-at-maturity and management strategy inputs.
 #Arguments:
-#   lnalpha, beta: Ricker SR parameters
-#   sigW: process error standard deviation on the log scale
-#   phi: autocorrelation parameter
-#   age0: a named vector where the names are numeric total age formatted as a characters(e,g, '3'), and the vector values are proportional age-at-maturity
-#   Sims0: number of simulations to run
-#   sigN: estimation error
-#   sigF: management error
-#   Hfun: a function which provides an annual harvest rate based on the management strategy simulated by the function. 
-sim_Ricker <- function(lnalpha, beta, sigW, phi, age0, Sims0, sigN = 0, sigF = 0, Hfun, ...){
-  Sims = Sims0 + 100
-  
-  #format age-at-maturity input and draw indexing values
-  A <- length(age0)
-  a.min <- as.numeric(names(age0)[1])
-  a.max <- a.min + A - 1
-  age <- if(is.vector(age0)){matrix(age0, Sims + A + a.min + 1, A, byrow = TRUE)} else {age0}
-  # Ricker parameters
-  lnalpha_vec <- if(length(lnalpha) == 1){rep(lnalpha, Sims + A + a.min)}else(c(rep(lnalpha[1], Sims - length(lnalpha) + A + a.min), lnalpha))
-  Seq <- mean(lnalpha_vec) / beta
-  
-  # initial values
-  R <- E1R <- E2R <- whiteresid <- lnalpha.y <- rep(NA, Sims + A + a.min + 1)
-  redresid <- rep(0, Sims + A + a.min + 1)
-  N_age <- matrix(NA, Sims + A + a.min + a.max + 1, A)
-  for (c in 1:(A + a.min)) { 
-    R[c] <- Seq
-    for (a in 1:A) {
-      N_age[c + a.max - (a - 1), (A + 1 - a)] <- age[c, (A + 1 - a)] * R[c]
-    }
-  }
-  
-  S <- N <- N_hat <- epsF <- U <- Ft <- H <- Rhat <- lnRhatShat <- fittedR <- cc <- mc <- yc <- SOC <- vec_lb_manage <- vec_ub_manage <- vec_lb_goal <- vec_ub_goal <- rep(NA, Sims + A + a.min + 1)
-  
-  # recursive portion...
-  for (c in (A + a.min):(Sims + A + a.min)) {
-    
-    epsF[c] <- rnorm(1, 0, sigF)
-    N[c] <- sum(N_age[c, ])
-    N_hat[c] <- N[c]*rlnorm(1, sdlog = sigN)
-    temp_U <- Hfun(N_sim = N_hat[c], SOC_sim = SOC[c - 1], ...)
-    U[c] <- temp_U[[1]]
-    vec_lb_goal[c] <- temp_U[[2]]
-    vec_ub_goal[c] <- temp_U[[3]]
-    vec_lb_manage[c] <- temp_U[[4]]
-    vec_ub_manage[c] <- temp_U[[5]]
-    Ft[c] <- -log(1 - U[c])*exp(epsF[c])
-    S[c] <- N[c] * exp(-Ft[c])
-    try(if(is.na(N[c])) print(N[c]))
-    cc[c] <- get_cc(S_sim = S[c], ...)
-    mc[c] <- get_mc(N_sim = N[c], ...)
-    yc[c] <- get_yc(S_sim = S[c], ...)
-    SOC[c] <- if(c >= (A + a.min + 5)){get_SOC(SOC_sim = SOC[c - 1], cc_sim = cc[(c-4):c], mc_sim = mc[(c-4):c], yc_sim = yc[(c-4):c])} else(NA)
-    H[c] <- N[c] - S[c]
-    
-    E1R[c + 1] <- S[c]*exp(lnalpha_vec[c] - beta*S[c])
-    E2R[c + 1] <- E1R[c + 1]*exp(phi * redresid[c])
-    R[c + 1] <- if(S[c] <= 1){0} else{E2R[c + 1]*rlnorm(1, 0, sigW)}
-    redresid[c + 1] <- log(R[c + 1] / E1R[c + 1])
-    lnalpha.y[c + 1] <- lnalpha_vec[c] + redresid[c + 1]
-    
-    for (a in 1:A) {
-      N_age[(c + 1) + a.max - (a - 1), (A + 1 - a)] <- age[c, (A + 1 - a)] * R[c + 1]
-    }
-  }
-  
-  return(data.frame(sim = 1:Sims0,
-                    lnalpha = lnalpha_vec[(length(lnalpha_vec) - Sims0):(length(lnalpha_vec) - 1)],
-                    sigW = rep(sigW, Sims0),
-                    phi = rep(phi, Sims0),
-                    sigN = rep(sigN, Sims0),
-                    sigF = rep(sigF, Sims0),
-                    S = S[(length(S) - Sims0):(length(S) - 1)],
-                    F = Ft[(length(Ft) - Sims0):(length(Ft) - 1)],
-                    U = U[(length(U) - Sims0):(length(U) - 1)],
-                    R = R[(length(R) + 1 - Sims0):length(R)],
-                    N = N[(length(N) - Sims0):(length(N) - 1)],
-                    N_hat = N_hat[(length(N_hat) - Sims0):(length(N_hat) - 1)],
-                    lnalpha.y = lnalpha.y[(length(lnalpha.y) + 1 - Sims0):length(lnalpha.y)],
-                    N_age = N_age[(dim(N_age)[1] + 1 - A - a.min - Sims0):(dim(N_age)[1] - A - a.min), ],
-                    lb_goal = vec_lb_goal[(length(vec_lb_goal) - Sims0):(length(vec_lb_goal) - 1)],
-                    ub_goal = vec_ub_goal[(length(vec_ub_goal) - Sims0):(length(vec_ub_goal) - 1)],
-                    lb_manage = vec_lb_manage[(length(vec_lb_manage) - Sims0):(length(vec_lb_manage) - 1)],
-                    ub_manage = vec_ub_manage[(length(vec_ub_manage) - Sims0):(length(vec_ub_manage) - 1)],
-                    cc = cc[(length(cc) - Sims0):(length(cc) - 1)],
-                    mc = mc[(length(mc) - Sims0):(length(mc) - 1)],
-                    yc = yc[(length(yc) - Sims0):(length(yc) - 1)],
-                    SOC = SOC[(length(SOC) - Sims0):(length(SOC) - 1)]) %>%
-           filter(R != 0))
-}
-
-#Simulate salmon population dynamics with age-at-maturity and management strategy inputs.
-#Arguments:
 #   a, b, c: gamma SR function parameters
 #   sigW: process error standard deviation on the log scale
 #   phi: autocorrelation parameter
@@ -144,43 +52,57 @@ sim_Ricker <- function(lnalpha, beta, sigW, phi, age0, Sims0, sigN = 0, sigF = 0
 #   sigF: management error
 #   Hfun: a function which provides an annual harvest rate based on the management strategy simulated by the function. 
 sim_SRgamma <- function(alpha, beta, gamma, sigW, phi, age0, Sims0, sigN = 0, sigF = 0, Hfun, ...){
-  Sims = Sims0 + 100
-  
-  #format age-at-maturity input and draw indexing values
-  A <- length(age0)
+  # age-at-maturity input
+  A <- if(is.vector(age0)){length(age0)} else {dim(age0)[2]}
   a.min <- as.numeric(names(age0)[1])
   a.max <- a.min + A - 1
-  age <- if(is.vector(age0)){matrix(age0, Sims + A + a.min + 1, A, byrow = TRUE)} else {age0}
-  # Gamma parameters
-  alpha_vec <- if(length(alpha) == 1){rep(alpha, Sims + A + a.min)}else(c(rep(alpha[1], Sims - length(alpha) + A + a.min), alpha))
-  R0 <- alpha[[1]] * (gamma / beta)^gamma * exp(-gamma) * 0.75 #fraction of Rmax
   
-  # initial values
-  R <- E1R <- E2R <- redresid <- rep(0, Sims + A + a.min + 1)
-  N_age <- matrix(NA, Sims + A + a.min + a.max + 1, A)
+  #Set simulation length and create empty objects
+  Sims = Sims0 + 100
+  
+  # Year increment (1 for most stocks, a.min for stocks that mature at one age).
+  step <- if(A == 1){a.min}else{1}
+  
+  # Create empty objects and output vector ids
+  R <- E1R <- E2R <- redresid <- rep(0, Sims + step) #Notice: R it length(S)+step
+  R_out <- (length(R) - Sims0 + 1):length(R)
+  N_age <- matrix(NA, Sims + a.max, A)
+  N_age_out <- (dim(N_age)[1] - a.max - Sims0 + 1):(dim(N_age)[1] - a.max)
+  S <- N <- N_hat <- epsF <- U <- Ft <- H <- cc <- mc <- yc <- SOC <- vec_lb_manage <- vec_ub_manage <- vec_lb_goal <- vec_ub_goal <- rep(NA, Sims)
+  S_out <- (length(S) - Sims0 + 1):length(S)
+  
+  # Create vectors for time varying inputs
+  alpha_vec <- if(length(alpha) == 1){rep(alpha, Sims)}else(c(rep(alpha[1], 100), alpha))
+  age <- if(is.vector(age0)){matrix(age0, Sims, A, byrow = TRUE)} else {age0}
+  
+  # Initial values for incomplete broods
+  R0 <- alpha[[1]] * (gamma / beta)^gamma * exp(-gamma) * 0.75 #fraction of Rmax
   for (c in 1:(A + a.min)) { 
-    R[c] <- R0
+    R[c] <- if(c%%step == 0){R0}else{0}
     for (a in 1:A) {
       N_age[c + a.max - (a - 1), (A + 1 - a)] <- age[c, (A + 1 - a)] * R[c]
     }
   }
   
-  S <- N <- N_hat <- epsF <- U <- Ft <- H <- cc <- mc <- yc <- SOC <- vec_lb_manage <- vec_ub_manage <- vec_lb_goal <- vec_ub_goal <- rep(NA, Sims + A + a.min + 1)
-  
-  # recursive portion...
-  for (c in (A + a.min):(Sims + A + a.min)) {
+  # Simulate population dynamics
+  for (c in (A + a.min):Sims) {
     
-    epsF[c] <- rnorm(1, 0, sigF)
+    # Calculate values for this brood year
+    # Annual Run size
     N[c] <- sum(N_age[c, ])
     N_hat[c] <- N[c]*rlnorm(1, sdlog = sigN)
-    try(if(length(R0) > 1) print(R0))
+    
+    # Calculate harvest rate and instantaneous mortality
     temp_U <- Hfun(N_sim = N_hat[c], SOC_sim = SOC[c - 1], ...)
     U[c] <- temp_U[[1]]
     vec_lb_goal[c] <- temp_U[[2]]
     vec_ub_goal[c] <- temp_U[[3]]
     vec_lb_manage[c] <- temp_U[[4]]
     vec_ub_manage[c] <- temp_U[[5]]
+    epsF[c] <- rnorm(1, 0, sigF)
     Ft[c] <- -log(1 - U[c])*exp(epsF[c])
+    
+    # Spawning abundance
     S[c] <- N[c] * exp(-Ft[c])
     cc[c] <- get_cc(S_sim = S[c], ...)
     mc[c] <- get_mc(N_sim = N[c], ...)
@@ -188,17 +110,21 @@ sim_SRgamma <- function(alpha, beta, gamma, sigW, phi, age0, Sims0, sigN = 0, si
     SOC[c] <- if(c >= (A + a.min + 5)){get_SOC(SOC_sim = SOC[c - 1], cc_sim = cc[(c-4):c], mc_sim = mc[(c-4):c], yc_sim = yc[(c-4):c])} else(NA)
     H[c] <- N[c] - S[c]
     
-    E1R[c + 1] <- SRgamma(alpha_vec[c], beta, gamma, S[c])
-    E2R[c + 1] <- E1R[c + 1]*exp(phi * redresid[c])
-    R[c + 1] <- if(is.na(S[c]) | S[c] <= 1){0} else{E2R[c + 1]*rlnorm(1, 0, sigW)}
-    redresid[c + 1] <- log(R[c + 1] / E1R[c + 1])
+    # Recruitment (step years ahead of the S that produced it)
+    E1R[c + step] <- SRgamma(alpha_vec[c], beta, gamma, S[c])
+    E2R[c + step] <- E1R[c + step]*exp(phi * redresid[c])
+    R[c + step] <- if(is.na(S[c]) | S[c] <= 1){0} else{E2R[c + step]*rlnorm(1, 0, sigW)}
+    redresid[c + step] <- log(R[c + step] / E1R[c + step])
     
+    # Distribute recruits to future runs
     for (a in 1:A) {
-      N_age[(c + 1) + a.max - (a - 1), (A + 1 - a)] <- age[c, (A + 1 - a)] * R[c + 1]
+      N_age[c + a.max - (a - 1), (A + 1 - a)] <- age[c, (A + 1 - a)] * R[c + step]
     }
   }
-
-  return(data.frame(sim = 1:Sims0,
+  
+  # Return object
+  # return(list(R = R[1:10], N = N[1:10], N.age = N_age[1:10, ]))
+  return(data.frame(sim = 1:Sims0, # Fill dataframe with parameter values used in simulation
                     alpha = alpha_vec[(length(alpha_vec) - Sims0):(length(alpha_vec) - 1)],
                     beta = rep(beta, Sims0),
                     gamma = rep(gamma, Sims0),
@@ -206,23 +132,23 @@ sim_SRgamma <- function(alpha, beta, gamma, sigW, phi, age0, Sims0, sigN = 0, si
                     phi = rep(phi, Sims0),
                     sigN = rep(sigN, Sims0),
                     sigF = rep(sigF, Sims0),
-                    S = S[(length(S) - Sims0):(length(S) - 1)],
-                    F = Ft[(length(Ft) - Sims0):(length(Ft) - 1)],
-                    U = U[(length(U) - Sims0):(length(U) - 1)],
-                    R = R[(length(R) + 1 - Sims0):length(R)],
-                    N = N[(length(N) - Sims0):(length(N) - 1)],
-                    N_hat = N_hat[(length(N_hat) - Sims0):(length(N_hat) - 1)],
-                    N_age = N_age[(dim(N_age)[1] + 1 - A - a.min - Sims0):(dim(N_age)[1] - A - a.min), ],
-                    lb_goal = vec_lb_goal[(length(vec_lb_goal) - Sims0):(length(vec_lb_goal) - 1)],
-                    ub_goal = vec_ub_goal[(length(vec_ub_goal) - Sims0):(length(vec_ub_goal) - 1)],
-                    lb_manage = vec_lb_manage[(length(vec_lb_manage) - Sims0):(length(vec_lb_manage) - 1)],
-                    ub_manage = vec_ub_manage[(length(vec_ub_manage) - Sims0):(length(vec_ub_manage) - 1)],
-                    cc = cc[(length(cc) - Sims0):(length(cc) - 1)],
-                    mc = mc[(length(mc) - Sims0):(length(mc) - 1)],
-                    yc = yc[(length(yc) - Sims0):(length(yc) - 1)],
-                    SOC = SOC[(length(SOC) - Sims0):(length(SOC) - 1)]
-                    ) %>%
-           filter(R != 0))
+                    S = S[S_out],
+                    F = Ft[S_out],
+                    U = U[S_out],
+                    R = R[R_out], #R is longer than the others!
+                    N = N[S_out],
+                    N_hat = N_hat[S_out],
+                    N_age = N_age[N_age_out, ],
+                    lb_goal = vec_lb_goal[S_out],
+                    ub_goal = vec_ub_goal[S_out],
+                    lb_manage = vec_lb_manage[S_out],
+                    ub_manage = vec_ub_manage[S_out],
+                    cc = cc[S_out],
+                    mc = mc[S_out],
+                    yc = yc[S_out],
+                    SOC = SOC[S_out]) %>%
+           filter(R != 0)#!(S == 0 & lead(S, 1) == 0))
+  )
 }
 
 #Function to determine if a "conservation concern" occurred for each year of a simulation where conservation concern is defined as a 
@@ -308,7 +234,7 @@ get_SOC <- function(SOC_sim, cc_sim, mc_sim, yc_sim){
 #   return(list(U, target = target, power = power))
 # }
 
-# #Function to find U that archives S somewhere within the goal
+# #Function to find U that achieves S somewhere within the goal
 #Arguments:
 #   N: run size
 #   lb_goal: Lower bound of the escapement goal based on historical data.
@@ -324,7 +250,8 @@ H_goal <- function(N_sim, lb_goal, ub_goal, power = .85, ...){
   return(list(U, lb_goal, ub_goal, NA, NA, power = power))
 }
 
-# #Function to find U that archives S somewhere within the goal
+# #Function to find U that achieves S somewhere within the goal where 
+## the goal is a function of the SOC status
 #Arguments:
 #   N: run size
 #   lb_goal: Lower bound of the escapement goal based on historical data.

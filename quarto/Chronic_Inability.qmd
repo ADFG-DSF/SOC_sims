@@ -363,7 +363,8 @@ dat_SOC %>%
                       ", p = ('3' = 0.1, '4' = 0.38, '5' = 0.3, '6' = 0.2, '7' = 0.02)"),
        x = "Chronic Inability Criteria",
        y = "Probability") +
-  facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma))
+  facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma)) +
+  labs(title = paste0("ln(\u03B1): ", 1.5, ", \u03C3: ", 0.5, ", \u03A6: ", 0))
 ```
 
 Note that @fig-Ha shows probabilities for a subset of the spawner-recruit parameters considered. @fig-sensitivity shows the sensitivity of our results to variations in productivity $ln(\alpha)$, process error $\sigma$, auto-correlation $\phi$ and age-at-maturity. I haven't given myself time to thoroughly consider all of the information but in general @fig-sensitivity appears to confirm the patterns seen in @fig-Ha. The top right hand corner of both figures should be taken with a grain of salt as simulations quickly when to extinction in that scenario which meant there was no stable time series to use to demonstrate the behavior of SOC criteria.
@@ -450,6 +451,9 @@ age <-
        x = "Chronic Inability Criteria",
        y = "Probability") +
   facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma))
+
+gridExtra::grid.arrange(lnalpha, sigma, phi,
+                    ncol = 2, nrow = 2)
 ```
 
 ```{r, echo = FALSE, warning = FALSE}

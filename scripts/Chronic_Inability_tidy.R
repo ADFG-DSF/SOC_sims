@@ -233,6 +233,38 @@ plot_ts %>%
                       ", \u03A6= ", 0,
                       ", p = ('3' = 0.1, '4' = 0.38, '5' = 0.3, '6' = 0.2, '7' = 0.02)"))
 
+# example time series of run sizes
+plot_ts <- 
+  rep_scenarios %>%
+  filter(pct_lb == 1) %>%
+  mutate(data_trunc = map(data, function(x) x[x$sim > 0, c("sim", "N", "lb_goal", "ub_goal")])) %>%
+  unnest(data_trunc) %>%
+  select(scenario:pct_lb, power, sim:ub_goal) %>%
+  filter(lnalpha_1 == 1.5, sigma == 0.5, phi == 0)
+plot_ts_median <- 
+  plot_ts %>%
+  group_by(scenario, gamma, pct_MSY, sim) %>%
+  summarise(median_N = median(N))
+test <- 
+  plot_ts %>% 
+  group_by(gamma, pct_MSY) %>% 
+  summarise(lb_goal = unique(lb_goal), 
+            ub_goal = unique(ub_goal))
+plot_ts %>%
+  ggplot(aes(x = sim, y = N)) +
+  geom_line(aes(group = rep), color = "grey") +
+  annotate("rect", xmin = 101, xmax = 107, ymin = 0, ymax = Inf, alpha = .5, fill = "red") +
+  geom_rect(data = test, aes(xmin = 0, xmax = Inf, ymin = lb_goal, ymax = ub_goal), 
+            inherit.aes = FALSE, 
+            alpha = .2,) +
+  geom_line(data = plot_ts_median, aes(y = median_N)) +
+  coord_cartesian(ylim = c(0, 35000)) +
+  facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma)) +
+  theme_bw() +
+  labs(x = "Simulation Year", 
+       y = "Total Run", 
+       title = paste0("ln(\u03B1)= ", 1.5, ", \u03C3= ", 0.5, ", \u03B3= ", 1, ", \u03A6= ", 0))
+
 # SOC listings ---------------------------------------------------------
 # function to calculate SOC status
 # window: # of years under consideration when evaluating "chronic inability"
@@ -353,9 +385,8 @@ dat_SOC %>%
                       ", p = ('3' = 0.1, '4' = 0.38, '5' = 0.3, '6' = 0.2, '7' = 0.02)"),
        x = "Chronic Inability Criteria",
        y = "Probability") +
-  facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma))
-
-
+  facet_grid(paste0("%MSY: ", pct_MSY) ~ paste0("\u03B3: ", gamma)) +
+  labs(title = paste0("ln(\u03B1): ", 1.5, ", \u03C3: ", 0.5, ", \u03A6: ", 0))
 
 # Sensitivity -------------------------------------------------------------
 # Look for sensitivity wrt 445 and roll5 across SR parameter combinations
@@ -474,7 +505,7 @@ dat_SOC %>%
   labs(x = "Simulation Year", 
        y = "Total Run", 
        fill = "Stock of Concern?", 
-       title = paste0("ln(\u03B1)= ", 1.5, ", \u03C3= ", 0.5, ", \u03B3= ", 1, ", \u03A6= ", 0, ", %MSY= ", 90))
+       title = paste0("ln(\u03B1)= ", 1.5, ", \u03C3= ", 0.5, ", \u03B3= ", 1, ", \u03A6= ", 0.8, ", %MSY= ", 90))
 
 # # when roll5 more sensitive....
 # dat_SOC %>%

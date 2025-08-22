@@ -1,5 +1,5 @@
 ---
-title: "Sustainable Salmon Fisheries Policy Stock of Concern Revision Recomendations"
+title: "Sustainable Salmon Fisheries Policy Stock of Concern Revision Recommendations"
 author: "Adam Reimer"
 format:
   html:
@@ -14,8 +14,7 @@ packs <- c("tidyverse", "ggforce", "RcppRoll", "knitr", "flextable", "ggpubr", "
 lapply(packs, require, character.only = TRUE)
 
 # source functions
-function_files <- list.files(path="..\\functions")
-lapply(function_files, function(x) source(paste0("..\\functions\\", x)))
+source("..\\functions\\functions.R")
 
 rep_scenarios_gp0 <- 
   readRDS(file = "..\\rep_scenarios_seqlb_scale_SOC.rds") 
@@ -43,23 +42,23 @@ rep_scenarios_gp <-
 
 # Introduction
 
-During the 2000-2001 board cycle, the board adopted into regulation the *Policy for the management of sustainable salmon fisheries* (SSFP; 5 AAC 39.222) and the *Policy for statewide salmon escapement goals* (EGP; 5 AAC 39.223). These two policies outline roles, responsibilities, principles and criteria to guide management and regulatory actions for salmon fisheries, including the designation of salmon stocks of concern (SOC).
+The *Policy for the management of sustainable salmon fisheries* (SSFP; 5 AAC 39.222) and the *Policy for statewide salmon escapement goals* (EGP; 5 AAC 39.223) were adopted into regulation during the 2000-2001 Alaska Board of Fisheries (board) cycle. These two policies outline roles, responsibilities, principles and criteria to guide management and regulatory actions for salmon fisheries, including the designation of a salmon stock of concern (SOC).
 
-Under commissioner directive, department staff undertook a review of the SSFP and EGP during the spring of 2025. The ADF&G escapement goal policy implementation team (EGPIT) was tasked with the review and created work groups to consider certain policy areas and report back to EGPIT with recommended changes. One of the major areas identified for review were the SOC provisions within the SSFP. A team of sixteen staff members met 12 times during the first half of 2025 to create recommendations which were reported back to EGPIT on two occasions. EGPIT approved of the recommended changes which were then presented back to the commissioner for final approval.
+Under Commissioner directive, Alaska Department of Fish and Game (department) staff reviewed the SSFP and EGP during the spring of 2025. The department's escapement goal policy implementation team (EGPIT) was tasked with the review and created work groups to consider certain policy areas. One of the major areas identified for review was the SOC provisions within the SSFP. A team of 16 staff members met 12 times during the first half of 2025 to create recommendations, which were reported back to EGPIT on two occasions. EGPIT approved the recommended changes which were then presented them back to the Commissioner for final approval.
 
-This document describes the staff recommendations. Staff identified both policy and technical issues during the review. Policy issues were addressed by changes to the structure and definitions of the SOC process as described int the SSFP and will be described in @sec-policy below. Technical issues refer to guidance ADF&G staff can use to implement the SOC provisions within the SSFP and are described in @sec-technical below.
+This document describes these recommendations. Both policy and technical issues during the review. Policy issues are addressed in @sec-policy (below) by changes to the structure and definitions of the SOC process described in the SSFP. Technical issues are described in @sec-technical (below) and refer to guidance ADF&G staff can use to implement the SOC provisions within the SSFP.
 
 # Policy Review {#sec-policy}
 
 ## Fisheries Management Review
 
-The department manages salmon fisheries to attain escapement goals. Escapement goals are based on analyses of historical escapement, and incorporate information about historic production (the total number of fish that return from a given escapement) of the stock. Escapement goals are developed so that fishery managers can target escapements at levels that provide both escapement for future production and a surplus of salmon available for harvest. Because escapement goals are based on a time series of historical data the relationship they describe is relative to the "average" production of the stock.
+The department manages salmon fisheries to attain escapement goals. Escapement goals are based on analyses of historical escapement and incorporate information about historical production (the total number of fish that return from a given escapement) of the stock. Escapement goals are developed so that fishery managers can target escapements at levels that provide both escapement for future production and a surplus of salmon available for harvest. Because escapement goals are based on a time series of historical data the relationship they describe is relative to the "average" production of the stock.
 
-Escapement goals are expressed as a range to allow for imprecision in fishery management actions and provide stable and predictable fisheries under normal and expected variability in average production. When escapements fall below the lower bound of the escapement goal, two possible causes can be identified. First, the stock may have been overfished by directed or incidental harvests. Often, overfishing is actionable by the department and/or board of fisheries and changes to fishery management plans can allow the stock to achieve the lower bound of the escapement goal over the next few seasons. Second, contemporary production may be less than the average production represented in the historical data. Variation in stock productivity can be moderate or severe. When a stock is experiencing moderate reductions in productivity, associated fisheries may require restrictions to time, area and/or gear which reduce harvest to ensure the escapement goal is achieved. Our ability to achieve escapement goals under moderate reductions in productivity will depend on the efficacy of these management actions. When a stock is experiencing extreme reductions in productivity complete fisheries closures may be required. After all fisheries have been closed, our management ability is exhausted and achieving the escapement goal depends on natural process which fishery managers cannot control.
+Escapement goals are expressed as a range to allow for imprecision in fishery management actions yet provide stability and predictability to relevant fisheries under normal and expected variability in average production. When escapements fall below the lower bound of the escapement goal, two possible causes can be identified. First, the stock may have been overfished by directed or incidental harvests. Often, overfishing is actionable by the department and/or board and changes to fishery management plans can allow the stock to achieve the lower bound of the escapement goal over the next few seasons. Second, contemporary production may be less than the average production represented in the historical data. Variation in stock productivity can be moderate or severe. When a stock is experiencing moderate reductions in productivity, associated fisheries may require restrictions to time, area, and/or gear that reduce harvest to ensure the escapement goal is achieved. The department's ability to achieve escapement goals under moderate reductions in productivity depends on the efficacy of these management actions. When a stock is experiencing extreme reductions in productivity complete fisheries closures may be required. After all fisheries have been closed, the department's ability to manage the fishery is exhausted, and achieving the escapement goal depends on natural processes, which fishery managers cannot control.
 
 ## Description of the Existing SOC Process
 
-When escapements are below the lower bound of the stock's escapement goal over a period of years the SSFP directs the board are department to consider whether the stock should be designated a stock of concern. The SSFP (5 AAC 39.222) describes the stock of concern process primarily in subsections (d)(1)(D)(ii), (d)(1)(D)(iii), (d)(3), (d)(4) and (d)(5). These subsections direct the department to recommend stock of concern listings to the board of fisheries at one of 3 levels: yield, management and conservation. Definitions of stock of concern and the different levels of concern are contained in 5 AAC 39.222(f):
+When escapements are near or below the lower bound of the stock's escapement goal, despite specific management measures meant to achieve it, over a period of years the SSFP directs the department and board to consider whether the stock should be designated a SOC. The SSFP (5 AAC 39.222) describes the SOC process primarily in subsections (d)(1)(D)(ii), (d)(1)(D)(iii), (d)(3), (d)(4) and (d)(5). These subsections direct the department to recommend SOC listings to the board at one of three levels: yield, management or conservation concern. Definitions of SOC, the different levels of concern, and how to evaluate when a concern has been triggered are contained in 5 AAC 39.222(f)(#):
 
 ::: {#nte-levels .callout-note appearance="simple" icon="false"}
 ### Concern Definitions
@@ -71,17 +70,53 @@ When escapements are below the lower bound of the stock's escapement goal over a
 \(21\) "Management concern" means a concern arising from a chronic inability, despite the use of specific management measures, to maintain escapements for a salmon stock within the bounds of the SEG, BEG, OEG or other specified management objectives for a fishery: a management concern is not as severe as a conservation concern;
 
 \(6\) "Conservation concern" means a concern arising from a chronic inability, despite the use of specific management measures, to maintain escapements for a stock above a sustainable escapement threshold (SET): a conservation concern is more severe than a management concern;
+
+\(5\) "chronic inability" means the continuing or anticipated inability to meet escapement thresholds over a four to five year period. which is the approximate generation time of most salmon species;
+
+\(39\) "sustainable escapement threshold" or "SET" means a threshold level of escapement below which the ability of the salmon stock to sustain itself is jeopardized: in practice, an SET can be estimated based on lower ranges of historical escapement levels, for which the salmon stock has consistently demonstrated the ability to sustain itself: the SET is lower than the lower bound of the BEG and lower than the lower bound of the SEG: the SET is established by the department in consultation with the board, as needed, for salmon stocks of management or conservation concern.
 :::
 
-Associated terms used in these definitions are defined in 5 AAC 39.222(F).
+The board and department work together in a defined process to determine if a salmon stock meets the criteria as a SOC. As part of the escapement goal review that occurs for a regulatory area before a board meeting cycle, the department reviews escapements, harvests, and other data relative to the SOC designations. The department then presents a memo at the board Work Session to inform the board of any stocks within the regulatory area that appear to meet the criteria for SOC designation, the level of concern, and a recommendation that the board discuss this designation at their regulatory meeting. Upon request from the board, the department will draft an action plan for the board to consider at their upcoming regulatory meeting. A draft action plan generally describes stock status, trends in escapement and harvest, and other factors that potentially impact stock production and/or harvest levels (e.g. changes in fish habitat, expanding and/or new fisheries). The draft plan also outlines the regulatory options the department has, will, or could take for the board to consider while evaluating changes to the stock's management plan, and options may include actions the department has, will, or could take to improve stock assessments and/or fish habitat. During the regulatory meeting board and department staff finalize the action plan by identifying actions the department should take to address the SOC listing.
 
-The board and department work together in a defined process to determine if a salmon stock meets the criteria as a stock of concern. As part of the escapement goal review that occurs for a regulatory area before a board meeting cycle, the department reviews escapements, harvests and other data relative to stock of concern designations. The department then presents a memo at the board Work Session to inform the board of any stocks within the regulatory area that appear to meet the criteria for stock of concern designation, the level of concern, and a recommendation that the board discuss this designation at their regulatory meeting. Upon request from the board the department will draft an action plan for the board to consider at their regulatory meeting. A draft action plan generally describes stock status, trends in escapement and harvest, and other factors that potentially impact stock production and/or harvest levels (e.g. changes in fish habitat, expanding and/or new fisheries). The draft plan also outlines regulatory options the department has, will, or could take for the board to consider while evaluating changes to the stock's management plan, and options may include options the department has, will, or could take to improve stock assessments and/or fish habitat. During the regulatory meeting the board of fisheries and department staff finalize the action plan by identifying actions the department should take to address the SOC listing.
+After a stock is designated as a SOC and actions are implemented, the department reviews the status of the SOCs during their triennial review. If actions proved successful and the stock no longer meets the criteria for a SOC designation, the department will recommend delisting the stock; otherwise the department will recommend continued listing or a change in the level of concern.
 
-After a stock is designated as a stock of concern and actions are implemented, the department reviews the status of the stocks of concern during their triennial review. If actions proved successful and the stock no longer meets the criteria for a stock of concern designation, the department will recommend delisting the stock: otherwise the department will recommend continued listing or a change in the level of concern.
+## Evaluation of the Existing SOC Process
+
+@fig-flowchart_current provides a flow chart describing the current SOC process. The first two "rows" of @fig-flowchart_current show decisions departmental staff must make before a recommendation to consider SOC status can be forwarded to the board. The first row of the flowchart describes reference points that are used to evaluate whether a salmon stock qualifies as a SOC. One fundamental issue with the current process has to do with the wide variety of reference points used to initiate SOC status. Because each reference point was developed to achieve a different management goal this diversity of reference points causes confusion about the goal of the SOC process itself. For example, stocks whose:
+
+-   escapements chronically fail to exceed the SET (stocks of conservation concern) imply risk to **stock** *sustainability* given the definition of the SET in 5 AAC 39.222(f)(39)
+
+-   escapements are chronically outside of the bounds of the SEG/BEG (some stocks of management concern) imply *future **fishery** yields* will be sub-optimal given the definitions of the BEG and SEG in 5 AAC 39.222(f)(3) and AAC 39.222(f)(36), respectively
+
+-   escapements are chronically outside of the bounds of the OEG or some other board identified management objective (other stocks of management concern) imply the *board identified management objective* is not being achieved for the **stock or fishery** given the definitions of the OEG and inriver run goal in 5 AAC 39.222(f)(25) and AAC 39.222(f)(19), respectively
+
+-   realized yields are negligible (yield concerns) imply *harvestable surpluses* are not available to the **fishery**.
 
 ```{r}
 #| warning: FALSE
 #| echo: FALSE
+#| label: fig-flowchart_current
+#| out.width: 3000
+#| out.heigth: 35000
+#| fig-cap: "Current SOC process"
+knitr::include_graphics("./SOC_flowchart_current.png")
+```
+
+Notice that initiating the SOC process using a wide variety of reference points does not provide consistency with respect to the *type of risk* or whether it is the **fishery or stock** which is at risk. Except for the SET, which is a limit reference point that managers should strive to exceed in order to avoid conservation issues and has yet to be established for any salmon stock in the Alaska, the other reference points used to initiate the SOC process are target reference points that are designed to achive fishery objectives. This lies in stark contrast to the public perception of a SOC that assumes stock sustainability is at risk when a stock is listed as a SOC.
+
+The second row of the flowchart (@fig-flowchart_current) identifies the three levels of concern in the SSFP. The conservation concern level is cleanly defined in that stocks identified as a conservation concern clearly indicate a risk to stock sustainability. That said, a conservation concern has never been recommended by the department because there has been no standardized procedure for identifying an SET, although see @sec-SET for an new procedure for identifying an SET. Notice that conservation concerns are a subset of management concerns given the definition of the SET 5 AAC 39.222(f)(39), which states that "the SET is lower than the lower bound of the BEG and lower than the lower bound of the SEG.".
+
+In contrast to the definitions of conservation concern, which indicate a risk to the stock, definition the definitions for yield and management concerns primarily indicate risk to current and future fisheries. In theory, management concerns and yield concerns are clearly differentiated because escapements for stocks of management concern chronically fall outside the bounds of the escapement goal whereas escapements for stocks of yield concern continue to fall within the bounds of the escapement goal but are associated with run sizes close enough to the lower bound of the escapement goal that fisheries are closed or severely restricted and thus provide negligible yield.
+
+Yield concerns were frequently used when the SOC process was first implemented. During the first 10 years of the SOC process, 2000–2011, SOC listings were evenly split between stocks of yield concern (13) and stocks of management concern (13). Over time staff realized differentiating between stocks of yield and management concern was difficult to do objectively because stocks chronically failing to realize yields are necessarily experiencing low productivity and associated with run sizes at or near the lower bound of the stock's escapement goal. In addition, because department staff manage fisheries to achieve escapement goals, not a specified level of harvest, the yield realized during small runs is largely a function of the annual production and cannot be increased by fisheries management. This makes identifying a target yield a subjective exercise that may be either unachievable or in conflict with the department's responsibility for escapement goal management. Given these issues, the department has not recommended a new stock of yield concern since 2011.
+
+The third "row" of @fig-flowchart_current describes the department and board response after the department has recommended the board consider a SOC designation; i.e., the action plan. An effective action plan results in the relevant stock being removed from the SOC process. One way to evaluate if action plans produced by the board and department have resulted in stocks being removed from the SOC process is to look at past SOC listings and delisitings. In @tbl-stocks salmon stocks that have been considered SOCs are shown as unique entries each time they entered the SOC process. The 48 SOC listings that have occurred since 2000 have been associated with 39 unique salmon stocks (21 Chinook, 9 chum and 9 sockeye) and 41 entries into the SOC process. For stocks that have been listed at least three years (and thus had an opportunity to be delisted under the triennial BOF cycle) 88% and 86% of the chum and sockeye salmon stocks, respectively, that entered the SOC process were ultimately removed from the process while only 36% of Chinook salmon stocks have done so. For the stocks which were removed from the SOC process, 83% of Chinook salmon, 71% of chum salmon and 71% of sockeye salmon exited the SOC process within two board cycles of being listed. This information indicates action plans are effective in some situations and ineffective in others.
+
+```{r}
+#| warning: FALSE
+#| echo: FALSE
+#| label: tbl-stocks
+#| tbl-cap: "SOC stock history 2000-2025. Stocks of cncern are shown as unique entries each time they are enter the SOC process."
 SOC_current <- data.frame(
   region = c(rep("Southeast", 7), rep("Central", 8), rep("AYK", 2), rep("Westward", 4)),
   stock = c("King Salmon River", "Stikine River", "Andrew Creek", "Taku River", "McDonald Lake", "Hugh Smith Lake", "Northern Southeast Outside Subregion",
@@ -157,56 +192,7 @@ SOC_tab <-
 #   mutate(break_2011 = ifelse(year <= 2011, "<=2011", ">2011")) %>%
 #   group_by(type, break_2011) %>%
 #   summarise(n = n())
-```
 
-A total of 48 stock of concern listings have occurred since 2000: 35 management concerns and 13 yield concerns (@tbl-listings). No stocks of conservation concern have been listed. Stock of concern listings have occurred throughout the state of Alaska; 11 in the Arctic-Yukon-Kuskokwim region, 19 in the Central Region, 13 in Southeast Alaska, and 5 in the Westward region. Across species, the 46 SOC listings have been applied to 25 Chinook stocks, 10 chum stocks, and 13 sockeye stocks. Twenty seven stock of concern listings have been delisted since the stock of concern policy was implemented in 2000.
-
-::: panel-tabset
-### SOC Listing History
-
-```{r}
-#| warning: FALSE
-#| echo: FALSE
-#| label: tbl-listings
-#| tbl-cap: "SOC listing history 2020-2025. This table shows each SOC listing made by the board of fisheries, some stocks are represented by several listings when the SOC type and/or the stock defintions changed while the stock remained in SOC status."
-SOC_tab %>%
-  group_by(stock, species) %>%
-  mutate(list_date = format(list_date, format = "%Y"),
-         delist_date = ifelse(is.na(delist_date), "-", format(delist_date, format = "%Y")),
-         first_yr = min(as.numeric(list_date)), 
-         sort = paste0(first_yr, stock)) %>%
-  arrange(species, sort, list_date) %>% #wanted the table sorted by listing year but also group the same stock by the first year listed.
-  select(species, stock, region, type, list_date, delist_date, years_listed) %>%
-  flextable() %>%
-  set_header_labels(species = "Species", 
-                    stock = "Stock", 
-                    region = "Region",
-                    type = 'Concern \nLevel',
-                    list_date = 'Listing \nYear', 
-                    delist_date = 'Delisting \nYear', 
-                    years_listed = 'Years \nListed') %>%
-  merge_v(~ species + stock) %>%
-  valign(j = c("species", "stock"), valign = "top") %>%
-  footnote(i = c(7, 12, 13, 18), j = 2, 
-           value = as_paragraph(
-             c(" Willow, Goose and Sheep Creek SOC listing were consolidated into a single SOC listing (Eastside Susitna River) in 2020 after the escapement goals for these populations were consolidated into a single goal.")),
-           ref_symbols = "a",
-           part = "body") %>%
-  footnote(i = 44, j = 2, 
-           value = as_paragraph(
-             c(" Chignik River early run sockeye action plan adopted by the BOF in Febuary 2023")),
-           ref_symbols = "b",
-           part = "body") %>%
-  autofit()
-```
-
-### SOC Stock History
-
-```{r}
-#| warning: FALSE
-#| echo: FALSE
-#| label: tbl-stocks
-#| tbl-cap: "SOC stock history 2020-2025. In this table multiple listings for the same salmon stock are colapsed into a single entry provided the listings are temporally continuous."
 multiple_listings <- 
   SOC_tab %>%
   mutate(delisted = !is.na(delist_date)) %>%
@@ -286,44 +272,26 @@ SOC_stocks %>%
   valign(j = 1:6, valign = "top") %>%
   autofit()
 ```
-:::
 
-## Evaluation of the Existing SOC Process
+Which issues are effectively resolved by action plans may be illuminated by considering the cause of the SOC listing. When escapement is chronically below the lower bound of the escapement goal due to overharvest, action plans have a reasonable likelihood of success within one or two board cycles (three to six years) because the board of fisheries can modify regulations to reduce harvest. (**provide an example: see Piston message**).
 
-@fig-flowchart_current provides a flow chart describing the current SOC process. The first two "rows" of @fig-flowchart_current show decisions departmental staff must make before a recommendation to consider SOC status can be forwarded to the board of fisheries. The first row of the flowchart describes metrics that are used to evaluate whether a salmon stock qualifies as a stock of concern. One fundamental issue with the current process has to do with the wide variety of metrics used to indicate stock of concern status. Because each metric was developed to achieve a different management goal this diversity of metrics causes confusion about the goal of the stock of concern process itself. For example, stocks whose:
+In contrast, when escapement is chronically below the lower bound of escapement goal due to severely reduced productivity, the department has generally exhausted most reasonable management measures through it's emergency order authority prior to missing the goal yet again. In this instance, actions proposed in the action plan are likely redundant to the emergency orders and may have already demonstrated that reductions in harvest cannot be used to achieve the escapement goal and resolve the underlying issue. (**provide an example: maybe Susitna Chinook**)
 
--   escapements chronically fail to exceed the SET (stocks of conservation concern) imply risk to **stock** *sustainability* given the definition of the SET in 5 AAC 39.222(f)(39)
+## Policy Recomendations {#sec-recs}
 
--   escapements are chronically outside of the bounds of the SEG/BEG (some stocks of management concern) imply *future **fishery** yields* will be sub-optimal given the definitions of the BEG and SEG in 5 AAC 39.222(f)(3) and AAC 39.222(f)(36), respectively
+Department review of the existing SOC process identified confusion resulting from housing a wide variety of fishery management objectives within the same process, questionable utility behind the three different SOC levels, and questionable efficacy of action plans in at least some situations where the SOC process is currently applied. The goal of our suggested policy revisions is to correct these issues. The major feature of the revised policy is the separation of low annual abundance issues into two distinct processes according to the availability of a harvestable surplus– (1) a revised SOC process with scope narrowed to situations where harvestable surpluses are absent and (2) a fishery review process for situations where harvestable surpluses are available.
 
--   escapements are chronically outside of the bounds of the OEG or some other board identified management objective (other stocks of management concern) imply the *board identified management objective* is not being achieved for the **stock or fishery** given the definitions of the OEG and inriver run goal in 5 AAC 39.222(f)(25) and AAC 39.222(f)(19), respectively
+### SOC Process Revisions
 
--   realized yields are negligible (yield concerns) imply *harvestable surpluses* are not available to the **fishery**.
+The department recommends the SOC process be narrowed to situations where harvestable surpluses are absent by evaluating whether the stock's annual run size (rather than escapement) demonstrates a chronic inability to meet the lower bound of the SEG or BEG. When annual *run sizes* are below the lower bound of the stock's escapement goal, it means no management action could have been taken that would have allowed the lower bound of the escapement goal to be achieved. Therefore, this change reduces the SOC process to only those stocks that are experiencing extreme reductions in productivity. This definition also clarifies that SOC designations are only relative to the lower bound of the escapement goal range and should be made relative to the SEG or BEG set by the department.
 
-Notice that initiating the stock of concern process using a wide variety of metrics does not provide consistency with respect to the *type of risk* or whether it is the **fishery or stock** which is at risk. Most management metrics which are used to initiate the stock of concern process were designed to address fishery issues rather than conservation issues. This lies in stark contrast to the public perception of the stock of concern process which assumes stock sustainability is at risk when a stock is listed as a stock of concern.
+Another recommended change is that the department designate (rather than recommend) SOCs after determining they meet the SOC criteria. Evaluation for SOC eligibility would occur as part of each management area's triennial review and be made at the work session preceding each management area's regular board meeting. Allowing the department to make the designation directly provides a more timely and less confusing process than making SOC recommendations at the work session but not making SOC designations till the annual meeting is underway and management actions are being considered. Allowing the department to make SOC designations is also consistent with the department's existing responsibilities to to establish SEGs and BEGs prior ot the board meeting.
 
-The second row of the flowchart identifies the 3 levels of concern identified in the SSFP. The conservation concern level is cleanly defined in that stocks identified as a conservation concern clearly indicate a risk to stock sustainability. That said, a conservation concern has never been recommended by the department due to the lack of a standardized procedure for identifying an SET. See @sec-SET for an SET procedure. Notice that conservation concerns are a subset of management concerns given the definition of the SET 5 AAC 39.222(f)(39) which states that "the SET is lower than the lower bound of the BEG and lower than the lower bound of the SEG".
+Once a stock is designated as a SOC we recommend the SET for the stock be identified and communicated to the board and public at the area's regular board meeting. Doing so clearly communicates the type of risk to the stock. If annual run sizes are below the lower bound of the stock's SEG or BEG but above the stock's SET, then the stock is experiencing production declines that are so severe the stock can no longer support fisheries. We call this situation a productivity risk. If annual run sizes are below the stock's SET, then the stock is experiencing production declines that are so severe that stock sustainability may be compromised. We call this situation a depletion risk.
 
-In contrast to the conservation concern definition the definitions for yield and management concerns primarily indicate risk to current and future fisheries. In theory, management concerns and yield concerns are clearly differentiated because escapements for stocks of management concern are chronically falling outside the bounds of the escapement goal while escapements for stocks of yield concern are falling within the bounds of the escapement goal but are associated with run sizes close enough to the lower bound of the escapement goal that fisheries are closed or severely restricted. Yield concerns were frequently used when the SOC process was first implemented. During the first 10 years of the SOC process, 2000-2011, SOC listings were evenly split between stocks of yield concern (13) and stocks of management concern (13). Over time staff realized differentiating between stocks of yield and management concern was difficult to do objectively because stocks chronically failing to realize yields are necessarily experiencing low productivity and associated with run sizes at or near the lower bound of the stock's escapement goal. In addition, because department staff manage fisheries to achieve escapement goals, not a specified level of harvest, the yield realized during small runs is largely a function of the annual production and cannot be increased by fisheries management. This makes identifying a target yield a subjective exercise which may be either unachievable or in conflict with the department's responsibility for escapement goal management. Given these issues the department has not recommended a new stock of yield concern since 2011.
+Finally, the department recommends that SOC designations be addressed by the board and department collaborating to create a recovery plan at the area's regular meeting. A recovery plan is a temporary management plan that supersedes the stock's existing management plan and sunsets when the stock is removed from SOC status. Replacing action plans with recovery plans in the revised process clearly communicates that SOCs are caused by environmental and biological variation in productivity that exceeds our management capability and will require significant, prolonged reductions to harvest until productivity returns to a level that can support a fishery.
 
-The third "row" of @fig-flowchart_current describes the department and board response after the department has recommended the board consider a stock of concern designation, i.e. the action plan. One way to evaluate if action plans produced by the board and department have resulted in stocks being removed from the SOC process is to look at past stock of concern listings and delisitings. This question is poorly answered by @tbl-listings because several stocks have been listed and delisted contiguously, most commonly by changing the level of concern associated with the stock, while remaining in the SOC process. In @tbl-stocks salmon stocks which have been considered stocks of concern are shown as unique entries each time they entered the SOC process. When looked at this way the 48 SOC listings that have occurred since 2000 have been associated with 39 unique salmon stocks (21 Chinook, 9 chum and 9 sockeye) and 41 entries into the SOC process. For stocks that have been listed at least 3 years (and thus had an opportunity to be delisted under the triennial BOF cycle) we see that while 88% and 86% of the chum and sockeye salmon stocks, respectively, that have entered the stock of concern process were ultimately removed from the process while only 36% of Chinook salmon stocks have done so. For the stocks which were removed from the SOC process, 83% of Chinook salmon, 71% of chum salmon and 71% of sockeye salmon exited the SOC process within 2 board cycles of being listed. Our team interpreted this information as an indication that action plans are effective in some situations and ineffective in others.
-
-Which stock and fishery issues are effectively resolved by action plans may be illuminated by considering the cause of the stock of concern listing. When escapement is chronically below the lower bound of escapement goal due to overharvest, action plans have a reasonable likelihood of success within 1-2 board cycles (3-6 years). In contrast, when escapement is chronically below the lower bound of escapement goal due to severely reduced productivity the department probably exhausted most reasonable management measures through it's emergency order authority in an effort to achieve the escapement goal before the goal was missed. In this instance actions described in the action plan are likely redundant and may have already demonstrated that they did not reduced harvest enough to achieve the escapement goal and resolve the underling issue.
-
-::: panel-tabset
-### Current SOC Process Flowchart
-
-```{r}
-#| warning: FALSE
-#| echo: FALSE
-#| label: fig-flowchart_current
-#| out.width: 3000
-#| out.heigth: 55000
-#| fig-cap: "Current SOC process"
-knitr::include_graphics("./flowchart_current.jpg")
-```
-
-### Proposed SOC Process Flowchart
+The left hand column of @fig-flowchart_proposed shows a flowchart describing the recommended SOC process.
 
 ```{r}
 #| warning: FALSE
@@ -332,55 +300,38 @@ knitr::include_graphics("./flowchart_current.jpg")
 #| out.width: 3000
 #| out.heigth: 55000
 #| fig-cap: "Proposed SOC process"
-knitr::include_graphics("./flowchart_proposed.png")
+knitr::include_graphics("./SOC_flowchart_proposed.png")
 ```
-:::
-
-## Policy Recommendations
-
-ADF&G review of the existing SOC process identified confusion resulting from housing a wide variety of fishery management objectives within the same process, questionable utility behind the 3 different stock of concern levels, and questionable efficacy of action plans in at least some situations where the SOC process is currently applied. The goal of our suggested policy revisions is to correct these issues. The major feature of the revised policy is the separation of low annual abundance issues into two distinct processes according to the availability of a harvestable surplus; a revised stock on concern process whose scope is narrowed to situations where harvestable surpluses are absent and a fishery review process for situations where harvestable surpluses are available.
-
-### SOC Process Revisions
-
-The stock of concern process is narrowed to situations where harvestable surpluses are absent by evaluating chronic inability of the stock's annual run size (rather than annual escapement) relative the the lower bound of the SEG or BEG. When annual run sizes are below the lower bound of the stock's escapement goal it means that there was no management action which would have allowed the lower bound of the escapement goal to be achieved. Therefore, this change reduces the SOC process to only stocks which are experiencing extreme reductions in productivity. This definition also clarifies that SOC designations are only relative the the lower bounds of the escapement goal range and should be made relative to the SEG or BEG set by the department.
-
-Several other changes to the existing SOC are recommended to address issues identified during the review process. We recommend the department designate (rather than recommend) stocks of concern after determining they meet the SOC criteria. Evaluation for SOC eligibility would occur as part each management area's triennial review and be made at the work session preceding each management area's regular board meeting. Allowing the department to make SOC designations directly ris more timely and less confusing than the current process (where SOC designations are not made until the BOF meeting) and consistent with the department's existing responsibilities to to establish SEGs and BEGs directly.
-
-After a stock is designated as a stock of concern we recommend the SET for the stock be identified and communicated the the board and public. Doing so immediately after the stock is designated as a stock of concern clearly communicates the risk to the stock. If annual run sizes are below the lower bound of the stock's SEG or BEG but above the stock's SET then the stock is experiencing production declines that are so severe the stock can no longer support fisheries. We call this situation a productivity risk. If annual run sizes are below the stock's SET then the stock is experiencing production declines that are so severe that stock sustainability may be compromised. We call this situation a depletion risk.
-
-Finally, we recommend SOC designations are addressed by the board and department collaborating to create a recovery plan. A recovery plan is a temporary management plan which supersedes the stock's existing management plan and sunsets when the stock is removed from stock of concern status. Replacing action plans with recovery plans in the revised process clearly communicates that stocks of concern are caused by environmental and biological variation in productivity which exceeds our management capability and will require significant, prolonged reductions to harvest pressure until productivity returns to a more normal state.
-
-The left hand column of @fig-flowchart_proposed shows a flowchart describing the recommended SOC process.
 
 ### Fishery Review Process
 
-While department staff felt the SOC process would be improved by restricting it to severe productivity reductions staff also recognized that the existing process has be effective in resolving some fishery issues faced by the board and department. To preserve this utility we recommend the SOC process by augmented by a parallel process which would be enacted at the discretion of the board and appropriate for less severe reduced productivity anomolies and/or overharvest situations. The primary characteristic of this process is that it allows for broad fishery issues to be brought before the board without a public proposal.
+While the department felt the SOC process would be improved by restricting the process to stocks with severe productivity reductions, it was also recognized that the existing process has been effective in resolving some fishery issues faced by the board and department. To preserve this utility, the department recommends the SOC process be augmented by a parallel process, called a fishery review, enacted at the discretion of the board and appropriate in cases where stock productivity is less severely reduced and/or when there is overharvest. This parallel process allows for broad fishery issues to be brought before the board without a regulatory proposal.
 
-Because fishery reviews occur at the board's discretion the department's role in initiating the process is limited to notification of potential issues. Notification occurs at the board work session preceding each management area's regular board meeting. There are two situations where the department is obligated to notify the board. First, the department will notify the board whenever a escapements have displayed a chronic inability to achieve the lower end of a board designated OEG or inriver run goal. Second, the department will notify the board whenever escapements have displayed a chronic inability to achieve the lower end of the stocks SEG or BEG and the stock does not qualify as a SOC[^1]. After notification the board discusses these stocks and any others where they feel a fishery review might be warranted and directs the department to conduct the review prior to the regular board meeting for each selected stock. It is important to note that the board has complete discretion over which stocks are selected for review.
+The department recommends that fishery reviews occur at the board's discretion and that the department's role in initiating the process be limited to notification of potential issues. Notification would occur at the board work session preceding each management area's regular board meeting. There are two situations when the department would be obligated to notify the board. First, the department will notify the board whenever the escapements for a particular stock have displayed a chronic inability to achieve the lower end of a board designated OEG or inriver run goal. Second, the department will notify the board whenever escapements have displayed a chronic inability to achieve the lower end of the stock's SEG or BEG but the stock does not qualify as a SOC[^1]. After the board is notified at the work sesssion, the board may discuss these stocks and any others that might warrant a fishery review and then directs the department to conduct the fishery review for the selected stocks prior to the regular board meeting. It is important to note that the board has complete discretion over which stocks are selected for a fishery review.
 
 [^1]: i.e. when run size was sufficient to exceed lower end of the goal range.
 
-At the regular board meeting for each selected stock the board uses the information in the department provided fishery review and any information associated with proposals submitted for that stock to identify potential management changes. Regulatory changes associated with fishery review occur through the regular board process and may consist of maintaining the status quo, creating new or modifying existing management plans, and action on any submitted proposals.
+At the regular board meeting, for each stock selected for fishery review the board will use the information in the fishery review provided by the department and any information associated with proposals submitted for that stock to identify potential management changes. Regulatory changes associated with the fishery review occur through the regular board process and may consist of maintaining the status quo, creating new or modifying existing management plans, and action on any submitted proposals.
 
 The right hand column of @fig-flowchart_proposed shows a flowchart describing the recommended fishery review process.
 
 ### Data Limited Fisheries
 
-The distinction between the SOC and the fishery review processes described above rests on whether there is a harvestable surplus available to allocate: no for the SOC process and yes for the fishery review process. While this distinction is easy to make when stock specific harvest information is available there are many salmon stocks where we lack this information and cannot make a purely quantitative distinction. In those cases it will be up department staff to make a subjective decision regarding the likelihood that mixed stock fishery harvest for the stock in question exceeds the difference between the annual escapement and the lower bound of the stock's escapement goal. When staff believe the mixed stock fishery harvest for the stock does not exceed the difference between the annual escapement and the lower bound of the stock's escapement goal the stock would enter the SOC process. When staff believe the mixed stock fishery harvest for the stock does exceeds the difference between the annual escapement and the lower bound of the stock's escapement goal the stock would enter the fishery review process.
+The distinction between the SOC and the fishery review process described above rests on whether there is a harvestable surplus available to allocate: no for the SOC process and yes for the fishery review process. While this distinction is easy to make when stock specific harvest information is available, there are many salmon stocks where we lack this information and cannot make a purely quantitative distinction. In those cases, it will be up to the department to make a subjective decision regarding the likelihood that mixed stock fishery harvest for the stock in question exceeds the difference between the annual escapement and the lower bound of the stock's escapement goal. When the department, based on scientifically supported expert opinion, believes the mixed stock fishery harvest for the stock in question does not exceed the difference between the annual escapement and the lower bound of the stock's escapement goal, the stock would enter the SOC process. When the department believes the mixed stock fishery harvest for the stock in question exceeds the difference between the annual escapement and the lower bound of the stock's escapement goal, the stock would enter the fishery review process.
 
 The top right corner of @fig-flowchart_proposed shows a flowchart depiction of this decision tree.
 
 # Technical Review {#sec-technical}
 
-In addition to the structural policy issues described above the review team identified two technical issues that needed to be addressed: 1) guidance regarding the interpretation of chronic inability when listing or delisting a stock of concern, and 2) the need for a procedure the establish Sustainable Escapement Thresholds (SET) in the State of Alaska. This review uses simulation to investigate solutions to these issues.
+In addition to the structural policy issues described above the review team identified two technical issues that needed to be addressed: 1) guidance regarding the interpretation of chronic inability when listing or delisting a SOC, and 2) the need for a procedure the establish Sustainable Escapement Thresholds (SET) in the State of Alaska. This review uses simulation to investigate solutions to these issues.
 
 ## Spawner-Recruit Dynamics
 
-ADF&G escapement goals are estimated using compensatory population dynamics (red lines in @fig-gamma) which assert that per capita production increases as population size decreases[^2]. Compensatory population dynamics have been empirically observed for many stocks during periods of high spawning abundance and provide the technical foundation for liberalizing fisheries above the upper bound of a salmon escapement goal. During periods of low spawning abundance fishery mangers assume compensatory dynamics exist but have seldom observed spawning escapements small enough to verify. This is a critical assumption during periods of low spawning abundance because by using it fishery scientists are not including the possibility that a population can become imperiled in the assessment. Many authors accommodate this obvious discrepancy by setting an arbitrary lower bound (i.e. 50 or 100 fish) below which they consider a population extinct while simulating population dynamics and/or by an avoiding an arbitrary limit reference point (i.e. \~50% of the lower bound of the stock's escapement goal) during actual fisheries management.
+ADF&G escapement goals are estimated using compensatory population dynamics (red lines in @fig-gamma) which assert that per capita production increases as population size decreases[^2]. Compensatory population dynamics have been empirically observed for many stocks during periods of high spawning abundance and provide the technical foundation for liberalizing fisheries above the upper bound of a salmon escapement goal. During periods of low spawning abundance fishery mangers assume compensatory dynamics exist but have seldom observed spawning escapements small enough to verify. This is a critical assumption during periods of low spawning abundance because by using it fishery scientists are not including the possibility that a population can become imperiled at low abundance, for various density dependent or stochastic reasons, in the assessment. Many authors accommodate this obvious discrepancy by setting an arbitrary lower bound (i.e. 50 or 100 fish) below which they consider a population extinct while simulating population dynamics and/or by avoiding an arbitrary limit reference point (i.e. \~50% of the lower bound of the stock's escapement goal) during actual fisheries management.
 
 [^2]: i.e. the population *compensates* for a reduction in it's size by producing more recruits
 
-An alternative to this approach would be to account for possible conservation issues within the assessment framework by assuming depensatory population dynamics... i.e. per capita production decreases as population size decreases *at low levels of abundance*. Like compensatory dynamics, depensatory population dynamics have not been consistently verified due to the lack of very small spawning abundances observed. That said, depensatory population dynamics garner consistent interest because they imply stocks will be slow to recover from low levels of spawning abundance and may not recover from extremely low levels of spawning abundance. Models that allow for depensatory dynamics include a peak on the $\textrm{log}\left(\frac{R}{S}\right)$ scale where compensatory dynamics end and depensatory dynamics begin as spawning abundance decreases (dots in @fig-gamma) and are thus consistent with empirical observations at large abundances and precautionary at small abundances that have yet to be observed. In this document we will use the term non-depensatory for models that included **only** compensatory dynamics (i.e. Ricker) and depensatory for models that include depensatory dynamics at small spawning escapements and compensatory dynamics at medium and large spawning escapements.
+An alternative to this approach would be to account for possible conservation issues within the assessment framework by assuming depensatory population dynamics... i.e. per capita production decreases as population size decreases *at low levels of abundance*. Like compensatory dynamics, depensatory population dynamics have not been consistently verified due to the lack of very small spawning abundances observed. That said, depensatory population dynamics garner consistent interest because they imply stocks will be slow to recover from low levels of spawning abundance and may not recover from extremely low levels of spawning abundance. Models that allow for depensatory dynamics include a peak on the $\textrm{log}\left(\frac{R}{S}\right)$ scale where compensatory dynamics end and depensatory dynamics begin as spawning abundance decreases (dots in @fig-gamma) and are thus consistent with empirical observations at large abundances and precautionary at small abundances that have yet to be observed. In this document we will use the term non-depensatory for models that include **only** compensatory dynamics (i.e., Ricker) and the term depensatory for models that include depensatory dynamics at small spawning escapements and compensatory dynamics at medium and large spawning escapements.
 
 ```{r}
 #| warning: FALSE
@@ -388,7 +339,7 @@ An alternative to this approach would be to account for possible conservation is
 #| label: fig-gamma
 #| fig.height: 6
 #| fig.width: 8
-#| fig.cap: "Spawner-recruit dynamics under non-depensatory (red line) and depensatory assumptions. Dot-dash lines represent the point where stock dynamics shift from compensatory to depensatory as spawning abundance decreases. Dash lines represent an unstabe equilibrium below which spawning abundance trends towards zero."
+#| fig.cap: "Spawner-recruit dynamics under non-depensatory (red line) and depensatory assumptions. Dot-dash lines represent the point where stock dynamics shift from compensatory to depensatory as spawning abundance decreases. Dash lines represent an unstable equilibrium below which spawning abundance trends towards zero."
 
 #example plot
 #parameter set
@@ -455,35 +406,56 @@ R~&=~\alpha S^\gamma e^{(-\beta S)} \\
 \end{align*}
 $$
 
-The $\alpha$ parameter describes stock productivity while the $\beta$ and $\gamma$ parameters describe the strength of compensatory and depensatory density-dependence, respectively. The Ricker spawner-recruit relationship is a special case of the gamma spawner-recruit relationship when $\gamma = 1$ . Notice the relationships shown in @fig-gamma have been adjusted so that they all have same values for $S_{max}$ and $R_{max}$[^3] and can thus be viewed as modifications of a Ricker curve for a single population with increasingly strong levels of depensatory dynamics. Both of these characteristics make the gamma spawner-recruit relationship and excellent vehicle through which to explore the implications of depensatory spawner-recruit dynamics because ADF&G currently uses the Ricker relationship to estimate escapement goals and the implications of depensatory spawner-recruit dynamics should be made relative to the non-depensatory assumptions currently in use.
+The $\alpha$ parameter describes stock productivity while the $\beta$ and $\gamma$ parameters describe the strength of compensatory and depensatory density-dependence, respectively. The Ricker spawner-recruit relationship is a special case of the gamma spawner-recruit relationship when $\gamma = 1$ . Notice the relationships shown in @fig-gamma have been adjusted so that they all have same values for $S_{max}$ and $R_{max}$[^3] and can thus be viewed as modifications of a Ricker curve for a single population with increasingly strong levels of depensatory dynamics. Because the department uses the Ricker realtionship to estimate escapement goals, the gamma spawner-recruit relationship is an excellent vehicle through which to explore the implications of depensatory spawner-recruit dynamics relative to the non-depensatory assumptions currently in use. @sec-theory discusses the theoretical foundation for using the gamma spawner-recruit relationship and it's utility for stock assessment during times of low spawning abundance.
 
 [^3]: Which can be done by algebraic manipulation of $\alpha$ and $\beta$.
 
-ADF&G scientist have fallen into a bit of a rut on this issue by consistently asserting that depensatory spawner-recruit dynamics may not exist and that even if they did depensatory parameters cannot be estimated without waiting for additional data (from recruitments associated with very low spawning abundances) to accumulate. Besides being untimely and unhelpful, this refrain ignores the fact that fishery managers must regularly make decisions on uncertain and/or incomplete information and that statistical techniques exist to accommodate the uncertainty and missing data with respect to estimation of depensatory spawner-recruit dynamics.
-
 ## Simulation Framework
 
-The simulation framework for this project was designed to approximate the circumstances staff will face when determining SOC status during ADF&G stock assessments. Firstly, we recognize the assumption of non-depensatory spawner-recruit dynamics currently used in salmon management. To ensure our simulation framework is robust to this initial condition we started by identifying a suite of Ricker (non-depensatory) spawner-recruit and fishery parameter combinations that span the range of values observed in Alaskan fisheries. Second, we developed depensatory dynamic equations which are similar, with respect to maximum recruitment and the spawning escapement associated with maximum recruitment, to the non-depensatory scenarios identified. This process allowed us to produce simulated datasets that match both our current assumptions (non-depensatory spawner-recruit dynamics) as well as the depensatory dynamics that are possible given the empirical data we currently posses. Thirdly, we assume salmon stocks under SOC consideration are in a low productivity regime and explicitly include reduced productivity at the end of every simulated dataset.
+The simulation framework given below approximates the circumstances staff will face when determining SOC status during ADF&G stock assessments. Firstly, we recognize the assumption of non-depensatory spawner-recruit dynamics currently used in salmon management. To ensure our simulation framework is robust to this initial condition we started by identifying a suite of Ricker (non-depensatory) spawner-recruit and fishery parameter combinations that span the range of values observed in Alaskan fisheries. Second, we developed depensatory dynamic equations that are similar with respect to maximum recruitment and the spawning escapement associated with maximum recruitment, to the non-depensatory scenarios identified. This process allowed us to produce simulated datasets that match both our current assumptions (non-depensatory spawner-recruit dynamics) as well as the depensatory dynamics that are possible given the empirical data we currently posses. Thirdly, we assume salmon stocks under SOC consideration are in a low productivity regime and explicitly include reduced productivity at the end of every simulated dataset.
 
 ### Parameter Space for Salmon Populations
 
-In an effort to represent a wide variety of species and populations, simulations will be performed across a grid of spawner-recruit parameters. Non-depensatory dynamics are described by Ricker curves where the parameter space includes productivity $\textrm{log}(\alpha)$ of either $1$, $1.5$ and $2$. All simulations assume compensatory density-dependence of $\beta=0.0001$.
+In an effort to represent a wide variety of species and populations, simulations will be performed across a grid of spawner-recruit parameters. Non-depensatory dynamics are described by Ricker curves where the parameter space includes productivity $\textrm{log}(\alpha)$ of either $1$, $1.5$ and $2$ which is assumed to cover the range of productivity values found in wild Alaskan salmon poplulations. Because the compensatory density dependance parameter $\beta$ scales the spawner-recruit relationship without changings it's shape all simulations assume compensatory density-dependence of $\beta=0.0001$ and maximize recruitment $S_{max}$ at $10,000$ spawning fish.
 
-In addition, we derive 2 depensatory scenarios ($\gamma = 1.3$ or $1.6$) from each non-depensatory scenario ($\gamma = 1$) while adjusting the values for $\textrm{log}(\alpha)$ and $\beta$ when $\gamma > 1$ such that $R_{max}$ and $S_{max}$ of the spawner-recruit relationship when $\gamma > 1$ is equal to the values of $R_{max}$ and $S_{max}$ when $\gamma = 1$. For simplicity, we use productivity ($\textrm{log}(\alpha) = 1$, $1.5$, or $2$) from the non-depensatory scenarios to refer to depensatory scenarios which share the same values of $R_{max}$ and $S_{max}$ even though the values of $\textrm{log}(\alpha)$ and $\beta$ used to generate the simulated datasets change for the depensatory cases.
+In addition, we derive 2 depensatory scenarios ($\gamma = 1.3$ or $1.6$) from each non-depensatory scenario ($\gamma = 1$) while adjusting the values for $\textrm{log}(\alpha)$ and $\beta$ when $\gamma > 1$ such that $R_{max}$ and $S_{max}$ of the spawner-recruit relationship when $\gamma > 1$ is equal to the values of $R_{max}$ and $S_{max}$ when $\gamma = 1$. Values for $\gamma$ spanning $1$ to $1.6$ are assumed to span the range of plausible values wild salmon populations might assume primarily because values in excess of $1.6$ likely would have already been detected in empirical data. For simplicity, we use productivity ($\textrm{log}(\alpha) = 1$, $1.5$, or $2$) from the non-depensatory scenarios to refer to depensatory scenarios which share the same values of $R_{max}$ and $S_{max}$ even though the values of $\textrm{log}(\alpha)$ and $\beta$ used to generate the simulated datasets change for the depensatory cases.
 
-Escapement goals for each stock were derived from the known non-depensatory spawner-recruit relationship associated with each level of productivity ($\textrm{log}(\alpha) = 1$, $1.5$, or $2$). This process mimics actual ADF&G fisheries management in that escapement goals have been set assuming a non-depensatory spawner-recruit relationships and any empirical data we collect will be relative the those goals. In addition, 2 values were used for the percentage of MSY staff were targeting at the lower bound of the escapement goal: 50% representing an extremely aggressive fishery[^4] and 90% representing a conservative fishery. All simulations used upper escapement goal bounds that were selected to achieve 70% of MSY based on the non-depensatory spawner-recruit relationship.
+Escapement goals for each stock were derived from the non-depensatory spawner-recruit relationship associated with each level of productivity ($\textrm{log}(\alpha) = 1$, $1.5$, or $2$). This process mimics actual ADF&G fisheries management in that escapement goals have been set assuming a non-depensatory spawner-recruit relationships and any empirical data we collect will be relative to those goals. In addition, 2 values, one extreame and one typical, were used for setting the lower bound of the escapement goals used in these simulations. Lower bounds that were intended to achieve 50% of MSY, representing an extremely aggressive fishery[^4] and 90% of MSY, representing a conservative fishery. All simulations used an upper escapement goal bound that was selected to achieve 70% of MSY based on the non-depensatory spawner-recruit relationship.
 
 [^4]: Fifty percent of MSY is intended to represent an extreme example only rarely used in Alaskan salmon fisheries. For example, the current Egegik River SEG of 800,000-1,400,000 fish provides approximately 48% (3,900,000 fish) of MSY (8,100,000 fish) at the lower bound using the larger prior assumption for equilibrium stock size (Cunningham et al. 2015b Evaluation of alternative methods to estimate biological escapement goals, Table 4 and Figure 4).
 
-Finally, all simulated datasets included process $\sigma_F$ and observation $\sigma_N$ error or 0.2. Fishing power was a function of the productivity of the population and set to $30\%$, $55\%$ and $80\%$ for stocks with non-depensatory productivity of $1$, $1.5$ and $2$ respectively.
+```{r}
+#| echo: FALSE  
+#| label: tbl-scenarios  
+#| tbl-cap: "Base spawner-recruit and fishery parameter combinations used in this simulation study. Simulations to assess chronic inablity and SETs added parameters to this framework"
+rep_scenarios_gp %>%
+  group_by(scenario) %>%
+  filter(rep == min(rep), 
+         sigma == 0.5) %>%
+  ungroup() %>%
+  mutate(Rmax = round(exp(lnalpha_1)/beta*exp(-1), 0),           
+         Smax = 1/ beta) %>%
+  select(lnalpha_1, gamma, pct_MSY, Smax, Rmax) %>%
+  arrange(lnalpha_1, gamma, pct_MSY) %>%
+  flextable() %>%    
+  set_header_labels(
+    lnalpha_1 = "ln(\u03b1)",
+    gamma = "\u03b3",
+    pct_MSY = "MSY % @ EG \n lower bound",
+    Smax = "Smax",
+    Rmax = "Rmax") %>%
+  merge_v(j = c("lnalpha_1", "gamma")) %>%
+  valign(j = c("lnalpha_1", "gamma", "pct_MSY"), valign = "top") %>% 
+  autofit() 
+```
 
-The simulation model used for this exercise is described in @sec-sim_model.
+Finally, all simulated datasets included process $\sigma_F$ and observation $\sigma_N$ error or 0.2 which we assume to represent moderate levels of error for both components. Fishing power was a function of the productivity of the population and set to $30\%$, $55\%$ and $80\%$ for stocks with non-depensatory productivity of $1$, $1.5$ and $2$, respectively, to represent the likelihood that the largest fisheries are associated with the most productive stocks. In addition to the parameters described above the simulation model used can accomdate unique values for process error $\sigma$, temporal auto-correlation $\phi$, and age-at-maturity schedules. The simulation model is described in @sec-sim_model.
 
 ### Productivity Regimes {#sec-productivity-regimes}
 
-When a salmon stock consistently misses the lower bound of it's escapement goal in a well-managed fishery, productivity has undergone a large decline. For this exercise we assume the initial years of each simulated dataset occur under the productivity assumptions described above while the data was generated assuming sharply reduced productivity thereafter. For labeling and discussion purposes we will continue to describe parameter combinations based on historical productivity and distinguish reduced productivity simulations with the words "reduced productivity". Specifically, during reduced productivity the $\beta$ and $\gamma$ parameters were held constant while productivity was lowered[^5] such that $\textrm{log}(\alpha^*)=\frac{lb}{\beta}$ where $lb$ is the lower bound of the escapement goal[^6]. The assumed spawner-recruit relationships for each productivity regime are shown in @fig-regime. Notice that under reduced productivity conditions there is little harvestable surplus when assuming non-depensatory spawner-recruit dynamics and the stock often fails to replace itself when assuming depensatory spawner-recruit dynamics.
+When a salmon stock consistently misses the lower bound of it's escapement goal in a well-managed fishery, productivity has undergone a large decline. For this exercise we assume the initial years of each simulated dataset occur under the productivity assumptions described above while the data were generated assuming sharply reduced productivity thereafter. For labeling and discussion purposes we will continue to describe parameter combinations based on historical productivity and distinguish reduced productivity simulations with the words "reduced productivity". Specifically, during reduced productivity the $\beta$ and $\gamma$ parameters were held constant while productivity was lowered[^5] such that $\textrm{log}(\alpha^*)=\frac{lb}{\beta}$ where $lb$ is the lower bound of the escapement goal[^6]. The assumed spawner-recruit relationships for each productivity regime are shown in @fig-regime. Notice that under reduced productivity conditions there is little harvestable surplus when assuming non-depensatory spawner-recruit dynamics and the stock often fails to replace itself when assuming depensatory spawner-recruit dynamics.
 
-[^5]: For the non-depensatory model, this adjustment moves the escapement associated with equilibrium abundance $S_{eq}$ to be equal to the lower bound of the escapement goal while leaving the escapement associated the maximum recruitment $S_{max}$ unchanged.
+[^5]: For the non-depensatory (Ricker) model, this adjustment moves the escapement associated with equilibrium abundance $S_{eq}$ to be equal to the lower bound of the escapement goal while leaving the escapement associated the maximum recruitment $S_{max}$ unchanged.
 
 [^6]: Recall that when $\gamma > 1$, $\alpha$ and $\beta$ are adjusted such that $S_{max}$ and $R_{max}$ are the same for the non-depensatory ($\gamma = 1$) and the depensatory ($\gamma > 1$) cases. When calculating stock parameters under reduced productivity the adjustment to $\textrm{log}(\alpha^*)$ in the non-depensatory case was made before calculating $\alpha$ and $\beta$ parameters which equate $S_{max}$ and $R_{max}$ for the depensatory and non-depensatory cases.
 
@@ -492,7 +464,7 @@ When a salmon stock consistently misses the lower bound of it's escapement goal 
 #| label: fig-regime  
 #| fig.height: 6
 #| fig.width: 8
-#| fig.cap: "The assumed spawner-recruit relationships used in this simulation study. Each panel shows 3 spawner-recruit relationships for both the normal and low productivity regimes. The 18 relationships thus shown represent 1/2 of the total number of scenarios considered because variability in process error manifests during data generation."  
+#| fig.cap: "The assumed spawner-recruit relationships used in this simulation study. Each panel shows 3 spawner-recruit relationships described in @tbl-scenarios for both the historical and reduced productivity regimes"  
 rep_scenarios_gp %>%
   group_by(scenario) %>%
   filter(rep == min(rep), sigma == 0.25) %>%
@@ -500,16 +472,20 @@ rep_scenarios_gp %>%
   select(lnalpha_1, pct_MSY, lb, ub, a_1, b, gamma, a_2) %>%
   slice(rep(1:n(), each = 101)) %>%
   mutate(S = rep(seq(0, 2 * 1 / max(beta), by = 200), times = 18),
-         R = SRgamma(alpha = a_1, beta = b, gamma = gamma, S = S),
-         R_2 = SRgamma(alpha = a_2, beta = b, gamma = gamma, S = S)) %>%
-  ggplot(aes(x = S, y = R, color = as.character(gamma))) +
+         R_historical = SRgamma(alpha = a_1, beta = b, gamma = gamma, S = S),
+         R_reduced = SRgamma(alpha = a_2, beta = b, gamma = gamma, S = S)) %>%
+  pivot_longer(cols = starts_with("R_"), 
+               names_to = "Productivity", 
+               names_pattern = "R_(.*)",
+               values_to = "R") %>%
+  ggplot(aes(x = S, y = R, color = as.character(gamma), linetype = Productivity)) +
   geom_rect(aes(xmin = lb,
                 xmax = ub,
                 ymin = -Inf,
                 ymax = Inf),
             fill = "grey95",
             inherit.aes = FALSE) +
-  geom_line() +      geom_line(aes(y = R_2), linetype = 2) +
+  geom_line() +      
   geom_abline() +
   scale_y_continuous(name = "R") +
   scale_color_manual(name = "Gamma (\u03B3)",
@@ -521,7 +497,7 @@ rep_scenarios_gp %>%
 
 ### Simulated Population Trends
 
-@fig-S shows simulated escapement time series for populations parameterized as described above. Notice that the escapement time series is unresponsive to the modeled change in productivity immediately after the reduced productivity regime begins. We also see that while escapements for populations with non-depensatory dynamics ($\gamma=1$) are asymptotic with the lower bound of the escapement goal, abundance for populations with depensatory dynamics decreases slowly under the simulation assumptions. Thus the range of simulations considered include both our traditional assumptions (non-depensatory dynamics) and behavior precautionary management should avoid[^7]. I'd argue these simulation also suggest targeting too small of a percentage of MSY is dangerous as discovery of potential depensatory dynamics is delayed until spawning abundances are already dangerously low.
+@fig-S shows median simulated escapement and run size time series for populations parameterized as described above. Notice that the both time series are unresponsive to the modeled change in productivity immediately after the reduced productivity regime begins (vertical line). We also see that while escapements for populations with non-depensatory dynamics ($\gamma=1$) are nearly asymptotic with the lower bound of the escapement goal, abundance for populations with depensatory dynamics continue to fall slowly below the lower bound of the escapement goal under the simulation assumptions. Thus the range of simulations considered include both our traditional assumptions (non-depensatory dynamics) and behavior precautionary management should avoid[^7]. I'd argue these simulation also suggest targeting 50% of MSY at the escapement goal lower bound is dangerous as discovery of potential depensatory dynamics is delayed until spawning abundances are already dangerously low.
 
 [^7]: Future simulations should consider if adjusting the lower bound of the escapement goal to match the estimated depensatory dynamics provide relief from the gradually reducing escapements shown here.
 
@@ -529,23 +505,34 @@ rep_scenarios_gp %>%
 #| echo: FALSE
 #| warning: FALSE
 #| label: fig-S
-#| fig.height: 6
+#| fig.height: 8
 #| fig.width: 8
-#| fig.cap: "Simulated escapements for stocks with ln(\u03B1) = 1.5 and \u03B4 = 0.5. Light grey lines show the simulated escapement for each replicate simulation while the thick black line shows the median escapement. Strait lines show reference points associated with each group of simulations: the vertical black line is the timing of the regime change, the solid red line is the lower bound of the escapement goal and the dashed red line is the theoretical SET."  
+#| fig.cap: "Median simulated escapement (grey) and run size (black) for stocks with ln(\u03B1) = 1.5 and \u03B4 = 0.5. Reference points associated with each group of simulations are shown as an vertical black line (timing of the regime change), a grey rectangle shows (escapement goal bounds) and a dashed red line (theoretical SET)."  
+col = c("S" = "grey", "N" = "black")
+
 rep_scenarios_gp %>%
   filter(lnalpha_1 == 1.5, sigma == 0.5, pct_lb == 1) %>%
   mutate(sim = map(data, function(x) x$sim),
-         S = map(data, function(x) x$S)) %>%
-  unnest(c(sim, S)) %>%
+         S = map(data, function(x) x$S),
+         N = map(data, function(x) x$N)) %>%
+  unnest(c(sim, S, N)) %>%
+  pivot_longer(cols = c(S, N), names_to = "Abundance", values_to = "value") %>%
   group_by(scenario, sim, lnalpha_1, lnalpha_2, a_1, a_2, b, gamma, sigma, pct_MSY, pct_lb, lb) %>%
   mutate(SET = (gamma - 1) / b) %>%
-  ggplot(aes(x = sim, y = S,  group = rep)) +
-  geom_line(color = "gray90") +
-  stat_summary(aes(x = sim, y = S), inherit.aes = FALSE, fun = median, geom = "line", linewidth = 1) +
-  geom_hline(aes(yintercept = lb), color = "red") +
+  ggplot(aes(x = sim, y = value,  color = Abundance)) +
+  geom_rect(aes(ymin = lb, ymax = ub, xmin = -Inf, xmax= Inf), 
+            fill = "grey",
+            alpha = 0.01,
+            inherit.aes = FALSE) +
+  stat_summary(aes(x = sim, y = value, color = Abundance), 
+               fun = median, 
+               geom = "line", 
+               linewidth = 1) +
   geom_hline(aes(yintercept = SET), linetype = 2, color = "red") +
   geom_vline(aes(xintercept = 20)) +
-  labs(x = "Simulation Year", y = "Escapement") +
+  scale_color_manual(values = col, 
+                     labels = c("S" = "Escapement", "N" = " Run")) +
+  labs(x = "Simulation Year", y = "Number of salmon") +
   theme_bw() +
   facet_grid(paste0("\u03B3: ", gamma) ~ paste0("%MSY @ lb: ", pct_MSY)) 
 ```
@@ -619,19 +606,13 @@ dat_SOC <-
   group_by(scenario, rep)
 ```
 
-Stock of concern (SOC) listing and de-listing criteria were identified by staff and leadership as an issue that should be considered during EGPIT's review of the SSFP. The SSFP provides guidance on SOC listing and de-listing criteria relative the the definition of Chronic Inability which is defined in 5 AAC 39.222(f):
-
-::: {#nte-CI .callout-note appearance="simple" icon="false"}
-\(5\) "chronic inability" means the continuing or anticipated inability to meet escapement thresholds over a four to five year period. which is the approximate generation time of most salmon species;
-:::
-
-We view this topic as technical because while the definition itself appears to be workable, interpretation by ADF&G staff have differed across division, regions and species. In general, ADF&G staff have considered missing an escapement goal for 3, 4, or 5 of the last 5 years as sufficiently chronic to recommend listing a stock as a stock of concern. De-listing criteria are also not standardized but I'll suggest the inverse of the listing criteria (making the escapement goal 3, 4, or 5 of the last 5 years while listed as a SOC) seems to be the default. In what follows I'll assume the most common criteria Department staff have used is recommending a stock is listed as a SOC listing when it has missed it's escapement goal for 4 of the last 5 years and recommending a stock is de-listed as a SOC when it has made it's escapement goal for 4 of the past 5 years.
+Stock of concern listing and de-listing criteria were identified by the department as an issue that should be considered during EGPIT's review of the SSFP. The SSFP provides guidance on SOC listing and de-listing criteria relative the the definition of Chronic Inability which is defined in 5 AAC 39.222(f). We view this topic as technical because while the definition itself appears to be workable, interpretation by ADF&G staff have differed across division, regions and species. In general, ADF&G staff have considered missing an escapement goal for 3, 4, or 5 of the last 5 years as sufficiently chronic to recommend listing a stock as a SOC. De-listing criteria are also not standardized but I'll suggest the inverse of the listing criteria (making the escapement goal 3, 4, or 5 of the last 5 years while listed as a SOC) seems to be the default. In what follows I'll assume the most common criteria Department staff have used is recommending a stock is listed as a SOC listing when it has missed it's escapement goal for 4 of the last 5 years and recommending a stock is de-listed as a SOC when it has made it's escapement goal for 4 of the past 5 years.
 
 ### Methods
 
 The intent with this analysis is to use simulated datasets to describe the characteristics of various listing and delisting criteria. Because the analysis is predicated on a simulation procedure which makes several assumptions about contemporary stock-recruit dynamics and environmental regimes, an outline of the analysis will be presented before providing detail regarding each step below.
 
--   Identify parameter ranges staff believe encompass most Alaska salmon stocks while assuming historic productivity and Ricker (non-depensatory) spawner-recruit dynamics.
+-   Identify parameter ranges staff believe encompass most Alaska salmon stocks while assuming historical productivity and Ricker (non-depensatory) spawner-recruit dynamics.
 
 -   Calculate parameter ranges while assuming reasonable levels of depensatory spawner-recruit dynamics that results in similar population dynamic behavior over the range of spawning abundances we have historically observed.
 
@@ -639,9 +620,9 @@ The intent with this analysis is to use simulated datasets to describe the chara
 
 -   Assume a reduction in productivity is the "concern" SOC listings are attempting to identify and calculate low-productivity parameter values for both non-depensatory and depensatory populations. Critically, this step makes non-depensatory populations sustainable while in low productivity and depensatory populations non-sustainable while in low productivity with the rate of decline related to the strength of depensation.
 
--   Simulate a time series of run sizes for all combinations of stock and fishery parameters under both the historic and low productivity regimes.
+-   Simulate a time series of run sizes for all combinations of stock and fishery parameters under both the historical and low productivity regimes.
 
--   Identity criteria to assess chronic inability, apply those to run size time series during both historic and low productivity regimes, and compare the performance of each criteria.
+-   Identity criteria to assess chronic inability, apply those to run size time series during both historical and low productivity regimes, and compare the performance of each criteria.
 
 It is important to note that the analysis presented herein assumes the EGPIT SOC recommendations are adopted. Most critically for this analysis is the recommendation that SOC listings be triggered by annual run sizes that miss the lower bound of a stock's escapement goal (rather than escapements). This change isolates biological issues from fishery management issues by focusing SOC listings on instances where there were insufficient fish available to make the lower bound of the stock's escapement goal[^8].
 
@@ -657,78 +638,19 @@ Non-depensatory dynamics are described by Ricker curves where the parameter spac
 
 -   $10\%~3$ years old, $38\%~4$ years old, $30\%~5$ years old, $20\%~6$ years old, and $2\%~7$ years old
 
-Complete expansion of these parameter combinations resulted in 54 different scenarios of non-depensatory spawner-recruit dynamics. There were 162 total scenarios of spawner-recruit dynamics after consideration of the depensatory dynamic spawner-recruit scenarios and 324 scenarios after consideration of 2 different percentages of MSY at the lower bound of the escapement goal (@tbl-ci_scenarios).
+Complete expansion of these parameter combinations resulted in 54 different scenarios of non-depensatory spawner-recruit dynamics. There were 162 total scenarios of spawner-recruit dynamics after consideration of the depensatory dynamic spawner-recruit scenarios and 324 scenarios after consideration of 2 different percentages of MSY at the lower bound of the escapement goal.
 
-::: panel-tabset
-### Chronic Inability Scenarios
-
-```{r}
-#| echo: FALSE  
-#| label: tbl-ci_scenarios  
-#| tbl-cap: "Spawner-recruit and fishery parameter combinations used to evaluate chronic inability in this simulation study."
-rep_scenarios %>%
-  group_by(scenario) %>%
-  filter(rep == min(rep)) %>%
-  mutate(age_mat_char = gsub("c|`| ", "", as.character(age_mat))) %>%
-  mutate(Rmax = round(exp(lnalpha_1)/beta*exp(-1), 0),           
-         Smax = 1/ beta) %>%
-  select(scenario, lnalpha_1, sigma, phi, gamma, pct_MSY, age_mat_char, Rmax, Smax) %>%
-  arrange(lnalpha_1, sigma, phi, gamma, pct_MSY, age_mat_char) %>%
-  flextable() %>%
-  set_header_labels(
-    scenario = "Scenario",
-    lnalpha_1 = "ln(\u03b1)",
-    sigma = "\u03c3",
-    phi = "\u03A6",
-    gamma = "\u03b3",
-    pct_MSY = "MSY % @ EG \n lower bound",
-    age_mat_char = "Age-at-maturity",
-    Rmax = "Rmax",      Smax = "Smax"    
-  ) %>%
-  merge_v(j = c("lnalpha_1", "sigma", "phi", "gamma", "pct_MSY")) %>%
-  valign(j = c("lnalpha_1", "sigma", "phi", "gamma", "pct_MSY", "age_mat_char"), valign = "top") %>%
-  align(j = "age_mat_char", align = "right") %>%
-  autofit()
-```
-
-### SET Scenarios
-
-```{r}
-#| echo: FALSE  
-#| label: tbl-SET_scenarios  
-#| tbl-cap: "Spawner-recruit and fishery parameter combinations used to evaluate SETs in this simulation study."
-rep_scenarios_gp %>%
-  group_by(scenario) %>%
-  filter(rep == min(rep)) %>%
-  mutate(Rmax = round(exp(lnalpha_1)/beta*exp(-1), 0),           
-         Smax = 1/ beta) %>%
-  select(scenario, lnalpha_1, sigma, gamma, pct_MSY, Rmax, Smax) %>%
-  arrange(lnalpha_1, sigma, gamma, pct_MSY) %>%
-  flextable() %>%    
-  set_header_labels(
-    scenario = "Scenario",      
-    lnalpha_1 = "ln(\u03b1)",
-    sigma = "\u03c3",
-    gamma = "\u03b3",
-    pct_MSY = "MSY % @ EG \n lower bound",
-    Rmax = "Rmax",      Smax = "Smax"    ) %>%
-  merge_v(j = c("lnalpha_1", "sigma", "gamma")) %>%
-  valign(j = c("lnalpha_1", "sigma", "gamma", "pct_MSY"), valign = "top") %>% 
-  autofit() 
-```
-:::
-
-For each simulated population a total of 207 years[^9] of spawner-recruit pairs were generated; 100 years during the historic productivity regime and up to 107 years under the low productivity regime. The first 7 spawner-recruit pairs from the low productivity regime in each simulated dataset were later discarded to allow for 1 generation of fish to mature before evaluating the performance of chronic inability criteria during the low productivity regime. This procedure resulted in two time series of spawner-recruit pairs per scenario and replicate, one from each productivity regime.
+For each simulated population a total of 207 years[^9] of spawner-recruit pairs were generated; 100 years during the historical productivity regime and up to 107 years under the low productivity regime. The first 7 spawner-recruit pairs from the low productivity regime in each simulated dataset were later discarded to allow for 1 generation of fish to mature before evaluating the performance of chronic inability criteria during the low productivity regime. This procedure resulted in two time series of spawner-recruit pairs per scenario and replicate, one from each productivity regime.
 
 [^9]: Or until depensatory populations reached extinction.
 
 #### Chronic Inability Criteria {#sec-soc-designations}
 
-The time series of run sizes as described above allows us to test different criteria to evaluate chronic inability against the frequency of SOC designations under each criteria. There were 2 broad categories of chronic inability criteria considered. The first was consistent with traditional ADF&G usage where annual run sizes above and below the lower bound of the escapement goal were counted within a specified window to evaluate whether to list or de-list a stock as a stock of concern. In what follows the naming convention N### was used for this category of criteria where the first number is the number of times the annual run size needed to be below the lower bound of the escapement goal to list the stock as a stock of concern, the second number is the number of times the annual run size needed to be above the lower bound of the escapement goal to de-list the stock as a stock of concern, and the third number is the total number of years considered when making a SOC designation. The second category of chronic inability criteria was the use of a rolling average over the last x annual run sizes where each year the rolling average was compared to the lower bound of the escapement goal to decide whether to list or de-list a stock as a stock of concern. For this category the naming convention rollx was used. Rollx criteria are included to address a concerns that the binary N### does not weight the size of deviations above and below the lower bound of the escapement goal and may resulting in unnecessary SOC listings when small misses are paired with large makes, or vice versa.
+The time series of run sizes as described above allows us to test different criteria to evaluate chronic inability against the frequency of SOC designations under each criteria. There were 2 broad categories of chronic inability criteria considered. The first was consistent with traditional ADF&G usage where annual run sizes above and below the lower bound of the escapement goal were counted within a specified window to evaluate whether to list or de-list a stock as a SOC. In what follows the naming convention N### was used for this category of criteria where the first number is the number of times the annual run size needed to be below the lower bound of the escapement goal to list the stock as a SOC, the second number is the number of times the annual run size needed to be above the lower bound of the escapement goal to de-list the stock as a SOC, and the third number is the total number of years considered when making a SOC designation. The second category of chronic inability criteria was the use of a rolling average over the last x annual run sizes where each year the rolling average was compared to the lower bound of the escapement goal to decide whether to list or de-list a stock as a SOC. For this category the naming convention rollx was used. Rollx criteria are included to address a concerns that the binary N### does not weight the size of deviations above and below the lower bound of the escapement goal and may resulting in unnecessary SOC listings when small misses are paired with large makes, or vice versa.
 
 ### Results
 
-Example run size time series are shown for 18 simulation scenarios in @fig-N. It is important to note that assumed stock-recruit and fishery parameters imply different population dynamics across values of $\gamma$ (depensatory dynamic strength) and the percent of MSY attainable at the lower bound of the escapement goal. While non-depensatory populations $\gamma = 1$ reach a stable equilibrium during the assumed level of low productivity, depensatory populations may lead to extinction during the assumed level of low productivity. This situation was intentional as it allows us to examine the sensitivity of chronic inability criteria across our current spawner-recruit dynamic assumptions (non-depensatory ) and alternative dynamics with harmful ramifications. Stocks appear to be most venerable when compensatory dynamics are strong, the fishery is operated aggressively and/or when the stock matures in fewer age classes.
+Example run size time series are shown for 18 simulation scenarios in @fig-N. It is important to note that assumed stock-recruit and fishery parameters imply different population dynamics across values of $\gamma$ (depensatory dynamic strength) and the percent of MSY attainable at the lower bound of the escapement goal. While non-depensatory populations $\gamma = 1$ reach a stable equilibrium during the assumed level of low productivity, depensatory populations may lead to extinction during the assumed level of low productivity. This situation was intentional as it allows us to examine the sensitivity of chronic inability criteria across our current spawner-recruit dynamic assumptions (non-depensatory ) and alternative dynamics with harmful ramifications. Stocks appear to be most vulnerable when decompensatory dynamics are strong, the fishery is operated aggressively and/or when the stock matures in fewer age classes.
 
 ```{r}
 #| echo: FALSE
@@ -876,7 +798,7 @@ dat_SOC %>%
 
 The ideal criteria to use while evaluating chronic inability would never be triggered if the stock-recruit data was generated during a high productivity regime and would always be triggered if the stock-recruit data was generated during a low productivity regime. @fig-Ha shows that while all of the chronic inability criteria considered were negligibly triggered by data from the high productivity regime most also were also triggered less than half of the time by data from the low productivity regime when non-depensatory spawner-recruit dynamics are assumed. This includes the N445 criteria which triggers on stock-recruit data from the low productivity regime only \~37% of the time when non-depensatory spawner-recruit dynamics are assumed. While that seems poor, note that data generated by depensatory spawner-recruit relationships trigger much more often. Because depensatory dynamics are associated with harmful outcomes this behavior is desirable.
 
-Interpretation of this result should be considered by multiple ADF&G staff but at a minimum I'd suggest it implies that all of these criteria are not a particularly powerful indicator of reduced productivity regimes and when the any criteria indicates a stock should be listed as a SOC the department would be wise to do so with little hesitation.
+Interpretation of this result should be considered by multiple ADF&G staff but at a minimum I'd suggest it implies that all of these criteria are not a particularly powerful indicator of reduced productivity regimes and when any criteria indicates a stock should be listed as a SOC the department would be wise to do so with little hesitation.
 
 The N445 criteria and the roll5 criteria are very similar overall. Careful examination of the performance of the two criteria indicates that when they differ roll5 may be slightly better at indicating a stock should be listed as a SOC during years with the lowest abundance (@fig-criteria). That said, the rolling average criteria requires run size estimates and will be problematic for stocks where run size cannot be estimated. The same stocks present similar difficulties for the N445 criteria (when evaluated against annual run size) but since the counting criteria only require ordinal data the information will be easier for ADF&G staff to approximate.
 
@@ -886,13 +808,13 @@ The N445 criteria and the roll5 criteria are very similar overall. Careful exami
 #| label: fig-Ha
 #| fig.height: 6
 #| fig.width: 10
-#| fig.cap: "Percent of simulated years classified as a stock of concern relative to the productivity regime assumed for several chronic inability criteria. One can imagine these results as a scientific hypotheses test where the null hypotheses is that the stock-recruit data was generated during the historic productivity regime. Then the median values for the historic productivity regime represents the Type I error rate (false positive) while the median values for the low productivity regime represents the power of the test."
+#| fig.cap: "Percent of simulated years classified as a SOC relative to the productivity regime assumed for several chronic inability criteria. One can imagine these results as a scientific hypotheses test where the null hypotheses is that the stock-recruit data was generated during the historical productivity regime. Then the median values for the historical productivity regime represents the Type I error rate (false positive) while the median values for the low productivity regime represents the power of the test."
 
 
 # demonstrate regime and SOC entry/exit criteria differences for one group of scenarios
 # Hypothesis test for 445
 # NULL: High productivity
-# false positives (Look at Historic regime): non-existent, i.e. alpha = 0
+# false positives (Look at historical regime): non-existent, i.e. alpha = 0
 # false negatives  (Look at Low regime): 
 #     gamma=1: Fail to reject Null often, beta ~ .65,  
 #     gamma>1: Reject null occasionally in "safest" situation, beta < .25
@@ -906,7 +828,7 @@ dat_SOC %>%
   ggplot(aes(x = Chronic_I, y  = pct_SOC, color = regime)) + 
   geom_boxplot() +
   scale_color_discrete(name = "Regime", 
-                     labels = c("Historic" = "Historic", "Low" = "Low")) +
+                     labels = c("historical" = "historical", "Low" = "Low")) +
   labs(title = paste0("ln(\u03B1): ", 1.5, 
                       ", \u03C3: ", 0.5,
                       ", p = ('3' = 0.1, '4' = 0.38, '5' = 0.3, '6' = 0.2, '7' = 0.02)"),
@@ -1024,165 +946,37 @@ age
 
 ## Sustainable Escapement Threshold (SET) {#sec-SET}
 
-Both the current and revised stock of concern process requires a sustainable escapement threshold (SET) to be determined before a stock can be identified as a conservation concern (see @nte-levels). In contrast to a escapement goal, where managers are compelled to distribute escapements within the escapement goal range, a SET represents a limit reference point that managers should strive to remain above. The SET is defined in 5 AAC 39.222(f) as:
+Both the current and revised SOC process requires a sustainable escapement threshold (SET) to be determined before a stock can be identified as a conservation concern (see @nte-levels). In contrast to a escapement goal, where managers are compelled to distribute escapements within the escapement goal range, a SET represents a limit reference point that managers should strive to remain above.
 
-::: {#nte-SET .callout-note appearance="simple" icon="false"}
-### SET
+ADF&G lacks a procedure to estimate SETs and has never made an SET finding or a stock of conservation concern recommendation. Because the definition implies SETs are associated with low spawning abundance levels which fail to replace themselves conventional wisdom holds that we will remain unable to estimate an SET until we observe recruitments from spawning events well below the lower bound of escapement goals. While this recruitment information is still unavailable we are starting to observe the requisite spawning abundances.
 
-"sustainable escapement threshold" or "SET" means a threshold level of escapement below which the ability of the salmon stock to sustain itself is jeopardized: in practice, an SET can be estimated based on lower ranges of historical escapement levels, for which the salmon stock has consistently demonstrated the ability to sustain itself: the SET is lower than the lower bound of the BEG and lower than the lower bound of the SEG: the SET is established by the department in consultation with the board, as needed, for salmon stocks of management or conservation concern.
-:::
+In this document we suggest that identifying SETs when stocks enter into the SOC process is not only possible, but also prudent, because it satisfies the precautionary management directive located in 5 AAC 39.222(c)(5)(A). That said there are real statistical challenges with the timing and availability of the empirical data needed to make SET estimates. One way to mitigate those concerns would be a procedure that marries empirical information to stock-recruit theory. Besides timeliness, introducing theoretical information into the estimation procedure also mitigates other issues with relying empirical data alone such as inconsistent application of SETs and sensitivity to escapement goal lower bounds and fishery trends.
 
-ADF&G lacks a procedure to estimate SETs and has never made an SET finding or a stock of conservation concern recommendation. Because the definition implies SETs are associated with low spawning abundance levels which fail to replace themselves conventional wisdom holds that we will remain unable to estimate an SET until we observe recruitments from spawning events well below the lower bound of escapement goals. While recruitment information is still unavailable we are starting to observe the requisite spawning abundances.
-
-In this document we suggest that identifying SETs when stocks enter into the SOC process is not only possible, but also prudent, because it satisfies the precautionary management directive located in 5 AAC 39.222(c)(5)(A). That said there all real statistical challenges with the timing and availability of the empirical data needed to make SET estimates. One way to mitigate those concerns would be a procedure that marries empirical information to stock-recruit theory. Besides timeliness, introducing theoretical information into the estimation procedure also mitigates other issues with relying empirical data alone such as inconsistent application of SETs and sensitivity to escapement goal lower bounds and fishery trends.
-
-Herein, I present a analytical procedure for estimating SETs for Alaskan salmon when spawner-recruit data is available and use simulation to explore the robustness and reliability of the proposed technique. This procedure is designed to be implemented when run sizes are failing to meet the escapement goal, to be complementary to ADF&G's existing stock assessment techniques, and to be responsive to spawner-recruit data as it becomes available. It is also intended to be precautionary when empirical observations are lacking. Finally, these results lay the foundation for an approximate SET when spawner-recruit data is lacking.
-
-### Theoretical Framework
-
-In this document we will explore using the peak of the $\textrm{log}\left(\frac{R}{S}\right)$ curve as an approximation for the SET (see @fig-gamma, bottom panel) . The peak of the curve can be found using calculus and is located at $\frac{(\gamma-1)}{\beta}$ when $\gamma \ge 1$. One primary consideration would be how this point relates to other reference points used in fisheries management. For example, the SET definition make specific reference to the lower bound of the stock's escapement goal.
-
-@fig-setlb1 shows the relationship between the peak of the $\textrm{log}\left(\frac{R}{S}\right)$ curve and the the lower bound of possible escapement goals for a single stock with varied levels of depensatory dynamics. Notice that when depensatory dynamics are included in the spawner-recruit model the range of escapements that provide x% of MSY narrows and shifts towards higher escapements. Since ADF&G currently assumes non-depensatory dynamics for all salmon stocks, managers would be using the goal ranges shown in the top row of @fig-setlb1 prior to a SOC listing. One critical realization is that if stock assessments are updated to allow for possible depensatory spawner-recruit dynamics in association with SOC listings then changes to escapement goal bounds are likely to be implied by the new assessment. Also note that while the SETs shown are smaller than the lower bounds of escapement goals that provide 90% of MSY, SETs can exceed the lower bounds of escapement goals that provide only 50% of MSY when depensatory dynamics are strong.
-
-```{r}
-#| warning: FALSE
-#| echo: FALSE
-#| label: fig-setlb1
-#| fig.height: 6
-#| fig.width: 8
-#| fig.cap: "The **theoretical** relationship between the range of escapements providing x% of MSY and the  SET (defined as the point where spawner-recruit dynamics switch from compensatory to depensatory as spawning abundance decreases) for a single stock with 3 levels of depensatory spawner-recruit dynmics \u03B3."
-
-SET_point <-
-  expand.grid(lnalpha = c(1, 1.5, 2),
-              beta = c(0.001, 0.0001, 0.00001, 0.000001),
-              sigma = c(0.25, 0.5, 0.75),
-              gamma = seq(1, 1.6, 0.1),
-              pct_MSY = c(0.5, 0.6, 0.7, 0.8, 0.9)) %>%
-  mutate(Smsy_Ricker = get_Smsy(lnalpha, beta),
-         Smax = 1 / beta,
-         Rmax = Ricker(lnalpha, beta, Smax),
-         a = gamma_par(Smax, Rmax, gamma)[[1]],
-         b = gamma_par(Smax, Rmax, gamma)[[2]],
-         set = (gamma - 1) / b) %>%
-  rowwise() %>%
-  mutate(lb_Ricker = optimise(f = get_bounds, #'true' OYP bounds
-                              interval = 1:Smsy_Ricker,
-                              lnalpha = lnalpha,
-                              beta = beta,
-                              pct_MSY = pct_MSY,
-                              correct = FALSE)$minimum,
-         ub_Ricker = optimise(f = get_bounds, #'true' OYP bounds
-                              interval = Smsy_Ricker:(Smsy_Ricker*3),
-                              lnalpha = lnalpha,
-                              beta = beta,
-                              pct_MSY = 0.7,
-                              correct = FALSE)$minimum,
-         Smsy_gamma =
-           optimize(
-             function(a, b, g, x){
-               SRgamma(alpha = a, beta = b, gamma = g, S = x) - x
-             },
-             interval = c(0, 4 * 1 / beta),
-             maximum = TRUE,
-             a = a,
-             b = b,
-             g = gamma)$maximum,
-         MSY_gamma = SRgamma(alpha = a, beta = b, gamma = gamma, S = Smsy_gamma) - Smsy_gamma) %>%
-  mutate(lb_gamma =
-           optimize(
-             function(a, b, g, pct_MSY, MSY_gamma, x){
-               ((SRgamma(alpha = a, beta = b, gamma = g, S = x) - x) - pct_MSY * MSY_gamma)^2
-             },
-             interval = c(Smsy_gamma / 10, Smsy_gamma),
-             a = a,
-             b = b,
-             g = gamma,
-             pct_MSY = pct_MSY,
-             MSY = MSY_gamma)$minimum,
-         ub_gamma =
-           optimize(
-             function(a, b, g, pct_MSY, MSY_gamma, x){
-               ((SRgamma(alpha = a, beta = b, gamma = g, S = x) - x) - pct_MSY * MSY_gamma)^2
-             },
-             interval = c(Smsy_gamma, Smsy_gamma * 3),
-             a = a,
-             b = b,
-             g = gamma,
-             pct_MSY = 0.7,
-             MSY = MSY_gamma)$minimum)
-
-SET_point %>%
-  filter(pct_MSY %in% c(0.5, 0.9),
-         gamma %in% c(1, 1.3, 1.6),
-         lnalpha == 1.5,
-         beta == 0.0001,
-         sigma == 0.25) %>%
-  mutate(curves = list(data.frame(S = rep(seq(0, 15000, 100), times = 3),
-                                  R = SRgamma(a, b, gamma, rep(seq(0, 15000, 100), times = 3))))) %>%
-  unnest(curves) %>%
-  ggplot(aes(x = S, y = R)) +
-  geom_line() +
-  geom_rect(aes(xmin = lb_gamma, xmax = ub_gamma, ymin = -Inf, ymax = Inf), alpha = 0.005, fill = "green") +
-  geom_vline(aes(xintercept = set), color = "red", linetype = 2) +
-  geom_abline(aes(intercept = 0, slope = 1))+
-  facet_grid(paste0("\u03B3: ", ifelse(gamma == 1, "1 (Ricker)", gamma)) ~ paste0("%MSY @ lb: ", pct_MSY))
-```
-
-To obtain a more comprehensive look at the relationship between the proposed SET and the lower bound of the escapement goal we have to consider variability in stock productivity (@fig-setlb2). Notice that there are 2 significant mitigating factors for situations when the proposed SET exceeds the lower bound of the escapement goal:
-
-1.  If we are estimating an SET as proposed herein we would also be assuming a different underlying spawner-recruit relationship and should modify the goal range to be consistent with the new relationship. In general, switching the assumed spawner-recruit relationship from a non-depensatory relationship (dashed lines in @fig-setlb2) to a depensatory relationship (solid lines in @fig-setlb2) when estimating the escapement goal range will increase both bounds of the goal and decrease instances where the SET exceeds the lower bound of the goal.
-
-2.  Cases where the lower bound of the escapement goal remain below the proposed SET after adjusting the goals to account for depensatory spawner-recruit dynamics represent situations where the department is fishing very aggressively on a low productivity stock and/or on a stock with strong depensatory dynamics... combinations which are likely very rare. It's more likely that when the department has chosen to fish aggressively the stock is either highly productive, depensatory behavior is moderate (small or medium $\gamma$), or both.
-
-```{r}
-#| warning: FALSE
-#| echo: FALSE
-#| label: fig-setlb2
-#| fig.height: 4
-#| fig.width: 8
-#| fig.cap: "The **theoretical** relationship between the SET (defined as the point where spawner-recruit dynamics switch from compensatory to depensatory as spawning abundance decreases) and the lower bound of the escapement goal as a function of productivity \u03B1, strength of depensatory dynamics \u03B3 and 5 yield objectives at the lower bound of the escapement goal."
-
-SET_point %>%
-  mutate(pct_lbRicker = set / lb_Ricker,
-         pct_lbgamma = set / lb_gamma) %>%
-  pivot_longer(cols = c("pct_lbRicker", "pct_lbgamma"),
-               names_to = "Reference",
-               values_to = "Percentage") %>%
-  ggplot(aes(x = gamma, y = Percentage, color = as.character(lnalpha), linetype = Reference)) +
-    geom_line() +
-    geom_hline(aes(yintercept = 1)) +
-    scale_x_continuous(breaks = c(1, 1.3, 1.6)) +
-    scale_y_continuous(name = "SET / EG lower bound") +
-    scale_color_discrete(name = "ln(\u03B1)") +
-    scale_linetype_manual(name = "Goal Reference",
-                          labels = c("gamma SR", "Ricker SR"),
-                          values = c(1,2)) +
-    facet_grid(. ~ paste0("%MSY @ lb: ", pct_MSY)) #beta makes no difference
-```
+Herein, I present a analytical procedure for estimating SETs for Alaskan salmon when spawner-recruit data is available and use simulation to explore the robustness and reliability of the proposed technique. This procedure is designed to be implemented when run sizes are failing to meet the escapement goal, to be complementary to ADF&G's existing stock assessment techniques, and to be responsive to spawner-recruit data as it becomes available. It is also intended to be precautionary when empirical observations are lacking. Finally, these results lay the foundation for an SET approximation when spawner-recruit data is lacking.
 
 ### Methods
 
 The intent with this analysis is to use simulated datasets to describe the behavior of the peak of the $\textrm{log}\left(\frac{R}{S}\right)$ curve as an approximation for the SET. Because the analysis is predicated on a simulation procedure which makes several assumptions about contemporary stock-recruit dynamics and environmental regimes, an outline of the analysis will be presented before providing detail regarding each step below.
 
--   Identify parameter ranges staff believe encompass most Alaska salmon stocks while assuming historic productivity and Ricker (non-depensatory) spawner-recruit dynamics.
+-   Identify parameter ranges staff believe encompass most Alaska salmon stocks while assuming historical productivity and Ricker (non-depensatory) spawner-recruit dynamics.
 
 -   Calculate parameter ranges while assuming reasonable levels of depensatory spawner-recruit dynamics that results in similar population dynamic behavior over the range of spawning abundances we have historically observed.
 
 -   Identify fishery characteristics staff believe encompass most Alaska salmon fisheries.
 
--   Simulate a time series of run sizes for all combinations of stock and fishery parameters under both the historic and low productivity regimes.
+-   Simulate a time series of run sizes for all combinations of stock and fishery parameters under both the historical and low productivity regimes.
 
 -   Estimate an SET for each simulated dataset after the annual run size for the stock has failed to exceed the lower bound of the escapement goal for 4 of the last 5 years.
 
 #### Simulation Description
 
-Non-depensatory dynamics are described by Ricker curves where the parameter space includes productivity $\textrm{log}(\alpha)$ of either $1$, $1.5$ and $2$ and process error $\sigma$ of either $0.25$ or $0.5$ resulting in 6 different scenarios of non-depensatory spawner-recruit dynamics. There were 18 total scenarios of spawner-recruit dynamics after consideration of the depensatory dynamic spawner-recruit scenarios and 36 scenarios after consideration of 2 different percentages of MSY at the lower bound of the escapement goal (@tbl-SET_scenarios).
+Non-depensatory dynamics are described by Ricker curves where the parameter space includes productivity $\textrm{log}(\alpha)$ of either $1$, $1.5$ and $2$ and process error $\sigma$ of either $0.25$ or $0.5$ resulting in 6 different scenarios of non-depensatory spawner-recruit dynamics. There were 18 total scenarios of spawner-recruit dynamics after consideration of the depensatory dynamic spawner-recruit scenarios and 36 scenarios after consideration of 2 different percentages of MSY at the lower bound of the escapement goal.
 
 All simulated datasets included age-at-maturity of $10\%~3$ years old, $38\%~4$ years old, $30\%~5$ years old, $20\%~6$ years old, and $2\%~7$ years old, process $\sigma_F$ and observation $\sigma_N$ error or 0.2. Fishing power was a function of the productivity of the population and set to $30\%$, $55\%$ and $80\%$ for stocks with non-depensatory productivity of $1$, $1.5$ and $2$ respectively.
 
-The simulation model used for this exercise is described in @sec-sim_model. We simulated 50 replicate datasets for each of the 36 combinations of spawner-recruit parameters and fishery characteristics. Each simulated dataset was 50 years long with historic productivity values used for the first 20 years and reduced productivity values used for the last 30 years.
+The simulation model used for this exercise is described in @sec-sim_model. We simulated 50 replicate datasets for each of the 36 combinations of spawner-recruit parameters and fishery characteristics. Each simulated dataset was 50 years long with historical productivity values used for the first 20 years and reduced productivity values used for the last 30 years.
 
-#### Analysis Description
+#### Analysis Description {#sec-analysis}
 
 Because our interest is in recovering SET estimates from simulated datasets we truncated each simulated dataset after the **total run size**[^11] (N) had failed to exceed the lower bound of the escapement goal in 4 of the previous 5 years. Simulated populations that never met that criteria were removed from the analysis.
 
@@ -1214,7 +1008,7 @@ where $scale = \textrm{log}\left(Rmax_{2}\right) \sim \textrm{uniform}(1,15)$. T
 
 ### Results {#sec-results}
 
-@fig-SOC shows the simulation year when the of SOC listing criteria (N \< lower escapement goal bound for 4 of the last 5 years) were met for each simulated population. Non-depensatory populations were slow to meet the criteria with a majority of the simulated populations failing to meet the criteria. Depensatory populations met the criteria sooner, had definitive modes to the distribution, and mostly met the criteria before the end of the time series.
+@fig-SOC shows the simulation year when the SOC listing criteria (N \< lower escapement goal bound for 4 of the last 5 years) were met for each simulated population. Non-depensatory populations were slow to meet the criteria with a majority of the simulated populations failing to meet the criteria. Depensatory populations met the criteria sooner, had definitive modes to the distribution, and mostly met the criteria before the end of the time series.
 
 ```{r}
 #| echo: FALSE
@@ -1222,7 +1016,7 @@ where $scale = \textrm{log}\left(Rmax_{2}\right) \sim \textrm{uniform}(1,15)$. T
 #| label: fig-SOC
 #| fig.height: 6
 #| fig.width: 8
-#| fig.cap: "Timing of stock of concern findings for each simulated population in this study."  
+#| fig.cap: "Timing of SOC findings for each simulated population in this study."  
 rep_scenarios_gp %>%
   ggplot(aes(x = yr_SOC,
              pattern = as.character(sigma),
@@ -1236,7 +1030,7 @@ rep_scenarios_gp %>%
   scale_pattern_manual(values = c('0.25' = "stripe", '0.5' = "none")) +
   guides(pattern = guide_legend(override.aes = list(fill = "white")),
          fill = guide_legend(override.aes = list(pattern = "none"))) +
-  labs(x = "Year of Stock of Concern Designation",
+  labs(x = "Year of SOC Designation",
        y = "Number of Simulations",
        fill = paste0("log(\u03B1)"),
        pattern = "\u03B4") +    
@@ -1468,7 +1262,199 @@ rep_scenarios_gp %>%
              scales = "free_x")
 ```
 
-## Appendix A: Simulation Model {#sec-sim_model}
+# Appendices
+
+## Appendix A: Gamma Spawner-Recruit Relationship
+
+### Theoretical Support {#sec-theory}
+
+Fishery managers rely on reference points to manage fisheries and reference points can be broken into two categories:
+
+-   Target reference points which are designed to achieve a fishery objective e.g. $S_{msy}$ and escapement goal boundaries to maximize sustained yield.
+-   Limit reference point which are designed to avoid stock sizes which may be harmful to stock sustainability e.e SET to avoid declining per capita production.
+
+During times of historical abundance fishery managers use target reference points to manage the fishery with an objective of maximizing sustained yield. In Alaskan salmon fisheries, target reference points have been estimated using the Ricker spawner-recruit relationship almost exclusively. Under the SOC policy recommendations outlined above (@sec-recs) stocks entering the SOC process will be limited to those experiencing large declines in biological production and is characterized by a transition from managing to achieve fishery objectives to managing to achieve conservation objectives. Several other changes are implied with this objective change (@tbl-transition). Firstly, the transition implies target reference points (the escapement goal range) described in the stocks management plan should be replaced with limit reference points described in the stock's recovery plan. Secondly, non-depensatory (compensatory) dynamics which are important while estimating escapement goal ranges are less important when estimating limit reference points. While depensatory population dynamics are not required to make a theoretical connection between a limit reference point and the spawner-recruit model (e.g. $S_{gen}$) they are required to directly model the SET as defined in the SSFP.
+
+```{r}
+#| warning: FALSE
+#| echo: FALSE
+#| label: tbl-transition
+#| tbl-cap: "Fishery management and stock assessment changes associated with transitioning into the SOC process."
+data.frame(catagory = c("Productivity Regime", "Management Objective", "Management Guidance", "Reference Point","Population Dynamics","Spawner-Recruit Relationship"),
+           normal = c("historical", "sustained yield", "management plan", "EG range", "non-depensatory", "Ricker"),
+           soc = c("reduced", "conservation", " recovery plan", "EG lower bound & SET", "depensatory", "gamma")) %>%
+  flextable() %>%
+  set_header_labels(catagory = "Catagory", normal = "Not a SOC", soc = "SOC") %>%
+  add_header_row(values = c("", "Management Regime"), colwidths = c(1, 2)) %>%
+  bold(part = "header") %>%
+  align(j = 2:3, align = "right", part = "header") %>%
+  align(j = 2:3, align = "right", part = "body") %>%
+  align(i = 1, align = "center", part = "header") %>%
+  hline(i = 1, j = 1, part = "header", border = fp_border_default(width = 0)) %>%
+  footnote(i = 4, j = 1, part = "body", value = as_paragraph(c("EG = escapement goal"))) %>%
+  autofit() 
+```
+
+While the Ricker spawner-recruit relationship has effectively estimated target reference points for decades it is ill-suited for identifying limit reference points required for fisheries conservation because it fails to acknowledge any reduction in productivity associated with small spawning abundances (i.e. it is non-depensatory). This limitation is clearly shown in @fig-gamma (bottom panel). Many management agencies have avoided this issue by using a heuristic approach to identify limit reference points which are some fraction of the stock's target reference point (e.g. 50% of the escapement goal lower bound or 50% of the escapement goal midpoint). While this approach is simple and calibrated to stakeholder expectations it has shortcomings. For example, while escapement goal bounds are derived from spawner-recruit relationships they also include accommodations for biological and management issues specific to each salmon stock. These issues, while consistent with maximizing sustained yield, may not be consistent with stock conservation and therfore may not provide appropriate protection for all stocks.
+
+An alternative is to conduct stock assessments when managing for stock conservation with a spawner-recruit model that includes the depensatory dynamics fishery managers wish to avoid. One issue with this approach is timing: managers need to observe spawning abundances below the limit reference point in order to know where to set the limit reference point. The issue of timing is included in the analysis in @sec-SET in two ways. First, our statistical analysis of simulated datasets occurs immediately after the run size time series for each simulated stock satisfies SOC listing criteria making our analysis relevant to the required task. Second, Bayesian statistical analysis is used allowing prior information to be included in the stock assessment. With respect to depensatory population dynamics fisheries literature has largely stalled out on the issue of proving that depensatory dynamics exist. Herein we suggest this is the wrong approach. Precautionary management suggest a better approach would be to assume depensatory spawner-recruit dynamics exist and use empirical data to modify this assumption as appropriate.
+
+A second issue with including depensatory dynamics in the spawner-recruit model is that depensatory dynamics require a third parameter. That said, an interesting symmetry exists when considering population dynamics under each productivity and management regime. Under historical productivity compensatory dynamic parameters (\beta) are estimable and depensatory dynamic parameters (\gamma) are not. This is fortunate because compensatory dynamics have proven themselves important for maximizing sustained yield. In contrast, under reduced productivity compensatory dynamic parameters are not estimable while depensatory parameters may be. Again, this is fortunate because depensatory dynamics are important to avoid for conservation reasons. In this sense the issue with 3 parameter spawner-recruit models is not that we cannot estimate all 3 parameters but that we can't estimate 3 parameters at the same time. The analysis suggested herein (@sec-analysis) acknowledges this issue and accommodates it.
+
+### Reference Points
+
+#### SET {#sec-refSET}
+
+In this document we will explore using the peak of the $\textrm{log}\left(\frac{R}{S}\right)$ curve as an approximation for the SET (see @fig-gamma, bottom panel) . The peak of the curve can be found using calculus and is located at $\frac{(\gamma-1)}{\beta}$ when $\gamma \ge 1$. Is this suggestion consistent with the definition of the SET found in the SSFP? The definition indicates that the SET should be set at a level below which "... ability of the salmon stock to sustain itself is jeopardized:...[^13]". Because the peak of the $\textrm{log}\left(\frac{R}{S}\right)$ curve represents the largest per capita production possible for the stock we contend it does satisfy this part of the definition.
+
+[^13]: The addendum to this statement, "...in practice, an SET can be estimated based on lower ranges of historical escapement levels, for which the salmon stock has consistently demonstrated the ability to sustain itself..." has limited utility because precautionary fishery management should be responsive to abundance trends as they occur, instead of waiting for salmon to mature and return from the ocean before being determinative. Our analysis avoids this limitation as discussed in @sec-theory.
+
+The last part of the SET definition "...the SET is lower than the lower bound of the BEG and lower than the lower bound of the SEG..." concerns the relationship between the lower bound of the escapement goal and the SET. @fig-setlb1 shows the relationship between the peak of the $\textrm{log}\left(\frac{R}{S}\right)$ curve and the lower bound of possible escapement goals for a single stock with varied levels of depensatory dynamics. Since ADF&G currently assumes non-depensatory dynamics for all salmon stocks, the goal ranges and SETs shown in the top row of @fig-setlb1 would be in use prior to a SOC listing. Comparing those escapement goal lower bounds (left hand side of green boxes in the top row) to possible SETs (dashed red lines in bottom 2 rows) illustrates that the relationship between the lower bound of the escapement goal and the proposed SET depends on both the strength of depensation ($\gamma$) and the percentage of MSY targeted at the lower bound. While the SETs shown are smaller than the lower bounds of escapement goals that provide 90% of MSY, SETs can exceed the lower bounds of escapement goals that provide only 50% of MSY when depensatory dynamics are strong. That said, notice that if the stock assessment transitions to a gamma spawner-recruit model to allow for SET estimation then the range of escapements that provide x% of MSY under the gamma model narrows and shifts towards higher escapements relative to the Ricker model. Therefore, staff should expect changes to the escapement goal bounds when a stock is listed as a SOC and a SET is determined. 
+
+```{r}
+#| warning: FALSE
+#| echo: FALSE
+#| label: fig-setlb1
+#| fig.height: 6
+#| fig.width: 8
+#| fig.cap: "The **theoretical** relationship between the range of escapements providing x% of MSY and the  SET (defined as the point where spawner-recruit dynamics switch from compensatory to depensatory as spawning abundance decreases) for a single stock with 3 levels of depensatory spawner-recruit dynamics \u03B3."
+
+SET_point <-
+  expand.grid(lnalpha = seq(1, 2, 0.1), #c(1, 1.5, 2),
+              beta = c(0.001, 0.0001, 0.00001, 0.000001),
+              sigma = c(0.25, 0.5, 0.75),
+              gamma = seq(1, 1.6, 0.1),
+              pct_MSY = c(0.5, 0.6, 0.7, 0.8, 0.9)) %>%
+  mutate(Smsy_Ricker = get_Smsy(lnalpha, beta),
+         Smax = 1 / beta,
+         Rmax = Ricker(lnalpha, beta, Smax),
+         a = gamma_par(Smax, Rmax, gamma)[[1]],
+         b = gamma_par(Smax, Rmax, gamma)[[2]],
+         set = (gamma - 1) / b) %>%
+  rowwise() %>%
+  mutate(lb_Ricker = optimise(f = get_bounds, #'true' OYP bounds
+                              interval = 1:Smsy_Ricker,
+                              lnalpha = lnalpha,
+                              beta = beta,
+                              pct_MSY = pct_MSY,
+                              correct = FALSE)$minimum,
+         ub_Ricker = optimise(f = get_bounds, #'true' OYP bounds
+                              interval = Smsy_Ricker:(Smsy_Ricker*3),
+                              lnalpha = lnalpha,
+                              beta = beta,
+                              pct_MSY = 0.7,
+                              correct = FALSE)$minimum,
+         Smsy_gamma =
+           optimize(
+             function(a, b, g, x){
+               SRgamma(alpha = a, beta = b, gamma = g, S = x) - x
+             },
+             interval = c(0, 4 * 1 / beta),
+             maximum = TRUE,
+             a = a,
+             b = b,
+             g = gamma)$maximum,
+         MSY_gamma = SRgamma(alpha = a, beta = b, gamma = gamma, S = Smsy_gamma) - Smsy_gamma) %>%
+  mutate(lb_gamma =
+           optimize(
+             function(a, b, g, pct_MSY, MSY_gamma, x){
+               ((SRgamma(alpha = a, beta = b, gamma = g, S = x) - x) - pct_MSY * MSY_gamma)^2
+             },
+             interval = c(Smsy_gamma / 10, Smsy_gamma),
+             a = a,
+             b = b,
+             g = gamma,
+             pct_MSY = pct_MSY,
+             MSY = MSY_gamma)$minimum,
+         ub_gamma =
+           optimize(
+             function(a, b, g, pct_MSY, MSY_gamma, x){
+               ((SRgamma(alpha = a, beta = b, gamma = g, S = x) - x) - pct_MSY * MSY_gamma)^2
+             },
+             interval = c(Smsy_gamma, Smsy_gamma * 3),
+             a = a,
+             b = b,
+             g = gamma,
+             pct_MSY = 0.7,
+             MSY = MSY_gamma)$minimum)
+
+SET_point %>%
+  filter(pct_MSY %in% c(0.5, 0.9),
+         gamma %in% c(1, 1.3, 1.6),
+         lnalpha == 1.5,
+         beta == 0.0001,
+         sigma == 0.25) %>%
+  mutate(curves = list(data.frame(S = rep(seq(0, 15000, 100), times = 3),
+                                  R = SRgamma(a, b, gamma, rep(seq(0, 15000, 100), times = 3))))) %>%
+  unnest(curves) %>%
+  ggplot(aes(x = S, y = R)) +
+  geom_line() +
+  geom_rect(aes(xmin = lb_gamma, xmax = ub_gamma, ymin = -Inf, ymax = Inf), alpha = 0.005, fill = "green") +
+  geom_vline(aes(xintercept = set), color = "red", linetype = 2) +
+  geom_abline(aes(intercept = 0, slope = 1))+
+  facet_grid(paste0("\u03B3: ", ifelse(gamma == 1, "1 (Ricker)", gamma)) ~ paste0("%MSY @ lb: ", pct_MSY))
+```
+
+To obtain a more comprehensive look at the relationship between the proposed SET and the lower bound of the escapement goal we have to consider variability in stock productivity (@fig-setlb2). Notice that there are 2 significant mitigating factors for situations when the proposed SET exceeds the lower bound of the escapement goal:
+
+1.  If we are estimating an SET using the gamma spawner-recruit relationship we should modify the goal range to be consistent with the new relationship. In general, switching the assumed spawner-recruit relationship from a non-depensatory relationship (dashed lines in @fig-setlb2) to a depensatory relationship (solid lines in @fig-setlb2) when estimating the escapement goal range will increase the lower bound of the goal and decrease instances where the SET exceeds the lower bound of the goal.
+
+2.  Cases where the lower bound of the escapement goal remain below the proposed SET after adjusting the goals to account for depensatory spawner-recruit dynamics represent situations where the department is fishing very aggressively on a low productivity stock and/or on a stock with strong depensatory dynamics... combinations which are likely very rare. It's more likely that when the department has chosen to fish aggressively the stock is either highly productive, depensatory behavior is moderate (small or medium $\gamma$), or both.
+
+```{r}
+#| warning: FALSE
+#| echo: FALSE
+#| label: fig-setlb2
+#| fig.height: 4
+#| fig.width: 8
+#| fig.cap: "The **theoretical** relationship between the SET (defined as the point where spawner-recruit dynamics switch from compensatory to depensatory as spawning abundance decreases) and the lower bound of the escapement goal as a function of productivity \u03B1, strength of depensatory dynamics \u03B3 and 5 yield objectives at the lower bound of the escapement goal."
+
+SET_point %>%
+  filter(lnalpha %in% c(1, 1.5, 2)) %>%
+  mutate(pct_lbRicker = set / lb_Ricker,
+         pct_lbgamma = set / lb_gamma) %>%
+  pivot_longer(cols = c("pct_lbRicker", "pct_lbgamma"),
+               names_to = "Reference",
+               values_to = "Percentage") %>%
+  ggplot(aes(x = gamma, y = Percentage, color = as.character(lnalpha), linetype = Reference)) +
+    geom_line() +
+    geom_hline(aes(yintercept = 1)) +
+    scale_x_continuous(breaks = c(1, 1.3, 1.6)) +
+    scale_y_continuous(name = "SET / EG lower bound") +
+    scale_color_discrete(name = "ln(\u03B1)") +
+    scale_linetype_manual(name = "Goal Reference",
+                          labels = c("gamma SR", "Ricker SR"),
+                          values = c(1,2)) +
+    facet_grid(. ~ paste0("%MSY @ lb: ", pct_MSY)) #beta makes no difference
+```
+
+#### Escapement Goal Lower Bound
+
+While the SET is clearly a limit reference point how should we think about the lower bound of the escapement goal? Escapement goals exist to allow for imprecision in fishery management actions targeting $S_{msy}$. However, with respect to the department's SOC recommendations (@sec-recs) the lower bound of the escapement goal is utilized as a limit reference point which indicates sustainable yield is at risk. The lower bound of the escapement goal functions as a limit reference point for 2 reasons: 1) it represents a limit that fishery managers try to stay above, and 2) since the lower bound of the escapement goal is evaluated against **run** size a SOC listing indicates biological issues so severe that a fishery can no longer provide sustainable yield. In this sense, while the lower bound of the escapement goal exists to allow managers to *target* a management objective it can also express a *limit* below which sustained yield is sacrificed. 
+
+In @sec-refSET we suggested that as part of the transition into conservation based management while in SOC status a gamma spawner-recruit model should be used to estimate both a SET and update the escapement goal range to account for possible depensatory spawner recruit dynamics. When the spawner-recruit relationship used to estimate escapement goals changes from the Ricker to the gamma escapement goal lower bounds increase (@fig-EGlbcomp) and the size of the increase varies with stock productivity and the strength of depensatory density dependence. Stocks with moderate depensatory density dependence ($\gammma=1.3$) would experience an $15-28$% increase in the lower bound of the escapement goal. It is important to remember this change would be associated with a SOC listing meaning it would be communicated as part of the stock's recovery plan as a limit reference point which would have to be exceeded before the stock could be delisted as a SOC and would indicate biological productivity had improved to such and extent that sustained yield was available. As such, a $15-28$% buffer before reinstating the stock's management plan would postpone SOC delisting until the stock was rebuilt sufficiently to allow for a meaningful fishery.    
+
+```{r}
+#| warning: FALSE
+#| echo: FALSE
+#| label: fig-EGlbcomp
+#| fig.height: 4
+#| fig.width: 8
+#| fig.cap: "The **theoretical** relationship between the ratio of the escapement goal lower bound (EG lb) from  the gamma spawner-recruit model relative to the EG lb from the Ricker spawner-recruit model as a function of productivity ln(\u03B1) for 3 levels of depensatory density dependence (u03B3)."
+
+SET_point %>%
+  filter(gamma %in% c(1, 1.3, 1.6),
+         pct_MSY == 0.9) %>%
+  mutate(ratio = lb_gamma / lb_Ricker) %>%
+  ggplot(aes(x = lnalpha, y = ratio, color = as.character(gamma))) +
+  geom_line() +
+  scale_x_continuous(breaks = c(1, 1.5, 2)) +
+  scale_y_continuous(name = "Ratio: Gamma EG lb / Ricker EG lb") +
+  scale_color_discrete(name = "\u03B3")
+```
+
+
+## Appendix B: Simulation Model {#sec-sim_model}
 
 Abundance of salmon is generated by a S-R relationship that describes the number of fish expected to return (the "recruitment") from a given number of spawning fish (the "escapement"). The total expected recruitment $R_{c}$ produced from fish spawning in brood year $c$ follows the gamma formulation:
 
@@ -1516,9 +1502,9 @@ $$ U_{ub} = \textrm{if}(N_Y^{proj.} > ub)~\frac{N_y^{proj.} - ub}{N_y^{proj.}}~\
 
 and $power$ represent the maximum harvest rate the fishery is capable of producing. The lower bound of the escapement goal was varied across simulations but was set as the escapement that predicted a mean return which produced x% of MSY while the upper bound was was the escapement that predicted a mean return which produced 70% of MSY using historical productivity values and assuming non-depensatory dynamics.
 
-Simulated datasets also tracked stock escapement's relative to the lower bound of the escapement goal. Stocks were designated a stock of concern when the annual run size was less than the lower bound of the escapement goal in at least 4 of the last 5 years. Stock of concern designations were removed the annual run size exceeded the lower bound of the escapement goal in at least 4 of the last 5 years.
+Simulated datasets also tracked stock escapement's relative to the lower bound of the escapement goal. Stocks were designated a SOC when the annual run size was less than the lower bound of the escapement goal in at least 4 of the last 5 years. Stock of concern designations were removed the annual run size exceeded the lower bound of the escapement goal in at least 4 of the last 5 years.
 
-## Appendix B: Spawner-Recruit Analysis Jags Code {#sec-analysis_mod}
+## Appendix C: Spawner-Recruit Analysis Jags Code {#sec-analysis_mod}
 
 ```{r}
 #| echo: FALSE
